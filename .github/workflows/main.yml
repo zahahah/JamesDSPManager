@@ -1,0 +1,45 @@
+name: Test Build to Telegram
+
+on:
+  push:
+    branches: [ "tests" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-notify:
+    runs-on: ubuntu-latest
+    env:
+      ZIP_NAME: ""
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: tests
+
+      - name: Set ZIP Name
+        run: |
+          # Generate filename based on current Warsaw time
+          TIME=$(TZ='Europe/Warsaw' date +'%d.%m.%Y-%H%M')
+          echo "ZIP_NAME=JamesDSP-TestBuild_${TIME}.zip" >> $GITHUB_ENV
+
+      - name: Create flat ZIP
+        run: |
+          # Create a zip archive excluding git configuration files
+          zip -r ${{ env.ZIP_NAME }} . -x "*.git*" "*.github*"
+
+      - name: Send File to Telegram
+        uses: appleboy/telegram-action@master
+        with:
+          to: ${{ secrets.TELEGRAM_TO }}
+          token: ${{ secrets.TELEGRAM_TOKEN }}
+          format: markdown
+          document: ${{ env.ZIP_NAME }}
+          message: |
+            🚀 **New test build!**
+            🌿 Branch: `tests`
+            
+            File ready for download 👇

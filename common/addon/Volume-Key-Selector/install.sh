@@ -37,7 +37,7 @@ chooseport() {
       elif (`grep -q 'KEY_VOLUMEDOWN *DOWN' $TMPDIR/events`); then
         return 1
       fi
-      [ $count -gt 6 ] && break
+      [ $count -gt 6 ] && return 1
     done
     if $error; then
       # abort "Volume key not detected!"

@@ -15,3 +15,17 @@ if [ -f $INFO ]; then
   done < $INFO
   rm -f $INFO
 fi
+(
+until [ "$(getprop sys.boot_completed)" = "1" ]; do
+	sleep 1
+done
+sleep 10
+PKG="james.dsp"
+APP=$(pm list packages -3 | grep "$PKG")
+if [ ! -d "$MODPATH" ]; then
+	pm uninstall "$PKG" 2>/dev/null
+	sleep 2
+	rm -f "$0"
+	exit 0
+fi
+) &
