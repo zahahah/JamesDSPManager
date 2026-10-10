@@ -14,31 +14,12 @@ osp_detect() {
   esac
 }
 
-copy_before_uninstall() {
+copy_profile_backup() {
 	APPLOC="/storage/emulated/0/Android/data/james.dsp"
 
 	if [ -d "$APPLOC" ]; then
 		mkdir -p "$MODPATH"/JamesDSP
 		cp -rf "$APPLOC"/files/* "$MODPATH"/JamesDSP
-	fi
-}
-
-uninstall_app() {
-	set +x
-	# shellcheck disable=SC3043
-	local PKG="james.dsp"
-	# shellcheck disable=SC3043
-	local FILE=".apk$1" VER="$2"
-	[ -z "$INSVER" ] && return 0
-	if [ -f "$NVBASE/modules/$MODID/$FILE" ]; then
-		[ "$INSVER" -lt "$VER" ] && pm uninstall "$PKG" 2>/dev/null
-		find /data/app -type d -name "*$PKG*" -exec rm -rf {} +
-		rm -rf /data/data/$PKG
-		rm -rf /data/user_de/0/$PKG
-		pm uninstall $PKG > /dev/null 2>&1
-		pm uninstall --user 0 $PKG > /dev/null 2>&1
-	else
-		pm uninstall $PKG > /dev/null 2>&1
 	fi
 }
 
@@ -107,25 +88,24 @@ fi
 
 cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib/soundfx/libjamesdsp.so"
 
-set +x
-# App only works when installed normally to data in oreo+
-INSVER=$(cmd package list packages -3 --show-versioncode  2>/dev/null | grep james.dsp | sed 's/.*versionCode://')
-set -x
 ui_print " "
 ui_print "- UI installation -"
 ui_print "   Which UI you want to install?"
-ui_print "   Vol Up = Original, Vol Down = ThePBone"
-copy_before_uninstall
+ui_print "   Vol Up = Original 9.5, Vol Down = ThePBone 1.6.15"
+ui_print "   APKs use the current maintainer signing key"
+ui_print "   Existing james.dsp apps stay untouched"
+ui_print "   Different signers need manual migration"
+copy_profile_backup
 if chooseport; then
 	ui_print "   Original version was selected"
 	mv -f "$MODPATH/common/files/JamesDSPManager.apk" "$MODPATH/JamesDSPManager.apk"
 	touch "$MODPATH/.apkorig"
-	uninstall_app "orig" "$APPVER"
+	ui_print "   Keeping existing james.dsp under user control"
 else
 	ui_print "   ThePBone version was selected"
 	mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
 	touch "$MODPATH/.apkpbone"
-	uninstall_app "pbone" "$PAPPVER"
+	ui_print "   Keeping existing james.dsp under user control"
 fi
 set -x
 # Audio effects patching 
@@ -166,7 +146,7 @@ if [ -f "$ORIGDIR$OFILE" ];then
 fi
 done
 
-# adding executive permissions to jdsp_app.sh
+# Keep the app helper executable after installer file normalization
 chmod +x "$MODPATH/jdsp_app.sh"
 
 # Kitsune has extra partitions in different location
@@ -179,7 +159,7 @@ fi
 
 sed -i "1a NVBASE=$NVBASE" "$MODPATH/service.sh"
 
-ui_print "   Copying apk to /sdcard. Install manually if not present on reboot"
+ui_print "   Staging APK to /sdcard; service installs only if james.dsp is absent"
 cp -rf "$MODPATH/common/files/JamesDSP" /storage/emulated/0/JamesDSP
 cp -f "$MODPATH/JamesDSPManager.apk" /storage/emulated/0/JamesDSPManager.apk
 [ "$API" -gt 29 ] && { ui_print "   Enabling hidden api policy"; settings put global hidden_api_policy 1 2>/dev/null; }

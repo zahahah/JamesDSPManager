@@ -12,18 +12,9 @@
 	MODPATH="/data/adb/modules/$MODID"
 	PKG="james.dsp"
 
-	# If module is removed, uninstall app
+	# The app belongs to the user, not to the module lifecycle. Removing the
+	# module must never erase app data or uninstall the package.
 	if [ ! -d "$MODPATH" ]; then
-		# Clear app data (removes internal configs/cache but KEEPS /sdcard/ presets)
-		# and uninstall the app package
-		if [ -x "/system/bin/cmd" ]; then
-			cmd package clear "$PKG" >/dev/null 2>&1
-			cmd package uninstall "$PKG" >/dev/null 2>&1
-		else
-			pm clear "$PKG" >/dev/null 2>&1
-			pm uninstall "$PKG" >/dev/null 2>&1
-		fi
-		# Self-destruct mechanism
 		rm -f "$0"
 		exit 0
 	fi
@@ -35,4 +26,4 @@
 		pm enable "$PKG" >/dev/null 2>&1
 	fi
 
-) & 
+) &

@@ -20,6 +20,14 @@ captures/
 *.apk
 output.json
 .vscode/
+
+# Local credentials, agent notes, and generated release artifacts
+.env
+.env.*
+!.env.example
+AGENTS.md
+.omx/
+/dist/
 # IntelliJ
 *.iml
 .idea/

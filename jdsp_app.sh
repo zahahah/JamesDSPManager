@@ -1,13 +1,13 @@
 #!/system/bin/sh
 [ -z "$MODPATH" ] && MODPATH="${0%/*}"
 
-# Constants/paths
+# Package and staging paths
 PKG="james.dsp"
 LOGFILE="$MODPATH/logs/jamesdsp_app_install.log"
 INTERNAL_PATH="/storage/emulated/0/JamesDSPManager.apk"
-TEMP_INSTALL_PATH="/cache/JamesDSPManager.apk"
+TEMP_INSTALL_PATH=${JDSP_TEMP_INSTALL_PATH:-/cache/JamesDSPManager.apk}
 
-# Method pick
+# Prefer cmd package when Android exposes it
 if [ -x "/system/bin/cmd" ]; then
 	PM_CMD="cmd package"
 	METHOD_LOG="cmd package (Android 7+)"
@@ -18,21 +18,18 @@ fi
 
 echo "--- JamesDSP Installer through $METHOD_LOG ---" > "$LOGFILE"
 
-# Boot wait
+# Wait until package manager is ready
 until [ "$(getprop sys.boot_completed)" = "1" ]; do
 	sleep 1
 done
 
-# Extra wait just to be sure
-sleep 10
-
-# Check if installed
-if $PM_CMD list packages | grep -q "$PKG"; then
+# Never replace an existing james.dsp package
+if $PM_CMD list packages | grep -Fqx "package:$PKG"; then
 	echo " -- App is already installed. Exiting. -- " >> "$LOGFILE"
 	exit 0
 fi
 
-# Installation Function
+# Install the staged APK for every Android user
 install_apk() {
 	local source_file="$1"
 	local success_count=0
@@ -49,7 +46,7 @@ install_apk() {
 		return 1
 	fi
 
-	# Install logic
+	# Use the Android user list instead of assuming only user 0
 	USER_LIST=$($PM_CMD list users | grep -o '{[0-9]*' | grep -o '[0-9]*')
 
 	for USER_ID in $USER_LIST; do
@@ -65,7 +62,7 @@ install_apk() {
 		fi
 	done
 	
-	# Cleanup
+	# Remove only the temporary copy
 	rm -f "$TEMP_INSTALL_PATH"
 
 	if [ $success_count -gt 0 ]; then
@@ -75,27 +72,27 @@ install_apk() {
 	fi
 }
 
-# MAIN LOGIC
+# Main flow
 INSTALL_STATUS=1
 
-echo "App is not installed, attempt to install an app..." >> "$LOGFILE"
+echo "App is missing; installing the selected APK." >> "$LOGFILE"
 
-# First attempt: installing from module APK
+# Prefer the APK shipped inside the module
 if [ -f "$MODPATH/JamesDSPManager.apk" ]; then
 	install_apk "$MODPATH/JamesDSPManager.apk"
 	INSTALL_STATUS=$?
 
-# Second attempt: installing from Internal Storage APK
+# Fallback to the copy staged on internal storage
 elif [ -f "$INTERNAL_PATH" ]; then
-	echo "No APK in module. Using APK from internal memory..." >> "$LOGFILE"
+	echo "No APK in module; using the staged internal-storage copy." >> "$LOGFILE"
 	install_apk "$INTERNAL_PATH"
 	INSTALL_STATUS=$?
 
 else
-	echo " -- NO APK ANYWHERE! -- " >> "$LOGFILE"
+	echo " -- No APK was found. -- " >> "$LOGFILE"
 fi
 
-# conclusion/refreshing app
+# Refresh package state after a successful install
 if [ $INSTALL_STATUS -eq 0 ]; then
 	echo "Installation is complete. Refreshing package..." >> "$LOGFILE"
 
@@ -106,5 +103,5 @@ if [ $INSTALL_STATUS -eq 0 ]; then
 	done
 	echo " -- DONE! --" >> "$LOGFILE"
 else
-	echo "Installation is NOT complete <sad panda.jpg>" >> "$LOGFILE"
+	echo "Installation did not complete." >> "$LOGFILE"
 fi

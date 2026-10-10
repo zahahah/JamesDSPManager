@@ -1,3 +1,68 @@
+### v6.5.9
+
+* JamesDSP works through Android's default effect factory and does not require
+  PIXAML. PIXAML remains an optional companion for setups that need AML-specific
+  compatibility or other AML-based effects.
+* Serialize repeated KernelSU late-load preparation callbacks and replace the
+  generated effect XML atomically before Magic Mount-rs applies the overlay.
+* Tested on a Pixel 10 Pro XL (`mustang`) running Android 17, KernelSU Next, and
+  Magic Mount-rs 4.0.11; the late-load setup remained working through several
+  soft reboots.
+
+### v6.5.8
+
+* Make PIXAML optional for late-load. JamesDSP uses `IFactory/default`; the
+  guarded refresh no longer depends on PIXAML's standalone AML factory or
+  process.
+* Start the app installer from the late-load service path before the guarded
+  audio refresh. It installs the selected APK only when the exact `james.dsp`
+  package is missing; it never updates, uninstalls, or wipes the user's app
+  data.
+* Keep everything systemless: the built-in early-boot path stays separate, and
+  late-load still uses one guarded Audio HAL refresh.
+
+### v6.5.7
+
+* Stable release for built-in and KernelSU late-load use on the maintainer's
+  Pixel 10 Pro XL (`mustang`) with Android 17, KernelSU Next, and Magic
+  Mount-rs. Please report device-specific defects through GitHub Issues.
+* Require a live PIXAML factory process before the single guarded HAL refresh
+  and wait boundedly for audioserver to return.
+* Re-sign the Original and ThePBone APKs with the current maintainer
+  certificate; app code and package IDs are unchanged.
+
+* v6.5.6-mustang-late-load: correct the stock Volume UUID guard to the value
+  observed from the device's AOC `IFactory/default` dump. The previous mismatch
+  safely blocked before the one-time audio HAL refresh.
+
+* v6.5.5-mustang-late-load: when the physical vendor AIDL effect XML is absent,
+  translate the observed stock `/system/etc/audio_effects.xml` library paths to
+  the Pixel's AIDL libraries before adding JamesDSP. The guarded refresh now
+  requires the complete observed stock UUID set before and after it.
+* v6.5.5-mustang-late-load: set script modes during installation and invoke the
+  reload through `sh` so installers that normalize module files to `0644` do
+  not suppress the guarded late-load action.
+
+* v6.5.4-late-load-reload-exp: add an experimental KernelSU late-load path that
+  requires PIXAML v0.9.5 private-config, mounts the systemless JamesDSP effect,
+  patches AIDL NDK dependencies before Magic Mount-rs consumes the tree,
+  validates linker resolution, then performs one guarded
+  `ctl.restart vendor.audio-hal-aidl` from `service.sh` so `IFactory/default`
+  can rediscover the effect. No `killall`, restart loops, audioserver fallback,
+  native hooks, or physical partition writes are added.
+
+* v6.5.3-owner-signed: mark KernelSU late-load as `skip_mount` during
+  `post-fs-data`, before Magic Mount-rs consumes the module tree; the service
+  status alone was too late to prevent a partial effect overlay.
+* v6.5.3-owner-signed: Keep the system effect on the built-in early-boot path,
+  but skip systemless audio mounts and live process restarts in KernelSU
+  late-load. The ZIP contains only the Original and ThePBone root APKs.
+* Re-sign both unchanged root APKs with the maintainer key. Existing APKs with
+  another certificate cannot be updated in place and are never uninstalled by
+  the module; back up app data before manual migration.
+* Keep existing `james.dsp` installation and data when updating or removing
+  the module. The ThePBone APK remains v1.6.15; only its signature changed.
+
 ### v6.5 RC- 12.29.2025
 
 * Created post-fs-data.sh with apex mounting support if needed

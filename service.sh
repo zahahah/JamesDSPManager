@@ -1,6 +1,31 @@
 #!/system/bin/sh
 MODPATH=${0%/*}
 MODDIR=$MODPATH
+
+start_jdsp_app_installer() {
+	[ -f "$MODPATH/jdsp_app.sh" ] || return 0
+	MODPATH="$MODPATH" sh "$MODPATH/jdsp_app.sh" >/dev/null 2>&1 &
+}
+
+if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ -f "$MODPATH/.late-load-reload-experimental" ]; then
+	mkdir -p "$MODPATH/logs"
+	start_jdsp_app_installer
+	if [ -f "$MODPATH/audio-reload.sh" ]; then
+		sh "$MODPATH/audio-reload.sh"
+	else
+		printf 'BLOCKED reason=audio_reload_script_missing\n' \
+			>"$MODPATH/logs/service.status"
+	fi
+	[ -f "$MODPATH/logs/audio-reload.status" ] && \
+		cp -f "$MODPATH/logs/audio-reload.status" "$MODPATH/logs/service.status"
+	exit 0
+fi
+if [ -f "$MODPATH/.late-load-no-effect" ] || [ -f "$MODPATH/.late-load-rootless" ]; then
+	mkdir -p "$MODPATH/logs"
+	printf 'SKIPPED reason=legacy_late_load_no_effect_marker\n' \
+		>"$MODPATH/logs/service.status"
+	exit 0
+fi
 exec 2>"$MODPATH/logs/service_debug.txt"
 set -x
 if [ -d "$MODPATH/system/vendor" ] && [ ! -L "$MODPATH/system/vendor" ]; then
@@ -106,8 +131,8 @@ if [ -f /vendor/lib/soundfx/libjamesdsp.so ] || [ -f /vendor/lib64/soundfx/libja
 			MOUNTED=true
 		fi
 		done
-		if [ "$MOUNTED" = true ]; then
-		killall -q audioserver
+			if [ "$MOUNTED" = true ]; then
+				killall -q audioserver
 		fi
 	fi
 fi
@@ -124,4 +149,4 @@ done
 set +x
 
 # launching jdsp_app.sh
-[ -f "$MODPATH/jdsp_app.sh" ] && . "$MODPATH/jdsp_app.sh" 2>/dev/null &
+start_jdsp_app_installer
