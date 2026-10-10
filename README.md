@@ -1,6 +1,6 @@
 # JamesDSPManager
 
-Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
+Root-only module for JamesDSPManager for Android 16 and 17, works on Traditional and Temp root. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
 ## Stable release: v6.5.9
 
