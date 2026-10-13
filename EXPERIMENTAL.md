@@ -5,7 +5,7 @@ provided by a tester. It keeps the validated Mustang path intact. Other
 unrecognized devices still use conservative native AIDL config preparation
 and do not restart the Audio HAL automatically.
 
-The version is v6.5.9-test5-samsung-refresh-dispatch, not the stable v6.5.9 release.
+The version is v6.5.9-test6-samsung-refresh-dispatch, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable dist/JamesDSPManager-v6.5.9.zip remains the published artifact.
@@ -14,8 +14,10 @@ On ro.product.device=h8q only, if the descriptor is absent from
 IFactory/default, the late-load stage makes one guarded restart request for
 the observed init service vendor.audio-hal-aidl. It reports success only if
 that service PID and the audioserver PID both change, the factory dump then
-contains the JamesDSP implementation UUID, the reported effect count does not
-decrease, and both processes remain stable for a short bounded check. It does
+contains the JamesDSP implementation UUID, and both processes remain stable for
+a short bounded check. If Samsung exposes a numeric effect count, the script
+also rejects a decrease; if its factory dump omits that count, the exact JDSP
+UUID is the post-refresh discovery gate. It does
 not directly restart audioserver, retry in a loop, or apply this behavior to
 other Samsung models. The service stage now explicitly passes the late-load
 marker into the refresh script. A per-boot-and-module-version guard prevents

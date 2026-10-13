@@ -149,9 +149,7 @@ samsung_h8q_refresh() {
 		portable_status "BLOCKED reason=samsung_refresh_already_attempted_this_boot profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
 	fi
 	before_effect_count=$(factory_effect_count)
-	case "$before_effect_count" in ''|*[!0-9]*)
-		portable_status "BLOCKED reason=samsung_factory_effect_count_unavailable profile=$JDSP_PROFILE restart=not_attempted service=$service_name" ;;
-	esac
+	case "$before_effect_count" in ''|*[!0-9]*) before_effect_count=unavailable ;; esac
 	{
 		printf 'profile=%s\nboot_id=%s\ninit_service=%s\nbefore_hal_pid=%s\nbefore_audioserver_pid=%s\nbefore_effects=%s\n' \
 			"$JDSP_PROFILE" "$boot_id" "$service_name" "$before_service" "$before_audio" "$before_effect_count"
@@ -191,11 +189,11 @@ samsung_h8q_refresh() {
 	contains_jdsp || \
 		portable_status "BLOCKED reason=samsung_factory_still_missing_jamesdsp profile=$JDSP_PROFILE restart=once service=$service_name before_hal=$before_service after_hal=$new_service before_audioserver=$before_audio after_audioserver=$new_audio"
 	after_effect_count=$(factory_effect_count)
-	case "$after_effect_count" in ''|*[!0-9]*)
-		portable_status "BLOCKED reason=samsung_factory_effect_count_unavailable_after_refresh profile=$JDSP_PROFILE restart=once service=$service_name" ;;
-	esac
-	[ "$after_effect_count" -ge "$before_effect_count" ] || \
-		portable_status "BLOCKED reason=samsung_factory_effect_count_decreased profile=$JDSP_PROFILE restart=once service=$service_name before_effects=$before_effect_count after_effects=$after_effect_count"
+	case "$after_effect_count" in ''|*[!0-9]*) after_effect_count=unavailable ;; esac
+	if [ "$before_effect_count" != unavailable ] && [ "$after_effect_count" != unavailable ]; then
+		[ "$after_effect_count" -ge "$before_effect_count" ] || \
+			portable_status "BLOCKED reason=samsung_factory_effect_count_decreased profile=$JDSP_PROFILE restart=once service=$service_name before_effects=$before_effect_count after_effects=$after_effect_count"
+	fi
 	"$SLEEP_BIN" 2
 	[ "$(init_service_pid "$service_name")" = "$new_service" ] && alive "$new_service" || \
 		portable_status "BLOCKED reason=samsung_hal_unstable_after_refresh profile=$JDSP_PROFILE restart=once service=$service_name"

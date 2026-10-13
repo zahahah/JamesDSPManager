@@ -8,7 +8,7 @@ from zipfile import ZIP_STORED, ZipFile, ZipInfo
 import package_659_mustang_late_load as stable
 
 ROOT = stable.ROOT
-OUTPUT = Path(os.environ.get("JDSP_TEST_PACKAGE_OUTPUT", ROOT / "dist/JamesDSPManager-v6.5.9-test5-samsung-refresh-dispatch.zip"))
+OUTPUT = Path(os.environ.get("JDSP_TEST_PACKAGE_OUTPUT", ROOT / "dist/JamesDSPManager-v6.5.9-test6-samsung-refresh-dispatch.zip"))
 
 
 def build(output: Path = OUTPUT) -> str:
@@ -20,12 +20,12 @@ def build(output: Path = OUTPUT) -> str:
         with ZipFile(baseline) as archive:
             payloads = {name: archive.read(name) for name in archive.namelist() if name != "update.json"}
     props = payloads["module.prop"].decode()
-    props = props.replace("version=v6.5.9\n", "version=v6.5.9-test5-samsung-refresh-dispatch\n")
-    props = props.replace("versionCode=111\n", "versionCode=115\n")
+    props = props.replace("version=v6.5.9\n", "version=v6.5.9-test6-samsung-refresh-dispatch\n")
+    props = props.replace("versionCode=111\n", "versionCode=116\n")
     props = props.replace("name=JamesDSP Manager\n", "name=JamesDSP Manager (portability test)\n")
     props = props.replace("description=Root-only JamesDSP module for built-in and KernelSU late-load, with a guarded audio refresh", "description=Experimental late-load portability; unknown firmware never triggers an automatic audio restart")
     payloads["module.prop"] = props.encode()
-    payloads["README.md"] = (b"> Experimental Samsung h8q refresh-dispatch build. Read EXPERIMENTAL.md first.\n> Stable-release validation below does not validate this test ZIP.\n\n" + payloads["README.md"])
+    payloads["README.md"] = (b"> Experimental Samsung h8q refresh build. Read EXPERIMENTAL.md first.\n> Stable-release validation below does not validate this test ZIP.\n\n" + payloads["README.md"])
     payloads["EXPERIMENTAL.md"] = (ROOT / "EXPERIMENTAL.md").read_bytes()
     helper = ROOT / "late-load-common.sh"
     if helper.is_file():
