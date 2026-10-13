@@ -45,8 +45,8 @@ class ExperimentalPackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             with zipfile.ZipFile(output) as archive:
                 props = archive.read("module.prop").decode()
-                self.assertIn("version=v6.5.9-test4-samsung-h8q-refresh", props)
-                self.assertIn("versionCode=114", props)
+                self.assertIn("version=v6.5.9-test5-samsung-refresh-dispatch", props)
+                self.assertIn("versionCode=115", props)
                 self.assertIn("id=ainur_jamesdsp", props)
                 self.assertNotIn("update.json", archive.namelist())
                 self.assertIn("EXPERIMENTAL.md", archive.namelist())

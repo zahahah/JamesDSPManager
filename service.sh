@@ -11,7 +11,7 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ -f "$MODPATH/.late-load-reload-experimenta
 	mkdir -p "$MODPATH/logs"
 	start_jdsp_app_installer
 	if [ -f "$MODPATH/audio-reload.sh" ]; then
-		sh "$MODPATH/audio-reload.sh"
+		KSU_LATE_LOAD=1 sh "$MODPATH/audio-reload.sh"
 	else
 		printf 'BLOCKED reason=audio_reload_script_missing\n' \
 			>"$MODPATH/logs/service.status"

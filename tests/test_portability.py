@@ -565,6 +565,8 @@ exit 7
                 (proc / pid).mkdir(parents=True)
             shutil.copy2(ROOT / "audio-reload.sh", module / "audio-reload.sh")
             (module / ".late-load-reload-experimental").touch()
+            (module / "module.prop").write_text("versionCode=115\n")
+            (logs / "audio-reload.samsung-boot-id").write_text("samsung-test-boot\n114\n")
             xml = root / "audio_effects_config.xml"
             xml.write_text(f'<effect name="jamesdsp" uuid="{JDSP_UUID}"/>\n')
             lib = root / "libjamesdsp.so"

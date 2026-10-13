@@ -141,7 +141,11 @@ samsung_h8q_refresh() {
 		portable_status "BLOCKED reason=samsung_audio_hal_pid_missing profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
 	alive "$before_audio" || \
 		portable_status "BLOCKED reason=audioserver_pid_missing_before_restart profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
+	module_version=$(sed -n 's/^versionCode=//p' "$MODPATH/module.prop" 2>/dev/null | head -n 1)
+	[ -n "$module_version" ] || module_version=unknown
 	if [ -f "$SAMSUNG_BOOT_GUARD" ] && [ "$(sed -n '1p' "$SAMSUNG_BOOT_GUARD")" = "$boot_id" ]; then
+		guard_version=$(sed -n '2p' "$SAMSUNG_BOOT_GUARD")
+		[ "$guard_version" != "$module_version" ] || \
 		portable_status "BLOCKED reason=samsung_refresh_already_attempted_this_boot profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
 	fi
 	before_effect_count=$(factory_effect_count)
@@ -153,7 +157,7 @@ samsung_h8q_refresh() {
 			"$JDSP_PROFILE" "$boot_id" "$service_name" "$before_service" "$before_audio" "$before_effect_count"
 		"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|jdsp|f27317f4|f98765f4|UUID:' | head -120
 	} >"$DUMP_BEFORE" 2>&1
-	printf '%s\n' "$boot_id" >"$SAMSUNG_BOOT_GUARD"
+	printf '%s\n%s\n' "$boot_id" "$module_version" >"$SAMSUNG_BOOT_GUARD"
 	"$SETPROP_BIN" ctl.restart "$service_name"
 
 	new_service=''

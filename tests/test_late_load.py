@@ -486,11 +486,11 @@ fi
                 '#!/system/bin/sh\n[ -z "$MODPATH" ] && MODPATH="${0%/*}"\necho app >>"$MODPATH/logs/app-helper.calls"\n'
             )
             (module / "audio-reload.sh").write_text(
-                '#!/system/bin/sh\nMODPATH="${0%/*}"\necho BLOCKED reason=test_audio_block >"$MODPATH/logs/audio-reload.status"\n'
+                '#!/system/bin/sh\nMODPATH="${0%/*}"\necho "KSU_LATE_LOAD=$KSU_LATE_LOAD" >"$MODPATH/logs/audio-reload.env"\necho BLOCKED reason=test_audio_block >"$MODPATH/logs/audio-reload.status"\n'
             )
             result = subprocess.run(
                 ["sh", str(module / "service.sh")],
-                env={**os.environ, "KSU_LATE_LOAD": "1"},
+                env=os.environ.copy(),
                 capture_output=True,
                 text=True,
                 check=False,
@@ -502,6 +502,10 @@ fi
                     break
                 subprocess.run(["sleep", "0.05"], check=False)
             self.assertEqual(calls.read_text(), "app\n")
+            self.assertEqual(
+                (module / "logs/audio-reload.env").read_text(),
+                "KSU_LATE_LOAD=1\n",
+            )
             self.assertEqual(
                 (module / "logs/service.status").read_text(),
                 "BLOCKED reason=test_audio_block\n",

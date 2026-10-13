@@ -5,7 +5,7 @@ provided by a tester. It keeps the validated Mustang path intact. Other
 unrecognized devices still use conservative native AIDL config preparation
 and do not restart the Audio HAL automatically.
 
-The version is v6.5.9-test4-samsung-h8q-refresh, not the stable v6.5.9 release.
+The version is v6.5.9-test5-samsung-refresh-dispatch, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable dist/JamesDSPManager-v6.5.9.zip remains the published artifact.
@@ -17,7 +17,9 @@ that service PID and the audioserver PID both change, the factory dump then
 contains the JamesDSP implementation UUID, the reported effect count does not
 decrease, and both processes remain stable for a short bounded check. It does
 not directly restart audioserver, retry in a loop, or apply this behavior to
-other Samsung models. The per-boot guard prevents repeat restart attempts.
+other Samsung models. The service stage now explicitly passes the late-load
+marker into the refresh script. A per-boot-and-module-version guard prevents
+repeat attempts while allowing one attempt after updating the test module.
 
 Portable preparation prefers the existing vendor audio_effects_config.xml,
 or validated candidates from the highest-priority available partition. For
