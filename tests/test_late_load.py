@@ -688,7 +688,7 @@ exit 0
             self.assertIn("enable --user 0 james.dsp", log)
 
 
-    def test_patch_script_keeps_early_boot_soname_adaptation_but_skips_unknown_late_load(self):
+    def test_patch_script_adapts_unknown_late_load_with_available_soname(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             module = root / "module"
@@ -726,8 +726,10 @@ esac
             env.update({"KSU_LATE_LOAD": "1", "JDSP_COMPAT_PROFILE": "portable"})
             result = subprocess.run(["sh", str(module / "patch.sh")], env=env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("SONAME patch skipped", result.stdout)
-            self.assertFalse(patchelf_log.exists())
+            self.assertIn(
+                "--replace-needed android.hardware.audio.effect-V1-ndk.so android.hardware.audio.effect-V9-ndk.so",
+                patchelf_log.read_text(),
+            )
 
     def test_late_load_reload_script_has_no_restart_loop_or_killall(self):
         combined = (ROOT / "audio-reload.sh").read_text()

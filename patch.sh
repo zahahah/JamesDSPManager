@@ -2,9 +2,11 @@
 
 patch_aidl_dependencies() {
 	[ "$AIDL" = true ] || return 0
-	# Preserve historical early-boot adaptation; unknown late-load stays exact.
+	# Preserve historical early-boot adaptation. Portable late-load may retarget
+	# module-local versioned NDK SONAMEs to installed versions; the caller's
+	# linker check remains the fail-closed compatibility gate.
 	if [ "${KSU_LATE_LOAD:-0}" = 1 ] && [ "${JDSP_COMPAT_PROFILE:-}" != mustang ]; then
-		PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-0}
+		PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-1}
 	else
 		PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-1}
 	fi
@@ -22,7 +24,18 @@ patch_aidl_dependencies() {
 	for LIB_NAME in android.hardware.audio.effect android.media.audio.common.types android.hardware.common android.hardware.common.fmq; do
 		CURRENT_NEEDED=$(printf '%s\n' "$needed" | grep -F "$LIB_NAME-V" | head -n 1)
 		[ -n "$CURRENT_NEEDED" ] || continue
-		SYSTEM_AVAILABLE=$(find /system/lib64 /apex/*/lib64 /vendor/lib64 -name "$LIB_NAME-V*-ndk.so" 2>/dev/null | sort | tail -n 1 | xargs basename 2>/dev/null)
+		SYSTEM_AVAILABLE=""
+		SYSTEM_VERSION=-1
+		for candidate in $(find /system/lib64 /apex/*/lib64 /vendor/lib64 -name "$LIB_NAME-V*-ndk.so" 2>/dev/null); do
+			candidate_name=${candidate##*/}
+			candidate_version=${candidate_name#"$LIB_NAME-V"}
+			candidate_version=${candidate_version%-ndk.so}
+			case "$candidate_version" in ''|*[!0-9]*) continue ;; esac
+			if [ "$candidate_version" -gt "$SYSTEM_VERSION" ]; then
+				SYSTEM_VERSION=$candidate_version
+				SYSTEM_AVAILABLE=$candidate_name
+			fi
+		done
 		[ -n "$SYSTEM_AVAILABLE" ] || continue
 		if [ "$CURRENT_NEEDED" != "$SYSTEM_AVAILABLE" ]; then
 			"$PATCHELF" --replace-needed "$CURRENT_NEEDED" "$SYSTEM_AVAILABLE" "$MY_LIB" || {

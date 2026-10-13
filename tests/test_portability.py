@@ -356,16 +356,34 @@ exit 0
             self.assertIn("--print-needed", log.read_text())
             self.assertIn("after-source", result.stdout)
 
-    def test_patch_skips_portable_late_load_soname_guessing_by_default(self):
+    def test_patch_portable_late_load_uses_available_soname_and_caller_validates(self):
         with tempfile.TemporaryDirectory() as tmp:
             log = pathlib.Path(tmp) / "patchelf.log"
-            module = self.make_patch_module(tmp, f'echo "$@" >>"{log}"\nexit 0\n')
+            mocks = pathlib.Path(tmp) / "mocks"
+            mocks.mkdir()
+            mock_executable(
+                mocks / "find",
+                'echo /vendor/lib64/android.hardware.audio.effect-V9-ndk.so\n',
+            )
+            module = self.make_patch_module(
+                tmp,
+                f'''echo "$@" >>"{log}"
+if [ "$1" = --print-needed ]; then echo android.hardware.audio.effect-V2-ndk.so; fi
+exit 0
+''',
+            )
 
-            result = self.run_patch(module, late_load="1", profile="portable")
+            result = self.run_patch(
+                module, late_load="1", profile="portable", path_prefix=mocks
+            )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn("--print-needed", log.read_text() if log.exists() else "")
-            self.assertIn("SONAME patch skipped", result.stdout)
+            self.assertIn(
+                "--replace-needed android.hardware.audio.effect-V2-ndk.so "
+                "android.hardware.audio.effect-V9-ndk.so",
+                log.read_text(),
+            )
+            self.assertIn("Patched android.hardware.audio.effect", result.stdout)
             self.assertIn("after-source", result.stdout)
 
     def test_patch_keeps_mustang_late_load_soname_adaptation_enabled(self):

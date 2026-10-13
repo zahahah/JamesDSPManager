@@ -4,7 +4,7 @@ This ZIP is an experimental late-load diagnostic build. It keeps the validated
 Mustang path intact, but unknown devices use conservative native AIDL config
 preparation and do not restart the Audio HAL automatically.
 
-The version is `v6.5.9-test2-portability`, not the stable v6.5.9 release.
+The version is `v6.5.9-test3-portability`, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable `dist/JamesDSPManager-v6.5.9.zip` remains the published artifact.
@@ -17,8 +17,12 @@ It supports conservative line-oriented XML with double-quoted effect/library
 attributes, one tag per line, and self-closing library/effect entries. Inline,
 multiline or otherwise unsupported XML and unvalidated staged audio
 configuration payloads are blocked rather than guessed.
-No legacy-to-AIDL translation or speculative SONAME substitution is performed
-for unknown late-load firmware. Early boot retains its historical path.
+No legacy-to-AIDL translation is performed for unknown late-load firmware.
+Versioned AIDL NDK SONAMEs may be retargeted to the highest installed matching
+version in the module-local library. The subsequent linker check must succeed
+before the overlay is allowed; an unresolved or incompatible dependency still
+blocks mounting. `JDSP_PATCH_AIDL_NDK=0` disables this adaptation. Early boot
+and the Mustang profile retain their existing behavior.
 
 Magic Mount-rs remains responsible for the overlay. There is no ViPER-style
 direct-mount fallback, no native hook, no process kill, and no compatibility
