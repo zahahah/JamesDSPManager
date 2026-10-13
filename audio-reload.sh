@@ -51,8 +51,44 @@ BOOT_ID_FILE=${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
 PROC_ROOT=${JDSP_PROC_ROOT:-/proc}
 EFFECT_XML=${JDSP_EFFECT_XML:-/vendor/etc/audio_effects_config.xml}
 EFFECT_LIB=${JDSP_EFFECT_LIB:-/vendor/lib64/soundfx/libjamesdsp.so}
+CONTEXT_FILE=${JDSP_LATE_CONTEXT_FILE:-$LOGDIR/late-load-context.txt}
 
 mkdir -p "$LOGDIR"
+
+detect_reload_profile() {
+	if [ -n "${JDSP_COMPAT_PROFILE:-}" ]; then
+		printf '%s\n' "$JDSP_COMPAT_PROFILE"
+		return
+	fi
+	if [ -f "$CONTEXT_FILE" ]; then
+		profile=$(sed -n 's/^profile=//p' "$CONTEXT_FILE" | head -n 1)
+		[ -n "$profile" ] && { printf '%s\n' "$profile"; return; }
+	fi
+	device=""
+	if [ -x "$GETPROP_BIN" ]; then
+		device=$("$GETPROP_BIN" ro.product.device 2>/dev/null | tr '[:upper:]' '[:lower:]')
+		[ -n "$device" ] || \
+			device=$("$GETPROP_BIN" ro.build.product 2>/dev/null | tr '[:upper:]' '[:lower:]')
+	fi
+	case "$device" in
+		mustang) printf 'mustang\n' ;;
+		*) printf 'portable\n' ;;
+	esac
+}
+
+portable_effect_xml() {
+	[ -n "${JDSP_EFFECT_XML:-}" ] && { printf '%s\n' "$EFFECT_XML"; return; }
+	if [ -f "$CONTEXT_FILE" ]; then
+		selected_xml=$(sed -n 's/^prepared_config_1=\([^ ]*\) -> .*/\1/p' "$CONTEXT_FILE" | head -n 1)
+		[ -n "$selected_xml" ] && { printf '%s\n' "$selected_xml"; return; }
+	fi
+	printf '%s\n' "$EFFECT_XML"
+}
+
+portable_status() {
+	printf '%s\n' "$1" >"$STATUS"
+	exit 0
+}
 
 status() {
 	printf '%s\n' "$1" >"$STATUS"
@@ -90,6 +126,27 @@ alive() {
 [ "${KSU_LATE_LOAD:-0}" = 1 ] || status 'SKIPPED reason=not_late_load'
 [ -f "$MODPATH/.late-load-reload-experimental" ] || \
 	status 'SKIPPED reason=experimental_marker_missing'
+JDSP_PROFILE=$(detect_reload_profile)
+
+if [ "$JDSP_PROFILE" != mustang ]; then
+	portable_xml=$(portable_effect_xml)
+	[ -n "$portable_xml" ] && [ -f "$portable_xml" ] || \
+		portable_status "BLOCKED reason=mounted_audio_effects_xml_missing profile=$JDSP_PROFILE restart=not_attempted"
+	[ -f "$EFFECT_LIB" ] || \
+		portable_status "BLOCKED reason=mounted_jamesdsp_lib_missing profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+	grep -qi "$JDSP_UUID" "$portable_xml" || \
+		portable_status "BLOCKED reason=mounted_xml_missing_jamesdsp profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+	if ! "$LINKER_BIN" --list "$EFFECT_LIB" >"$LOGDIR/audio-reload-linker.txt" 2>&1; then
+		portable_status "BLOCKED reason=mounted_lib_linker_failed profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+	fi
+	if ! service_found "$DEFAULT_FACTORY"; then
+		portable_status "BLOCKED reason=default_factory_binder_missing profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+	fi
+	contains_jdsp && \
+		portable_status "READY reason=target_already_loaded profile=$JDSP_PROFILE restart=not_needed xml=$portable_xml"
+	portable_status "BLOCKED reason=default_factory_needs_device_specific_refresh profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+fi
+
 [ -f "$EFFECT_XML" ] || status 'BLOCKED reason=mounted_audio_effects_xml_missing'
 [ -f "$EFFECT_LIB" ] || status 'BLOCKED reason=mounted_jamesdsp_lib_missing'
 grep -qi "$JDSP_UUID" "$EFFECT_XML" || \

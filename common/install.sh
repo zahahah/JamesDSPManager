@@ -109,6 +109,14 @@ else
 fi
 set -x
 # Audio effects patching 
+INSTALL_DEVICE=$(getprop ro.product.device 2>/dev/null)
+[ -n "$INSTALL_DEVICE" ] || INSTALL_DEVICE=$(getprop ro.build.product 2>/dev/null)
+if { [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "${KSU_RUNTIME_MODE:-}" = late-load ]; } &&
+   [ "$INSTALL_DEVICE" != mustang ]; then
+  # Unknown late-load firmware must not inherit the legacy installer's broad
+  # XML edits or removal of stock postprocessing. Prepare native config later.
+  ui_print "   Deferring native AIDL config preparation to late-load"
+else
 ui_print " "
 ui_print "   Patching existing audio_effects files..."
 PARTITIONS="/system /vendor $PARTITIONS"
@@ -145,6 +153,7 @@ if [ -f "$ORIGDIR$OFILE" ];then
 	fi
 fi
 done
+fi
 
 # Keep the app helper executable after installer file normalization
 chmod +x "$MODPATH/jdsp_app.sh"

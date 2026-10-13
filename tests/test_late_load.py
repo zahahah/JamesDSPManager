@@ -42,12 +42,12 @@ def mock_executable(path: pathlib.Path, body: str) -> pathlib.Path:
 class LateLoadTests(unittest.TestCase):
     def test_late_load_xml_replacements_are_atomic(self):
         script = (ROOT / "post-fs-data.sh").read_text()
-        self.assertIn('"$FLOCK_BIN" -x 9', script)
+        self.assertIn("jdsp_lock_fd9 || late_block late_load_lock_failed", script)
         self.assertLess(
-            script.index('"$FLOCK_BIN" -x 9'),
+            script.index("jdsp_lock_fd9 || late_block late_load_lock_failed"),
             script.index('rm -f "$MODPATH/skip_mount"'),
         )
-        self.assertIn('mv -f "$tmp" "$xml"', script)
+        self.assertIn('mv -f "$xml_tmp" "$xml"', script)
         self.assertIn('mv -f "$tmp" "$dst"', script)
         self.assertIn('mv -f "$tmp" "$MOD_VENDOR/etc/audio_effects_config.xml"', script)
         self.assertNotIn('cat "$tmp" >"$xml"', script)
@@ -80,9 +80,11 @@ class LateLoadTests(unittest.TestCase):
         return {
             **os.environ,
             "KSU_LATE_LOAD": "1",
+            "JDSP_COMPAT_PROFILE": "mustang",
             "JDSP_LINKER_BIN": str(linker),
             "JDSP_FLOCK_BIN": str(module / "flock"),
             "JDSP_SOURCE_VENDOR_CONFIG": str(module / "live_vendor_config.xml"),
+            "JDSP_COMPAT_PROFILE": "mustang",
         }
 
     def run_post_fs(self, module: pathlib.Path, linker: pathlib.Path) -> subprocess.CompletedProcess[str]:
@@ -365,6 +367,7 @@ fi
             env.update(
                 {
                     "KSU_LATE_LOAD": "1",
+                    "JDSP_COMPAT_PROFILE": "mustang",
                     "JDSP_EFFECT_XML": str(xml),
                     "JDSP_EFFECT_LIB": str(lib),
                     "JDSP_BOOT_ID_FILE": str(boot_id),
@@ -382,6 +385,7 @@ fi
                     "MOCK_AUDIO_LOOKUPS": str(root / "audio-lookups"),
                     "MOCK_CONTROLS": str(controls),
                     "MOCK_PROC_ROOT": str(proc),
+                    "JDSP_COMPAT_PROFILE": "mustang",
                 }
             )
             result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
@@ -503,6 +507,120 @@ fi
                 "BLOCKED reason=test_audio_block\n",
             )
 
+
+    def test_portable_late_load_patches_canonical_native_config_without_pixel_anchors(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module = self.make_late_load_module(str(root / "module"))
+            linker = mock_executable(module / "linker", "exit 0\n")
+            fsroot = root / "roots"
+            vendor_etc = fsroot / "vendor/etc"
+            vendor_etc.mkdir(parents=True)
+            native = vendor_etc / "audio_effects_config.xml"
+            native.write_text(
+                """
+<audio_effects_conf>
+    <libraries>
+        <library name="vendorfx" path="libsamsungfx.so"/>
+    </libraries>
+    <effects>
+        <effect name="vendor_fx" library="vendorfx" uuid="11111111-2222-3333-4444-555555555555"/>
+    </effects>
+</audio_effects_conf>
+"""
+            )
+            env = self.env_for_post_fs(module, linker)
+            env.update(
+                {
+                    "JDSP_COMPAT_PROFILE": "portable",
+                    "JDSP_SOURCE_VENDOR_CONFIG": str(module / "missing.xml"),
+                    "JDSP_CONFIG_ROOTS": str(vendor_etc),
+                    "JDSP_FS_ROOT": str(fsroot),
+                }
+            )
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((module / "skip_mount").exists())
+            patched = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
+            self.assertIn(JDSP_UUID, patched)
+            self.assertIn('name="vendorfx"', patched)
+            status = (module / "logs/late-load.status").read_text()
+            self.assertIn("READY late_load=1 vendor_config=portable_native_aidl_config:/vendor/etc/audio_effects_config.xml", status)
+            context = (module / "logs/late-load-context.txt").read_text()
+            self.assertIn("profile=portable", context)
+            self.assertIn("native_config_candidate=/vendor/etc/audio_effects_config.xml", context)
+
+    def test_portable_late_load_fails_closed_on_ambiguous_native_configs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module = self.make_late_load_module(str(root / "module"))
+            linker = mock_executable(module / "linker", "exit 0\n")
+            fsroot = root / "roots"
+            odm = fsroot / "odm/etc"
+            product = fsroot / "product/etc"
+            odm.mkdir(parents=True)
+            product.mkdir(parents=True)
+            body = """
+<audio_effects_conf>
+    <libraries>
+    </libraries>
+    <effects>
+    </effects>
+</audio_effects_conf>
+"""
+            (odm / "audio_effects_config.xml").write_text(body)
+            (product / "audio_effects_config.xml").write_text(body)
+            env = self.env_for_post_fs(module, linker)
+            env.update(
+                {
+                    "JDSP_COMPAT_PROFILE": "portable",
+                    "JDSP_SOURCE_VENDOR_CONFIG": str(module / "missing.xml"),
+                    "JDSP_CONFIG_ROOTS": f"{odm} {product}",
+                    "JDSP_FS_ROOT": str(fsroot),
+                }
+            )
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((module / "skip_mount").exists())
+            self.assertEqual((module / "logs/late-load.status").read_text(), "BLOCKED reason=native_vendor_config_ambiguous\n")
+
+    def test_portable_audio_reload_does_not_restart_unknown_hal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module = root / "module"
+            logs = module / "logs"
+            mocks = root / "mocks"
+            module.mkdir()
+            logs.mkdir()
+            mocks.mkdir()
+            shutil.copy2(ROOT / "audio-reload.sh", module / "audio-reload.sh")
+            (module / ".late-load-reload-experimental").touch()
+            xml = root / "audio_effects_config.xml"
+            xml.write_text(f'<effect name="jamesdsp" uuid="{JDSP_UUID}"/>\n')
+            lib = root / "libjamesdsp.so"
+            lib.touch()
+            controls = root / "controls"
+            dumpsys = mock_executable(mocks / "dumpsys", "echo 'Effects (21):'\n")
+            service = mock_executable(mocks / "service", "echo 'Service android.hardware.audio.effect.IFactory/default: found'\n")
+            linker = mock_executable(mocks / "linker64", "exit 0\n")
+            setprop = mock_executable(mocks / "setprop", 'echo "$@" >>"$MOCK_CONTROLS"\n')
+            env = {
+                **os.environ,
+                "KSU_LATE_LOAD": "1",
+                "JDSP_COMPAT_PROFILE": "portable",
+                "JDSP_EFFECT_XML": str(xml),
+                "JDSP_EFFECT_LIB": str(lib),
+                "JDSP_DUMPSYS_BIN": str(dumpsys),
+                "JDSP_SERVICE_BIN": str(service),
+                "JDSP_LINKER_BIN": str(linker),
+                "JDSP_SETPROP_BIN": str(setprop),
+                "MOCK_CONTROLS": str(controls),
+            }
+            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("default_factory_needs_device_specific_refresh", (logs / "audio-reload.status").read_text())
+            self.assertFalse(controls.exists())
+
     def run_jdsp_app(self, module: pathlib.Path, mocks: pathlib.Path, pm_body: str) -> subprocess.CompletedProcess[str]:
         temp_apk = module / "tmp-install.apk"
         mock_executable(mocks / "getprop", "echo 1\n")
@@ -567,12 +685,55 @@ exit 0
             self.assertIn("disable --user 0 james.dsp", log)
             self.assertIn("enable --user 0 james.dsp", log)
 
+
+    def test_patch_script_keeps_early_boot_soname_adaptation_but_skips_unknown_late_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module = root / "module"
+            tools = module / "tools"
+            libdir = module / "system/vendor/lib64/soundfx"
+            mocks = root / "mocks"
+            tools.mkdir(parents=True)
+            libdir.mkdir(parents=True)
+            mocks.mkdir()
+            shutil.copy2(ROOT / "patch.sh", module / "patch.sh")
+            (libdir / "libjamesdsp.so").touch()
+            patchelf_log = root / "patchelf.log"
+            mock_executable(
+                tools / "patchelf",
+                f'''case "$1" in
+  --print-needed) echo android.hardware.audio.effect-V1-ndk.so ;;
+  --replace-needed) echo "$@" >>"{patchelf_log}" ;;
+esac
+''',
+            )
+            mock_executable(mocks / "find", "echo /vendor/lib64/android.hardware.audio.effect-V9-ndk.so\n")
+            mock_executable(mocks / "sync", "exit 0\n")
+            env = {
+                **os.environ,
+                "PATH": f"{mocks}:{os.environ['PATH']}",
+                "AIDL": "true",
+                "MODPATH": str(module),
+                "MOD_VENDOR": str(module / "system/vendor"),
+            }
+            result = subprocess.run(["sh", str(module / "patch.sh")], env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("--replace-needed android.hardware.audio.effect-V1-ndk.so android.hardware.audio.effect-V9-ndk.so", patchelf_log.read_text())
+
+            patchelf_log.unlink()
+            env.update({"KSU_LATE_LOAD": "1", "JDSP_COMPAT_PROFILE": "portable"})
+            result = subprocess.run(["sh", str(module / "patch.sh")], env=env, capture_output=True, text=True, check=False)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("SONAME patch skipped", result.stdout)
+            self.assertFalse(patchelf_log.exists())
+
     def test_late_load_reload_script_has_no_restart_loop_or_killall(self):
         combined = (ROOT / "audio-reload.sh").read_text()
         self.assertNotIn("killall", combined)
         self.assertNotIn("while true", combined)
         self.assertIn('ctl.restart "$INIT_SERVICE"', combined)
         self.assertIn("reload_already_attempted_for_hal_instance", combined)
+        self.assertIn("default_factory_needs_device_specific_refresh", combined)
         self.assertIn('service_found "$AML_FACTORY"', combined)
         self.assertIn("pixaml_state=not_active", combined)
         self.assertIn("pixaml_factory_lost_after_audio_restart", combined)

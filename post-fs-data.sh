@@ -9,6 +9,7 @@ XML_LIB_ANCHOR=libbundleaidl.so
 XML_UUID_ANCHOR=ce772f20-847d-11df-bb17-0002a5d5c51b
 PIXEL_DUMP_UUID_ANCHOR=50deaa30-4a83-4b1f-bfe3-dec6d605ede0
 LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
+GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
 FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
 SOURCE_VENDOR_CONFIG=${JDSP_SOURCE_VENDOR_CONFIG:-/vendor/etc/audio_effects_config.xml}
 SOURCE_LEGACY_CONFIG=${JDSP_SOURCE_LEGACY_CONFIG:-/system/etc/audio_effects.xml}
@@ -22,34 +23,253 @@ late_block() {
 }
 
 late_ready() {
+	if [ "${JDSP_PROFILE:-}" != mustang ]; then
+		printf 'READY late_load=1 vendor_config=%s profile=portable lib=exact restart=not_requested\n' "$1" >"$STATUS"
+		exit 0
+	fi
 	printf 'READY late_load=1 vendor_config=%s lib=patched restart=service\n' "$1" \
 		>"$STATUS"
 	exit 0
 }
 
+detect_jdsp_profile() {
+	if [ -n "${JDSP_COMPAT_PROFILE:-}" ]; then
+		printf '%s\n' "$JDSP_COMPAT_PROFILE"
+		return
+	fi
+	device=''
+	if [ -x "$GETPROP_BIN" ]; then
+		device=$($GETPROP_BIN ro.product.device 2>/dev/null | tr '[:upper:]' '[:lower:]')
+		[ -n "$device" ] || \
+			device=$($GETPROP_BIN ro.build.product 2>/dev/null | tr '[:upper:]' '[:lower:]')
+	fi
+	case "$device" in
+		mustang) printf 'mustang\n' ;;
+		*) printf 'portable\n' ;;
+	esac
+}
+
+write_late_context() {
+	context="$LOGDIR/late-load-context.txt"
+	boot_id=$(cat "${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}" 2>/dev/null || printf unknown)
+	{
+		printf 'timestamp=%s\n' "$(date -u '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || printf unknown)"
+		printf 'boot_id=%s\n' "$boot_id"
+		printf 'profile=%s\n' "$JDSP_PROFILE"
+		printf 'module_vendor=%s\n' "$MOD_VENDOR"
+		printf 'module_odm=%s\n' "$MOD_ODM"
+		printf 'source_vendor_config=%s\n' "$SOURCE_VENDOR_CONFIG"
+		printf 'source_legacy_config=%s\n' "$SOURCE_LEGACY_CONFIG"
+		printf 'config_roots=%s\n' "${JDSP_CONFIG_ROOTS:-default}"
+	} >"$context"
+}
+
+resolve_flock() {
+	if [ -n "${JDSP_FLOCK_BIN:-}" ]; then
+		[ -x "$JDSP_FLOCK_BIN" ] || return 1
+		FLOCK_MODE=standalone
+		FLOCK_BIN="$JDSP_FLOCK_BIN"
+		return 0
+	fi
+	if [ -x /system/bin/flock ]; then
+		FLOCK_MODE=standalone
+		FLOCK_BIN=/system/bin/flock
+		return 0
+	fi
+	for bb in /data/adb/ksu/bin/busybox /data/adb/ksu/bin/busybox64 /data/adb/magisk/busybox /system/bin/busybox; do
+		if [ -x "$bb" ] && "$bb" flock --help >/dev/null 2>&1; then
+			FLOCK_MODE=busybox
+			FLOCK_BIN="$bb"
+			return 0
+		fi
+	done
+	return 1
+}
+
+jdsp_lock_fd9() {
+	case "$FLOCK_MODE" in
+		standalone) "$FLOCK_BIN" -x 9 ;;
+		busybox) "$FLOCK_BIN" flock -x 9 ;;
+		*) return 1 ;;
+	esac
+}
+
 patch_jdsp_vendor_xml() {
 	xml="$1"
-	grep -qi "$XML_LIB_ANCHOR" "$xml" || \
-		late_block vendor_config_missing_xml_lib_anchor
-	grep -qi "$XML_UUID_ANCHOR" "$xml" || \
-		late_block vendor_config_missing_xml_uuid_anchor
+	profile="$2"
 	grep -q '<libraries>' "$xml" || late_block vendor_config_missing_libraries_tag
 	grep -q '<effects>' "$xml" || late_block vendor_config_missing_effects_tag
-	tmp="$xml.tmp.$$"
+	if [ "$profile" = mustang ]; then
+		grep -qi "$XML_LIB_ANCHOR" "$xml" || \
+			late_block vendor_config_missing_xml_lib_anchor
+		grep -qi "$XML_UUID_ANCHOR" "$xml" || \
+			late_block vendor_config_missing_xml_uuid_anchor
+	fi
+	xml_tmp="$xml.tmp.$$"
 	awk \
 		-v lib='        <library name="jdsp" path="libjamesdsp.so"/>' \
 		-v effect="        <effect name=\"jamesdsp\" library=\"jdsp\" uuid=\"$JDSP_UUID\" type=\"$JDSP_TYPE\"/>" '
-/jamesdsp/ || /name="jdsp"/ { next }
-{ print }
-/<libraries>/ && !lib_done { print lib; lib_done = 1 }
-/<effects>/ && !effect_done { print effect; effect_done = 1 }
-' "$xml" >"$tmp" || late_block vendor_config_patch_failed
-	mv -f "$tmp" "$xml" || late_block vendor_config_patch_failed
+	/<!--/ { comment=1 }
+	comment { print; if (/-->/) comment=0; next }
+	/^[[:space:]]*<library[[:space:]][^>]*name="jdsp"/ { next }
+	/^[[:space:]]*<effect[[:space:]][^>]*name="jamesdsp"/ { next }
+	{ print }
+	/<libraries>/ && !lib_done { print lib; lib_done = 1 }
+	/<effects>/ && !effect_done { print effect; effect_done = 1 }
+	END { if (!lib_done || !effect_done) exit 2 }
+	' "$xml" >"$xml_tmp" || late_block vendor_config_patch_failed
+	mv -f "$xml_tmp" "$xml" || late_block vendor_config_patch_failed
 	grep -qi "$JDSP_UUID" "$xml" || late_block vendor_config_patch_failed
-	grep -qi "$XML_UUID_ANCHOR" "$xml" || \
-		late_block vendor_config_xml_anchor_lost
+	grep -qi 'name="jdsp"' "$xml" || late_block vendor_config_patch_failed
+	if [ "$profile" = mustang ]; then
+		grep -qi "$XML_UUID_ANCHOR" "$xml" || \
+			late_block vendor_config_xml_anchor_lost
+	fi
 }
 
+module_path_for_config() {
+	logical="$1"
+	if [ -n "${JDSP_FS_ROOT:-}" ]; then
+		case "$logical" in
+			"$JDSP_FS_ROOT"/*) logical="/${logical#"$JDSP_FS_ROOT"/}" ;;
+		esac
+	fi
+	case "$logical" in
+		/vendor/*) printf '%s/%s\n' "$MOD_VENDOR" "${logical#/vendor/}" ;;
+		/odm/*) printf '%s/%s\n' "$MOD_ODM" "${logical#/odm/}" ;;
+		/system_ext/*) printf '%s/system_ext/%s\n' "$MODPATH/system" "${logical#/system_ext/}" ;;
+		/product/*) printf '%s/product/%s\n' "$MODPATH/system" "${logical#/product/}" ;;
+		/system/*) printf '%s/%s\n' "$MODPATH/system" "${logical#/system/}" ;;
+		*) return 1 ;;
+	esac
+}
+
+logical_config_path() {
+	logical="$1"
+	if [ -n "${JDSP_FS_ROOT:-}" ]; then
+		case "$logical" in
+			"$JDSP_FS_ROOT"/*) logical="/${logical#"$JDSP_FS_ROOT"/}" ;;
+		esac
+	fi
+	printf '%s\n' "$logical"
+}
+
+is_native_aidl_xml() {
+	[ -f "$1" ] || return 1
+	case "$1" in *audio_effects_config.xml) ;; *) return 1 ;; esac
+	# Bounded line-oriented XML validation, not a general XML parser. Unsupported
+	# constructs are rejected before touching the mountable destination.
+	awk '
+	function attr(t, key, v) {
+		if (!match(t, "[[:space:]]" key "=\"[^\"]*\"")) return ""
+		v=substr(t, RSTART, RLENGTH); sub(/^[^=]*="/, "", v); sub(/"$/, "", v); return v
+	}
+	{
+		line=$0; sub(/^[[:space:]]*/, "", line); sub(/[[:space:]]*$/, "", line)
+		if (comment) { if (line ~ /-->/) { if (line !~ /-->$/) exit 1; comment=0 }; next }
+		if (line ~ /^<!--/) { if (line ~ /-->/) { if (line !~ /-->$/) exit 1 } else comment=1; next }
+		if (!length(line)) next
+		if (line ~ /^<\?xml[^<>]*\?>$/) { if (roots || depth) exit 1; next }
+		if (line !~ /^<[^<>]*>$/) exit 1
+		tag=line; closing=(tag ~ /^<\//); empty=(tag ~ /\/>$/)
+		sub(/^<\/?/, "", tag); sub(/[[:space:]\/>].*$/, "", tag)
+		if (tag !~ /^[A-Za-z_][A-Za-z0-9_.:-]*$/) exit 1
+		if (closing) {
+			if (line != "</" tag ">" || depth < 1 || stack[depth] != tag) exit 1
+			depth--; if (!depth) closed=1; next
+		}
+		if (closed) exit 1
+		if (!depth) { if (tag != "audio_effects_conf" || empty || ++roots != 1) exit 1 }
+		if (tag == "libraries" || tag == "effects") {
+			if (depth != 1 || empty || line != "<" tag ">") exit 1
+			if (tag == "libraries") libraries++; else effects++
+		}
+		if (tag == "library") {
+			if (stack[depth] != "libraries" || !empty) exit 1
+			name=attr(line,"name"); path=attr(line,"path")
+			if (!length(name) || !length(path) || libs[name]++) exit 1
+		}
+		if (tag == "effect") {
+			if (stack[depth] != "effects" || !empty) exit 1
+			name=attr(line,"name"); lib=attr(line,"library")
+			if (!length(name) || !length(lib) || !length(attr(line,"uuid")) || !libs[lib] || fx[name]++) exit 1
+		}
+		if (!empty) stack[++depth]=tag
+	}
+	END { if (comment || depth || roots != 1 || !closed || libraries != 1 || effects != 1) exit 1 }
+	' "$1"
+}
+
+prepare_one_portable_config() {
+	src="$1"
+	is_native_aidl_xml "$src" || late_block native_vendor_config_unsupported
+	dst=$(module_path_for_config "$src") || late_block native_vendor_config_path_unsupported
+	mkdir -p "${dst%/*}" || late_block vendor_config_copy_failed
+	tmp="$dst.tmp.$$"
+	cp -f "$src" "$tmp" || late_block vendor_config_copy_failed
+	patch_jdsp_vendor_xml "$tmp" portable
+	mv -f "$tmp" "$dst" || late_block vendor_config_copy_failed
+	logical=$(logical_config_path "$src")
+	printf 'native_config_candidate=%s not_proven_factory_path=1\nprepared_config_1=%s -> %s\n' "$logical" "$logical" "$dst" \
+		>>"$LOGDIR/late-load-context.txt"
+	JDSP_PREPARED_CONFIG_DST="$dst"
+	vendor_config_source="portable_native_aidl_config:$logical"
+}
+
+reject_unvalidated_portable_payloads() {
+	unexpected=""
+	for file in $(find "$MODPATH/system" "$MOD_VENDOR" "$MOD_ODM" -type f \( -name "*audio_effects*.xml" -o -name "*audio_effects*.conf" \) 2>/dev/null); do
+		[ "$file" = "$JDSP_PREPARED_CONFIG_DST" ] && continue
+		case " $unexpected " in *" $file "*) continue ;; esac
+		unexpected="$unexpected $file"
+	done
+	if [ -n "$unexpected" ]; then
+		printf 'unvalidated_config_payloads=%s\n' "$unexpected" \
+			>>"$LOGDIR/late-load-context.txt"
+		late_block portable_unvalidated_config_payload
+	fi
+}
+
+prepare_portable_native_configs() {
+	roots=${JDSP_CONFIG_ROOTS:-/vendor/etc /odm/etc /system/etc /product/etc /system_ext/etc}
+	if [ -f "$SOURCE_VENDOR_CONFIG" ]; then
+		prepare_one_portable_config "$SOURCE_VENDOR_CONFIG"
+		return
+	fi
+	canonical=""
+	candidates=""
+	for root in $roots; do
+		[ -d "$root" ] || continue
+		if [ -f "$root/audio_effects_config.xml" ]; then
+			logical=$(logical_config_path "$root/audio_effects_config.xml")
+			if [ "$logical" = /vendor/etc/audio_effects_config.xml ]; then
+				canonical="$root/audio_effects_config.xml"
+			fi
+			candidates="$candidates $root/audio_effects_config.xml"
+		fi
+		for file in "$root"/audio/*audio_effects_config.xml "$root"/audio/sku_*/*audio_effects_config.xml "$root"/sku_*/*audio_effects_config.xml; do
+			[ -f "$file" ] || continue
+			candidates="$candidates $file"
+		done
+	done
+	if [ -n "$canonical" ]; then
+		prepare_one_portable_config "$canonical"
+		return
+	fi
+	valid=""
+	count=0
+	for src in $candidates; do
+		is_native_aidl_xml "$src" || continue
+		valid="$valid $(logical_config_path "$src")"
+		selected="$src"
+		count=$((count + 1))
+	done
+	printf 'portable_candidate_count=%s%s\n' "$count" "$valid" \
+		>>"$LOGDIR/late-load-context.txt"
+	[ "$count" -gt 0 ] || late_block native_vendor_config_missing
+	[ "$count" -eq 1 ] || late_block native_vendor_config_ambiguous
+	prepare_one_portable_config "$selected"
+}
 legacy_xml_to_aidl_config() {
 	src="$1"
 	dst="$2"
@@ -87,40 +307,52 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 	# module tree. Prepare the systemless files here, then let the overlay
 	# mount. Multiple KernelSU callbacks must not update shared module files
 	# concurrently; the lock is released automatically when this script exits.
-	[ -x "$FLOCK_BIN" ] || late_block late_load_lock_unavailable
+	JDSP_PROFILE=$(detect_jdsp_profile)
+	resolve_flock || late_block late_load_lock_unavailable
 	exec 9>"$LOGDIR/late-load-prepare.lock" || \
 		late_block late_load_lock_open_failed
-	"$FLOCK_BIN" -x 9 || late_block late_load_lock_failed
+	jdsp_lock_fd9 || late_block late_load_lock_failed
 
+	# Remove stale late-stage state only after the lock is held; service.sh and
+	# audio-reload.sh will write fresh state for this exact preparation attempt.
 	rm -f "$MODPATH/skip_mount" "$MODPATH/.late-load-no-effect" \
-		"$MODPATH/.late-load-rootless"
+		"$MODPATH/.late-load-rootless" \
+		"$LOGDIR/audio-reload.status" "$LOGDIR/service.status"
 	touch "$MODPATH/.late-load-reload-experimental"
+	write_late_context
 
 	[ -f "$MODPATH/.AIDL" ] || late_block aidl_marker_missing
 	[ -f "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" ] || \
 		late_block jamesdsp_lib_missing
 	mkdir -p "$MOD_VENDOR/etc"
-	if [ -f "$SOURCE_VENDOR_CONFIG" ]; then
-		tmp="$MOD_VENDOR/etc/audio_effects_config.xml.tmp.$$"
-		cp -f "$SOURCE_VENDOR_CONFIG" "$tmp" || \
-			late_block vendor_config_copy_failed
-		mv -f "$tmp" "$MOD_VENDOR/etc/audio_effects_config.xml" || \
-			late_block vendor_config_copy_failed
-		vendor_config_source=patched_from_live_vendor
+	if [ "$JDSP_PROFILE" = mustang ]; then
+		if [ -f "$SOURCE_VENDOR_CONFIG" ]; then
+			tmp="$MOD_VENDOR/etc/audio_effects_config.xml.tmp.$$"
+			cp -f "$SOURCE_VENDOR_CONFIG" "$tmp" || \
+				late_block vendor_config_copy_failed
+			mv -f "$tmp" "$MOD_VENDOR/etc/audio_effects_config.xml" || \
+				late_block vendor_config_copy_failed
+			vendor_config_source=patched_from_live_vendor
+		else
+			legacy_xml_to_aidl_config "$SOURCE_LEGACY_CONFIG" \
+				"$MOD_VENDOR/etc/audio_effects_config.xml"
+			vendor_config_source=generated_from_system_legacy
+		fi
+		patch_jdsp_vendor_xml "$MOD_VENDOR/etc/audio_effects_config.xml" mustang
+		grep -q 'path="libaudiopreprocessing.so"' \
+			"$MOD_VENDOR/etc/audio_effects_config.xml" && \
+			late_block system_legacy_preprocessing_not_removed
 	else
-		legacy_xml_to_aidl_config "$SOURCE_LEGACY_CONFIG" \
-			"$MOD_VENDOR/etc/audio_effects_config.xml"
-		vendor_config_source=generated_from_system_legacy
+		prepare_portable_native_configs
+		reject_unvalidated_portable_payloads
 	fi
-	patch_jdsp_vendor_xml "$MOD_VENDOR/etc/audio_effects_config.xml"
-	grep -q 'path="libaudiopreprocessing.so"' \
-		"$MOD_VENDOR/etc/audio_effects_config.xml" && \
-		late_block system_legacy_preprocessing_not_removed
 
 	AIDL=true
+	JDSP_COMPAT_PROFILE="$JDSP_PROFILE"
+	export JDSP_COMPAT_PROFILE
 	if [ -f "$MODPATH/patch.sh" ]; then
-		# Patch AIDL NDK SONAMEs to the live firmware before the library is
-		# mounted into /vendor/lib64/soundfx.
+		# Mustang keeps the validated Android 17 SONAME adaptation. Portable
+		# devices default to exact linker validation unless explicitly opted in.
 		. "$MODPATH/patch.sh" >"$LOGDIR/late-load-patch.log" 2>&1 || \
 			late_block patchelf_failed
 	fi
