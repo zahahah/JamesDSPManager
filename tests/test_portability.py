@@ -310,6 +310,53 @@ class PortabilityTests(unittest.TestCase):
             self.assertIn("prepared_config=/vendor/etc/audio/sku_alor/audio_effects_config.xml", context)
             self.assertIn("prepared_config=/vendor/etc/audio/sku_canoe/audio_effects_config.xml", context)
 
+    def test_samsung_h8q_patches_valid_sec_and_stub_aidl_configs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_module(tmp)
+            fs_root = module / "device-root"
+            paths = (
+                fs_root / "vendor/etc/audio/sku_alor/audio_effects_config.xml",
+                fs_root / "vendor/etc/audio/sku_alor/audio_effects_config_stub.xml",
+                fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config.xml",
+                fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config_stub.xml",
+                fs_root / "vendor/etc/audio_effects_config_sec.xml",
+            )
+            for path in paths:
+                self.write_native_config(path)
+            unsupported = fs_root / "vendor/etc/audio_effects_config_legacy.xml"
+            unsupported.parent.mkdir(parents=True, exist_ok=True)
+            unsupported.write_text("<audio_effects_conf><libraries/></audio_effects_conf>\n")
+
+            result = self.run_post_fs(
+                module,
+                config_roots=[fs_root / "vendor/etc"],
+                fs_root=fs_root,
+                profile="samsung_h8q",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((module / "skip_mount").exists())
+            for source in paths:
+                staged = module / "system/vendor" / source.relative_to(fs_root / "vendor")
+                self.assertIn(JDSP_UUID, staged.read_text())
+            self.assertFalse(
+                (module / "system/vendor/etc/audio_effects_config_legacy.xml").exists()
+            )
+            context = (module / "logs/late-load-context.txt").read_text()
+            self.assertIn("portable_candidate_count=5", context)
+            self.assertIn(
+                "portable_candidate_unsupported=/vendor/etc/audio_effects_config_legacy.xml",
+                context,
+            )
+            self.assertIn(
+                "prepared_config=/vendor/etc/audio_effects_config_sec.xml",
+                context,
+            )
+            self.assertIn(
+                "prepared_config=/vendor/etc/audio/sku_alor/audio_effects_config_stub.xml",
+                context,
+            )
+
     def test_missing_flock_fails_closed_before_preparation(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_module(tmp)

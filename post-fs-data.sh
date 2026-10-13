@@ -157,7 +157,7 @@ logical_config_path() {
 
 is_native_aidl_xml() {
 	[ -f "$1" ] || return 1
-	case "$1" in *audio_effects_config.xml) ;; *) return 1 ;; esac
+	case "$1" in *audio_effects_config*.xml) ;; *) return 1 ;; esac
 	# Bounded line-oriented XML validation, not a general XML parser. Unsupported
 	# constructs are rejected before touching the mountable destination.
 	awk '
@@ -256,25 +256,35 @@ prepare_portable_native_configs() {
 			fi
 			candidates="$candidates $root/audio_effects_config.xml"
 		fi
-		for file in "$root"/audio/*audio_effects_config.xml "$root"/audio/sku_*/*audio_effects_config.xml "$root"/sku_*/*audio_effects_config.xml; do
-			[ -f "$file" ] || continue
-			candidates="$candidates $file"
+		if [ "$JDSP_PROFILE" = samsung_h8q ]; then
+			config_globs='audio_effects_config*.xml'
+		else
+			config_globs='audio_effects_config.xml'
+		fi
+		for pattern in $config_globs; do
+			for file in "$root"/$pattern "$root"/audio/*$pattern "$root"/audio/sku_*/*$pattern "$root"/sku_*/*$pattern; do
+				[ -f "$file" ] || continue
+				case " $candidates " in *" $file "*) continue ;; esac
+				candidates="$candidates $file"
+			done
 		done
 	done
-	if [ -n "$canonical" ]; then
+	if [ -n "$canonical" ] && [ "$JDSP_PROFILE" != samsung_h8q ]; then
 		prepare_one_portable_config "$canonical"
 		return
 	fi
 	valid=""
+	valid_sources=""
 	count=0
 	for src in $candidates; do
 		if is_native_aidl_xml "$src"; then
 			valid="$valid $(logical_config_path "$src")"
+			valid_sources="$valid_sources $src"
 			count=$((count + 1))
 		else
 			printf 'portable_candidate_unsupported=%s\n' \
 				"$(logical_config_path "$src")" >>"$LOGDIR/late-load-context.txt"
-			late_block native_vendor_config_unsupported
+			[ "$JDSP_PROFILE" = samsung_h8q ] || late_block native_vendor_config_unsupported
 		fi
 	done
 	printf 'portable_candidate_count=%s%s\n' "$count" "$valid" \
@@ -286,7 +296,7 @@ prepare_portable_native_configs() {
 	# priority partition so the active SKU has the effect, without copying or
 	# translating configs from unrelated partitions.
 	selected_partition=""
-	for src in $candidates; do
+	for src in $valid_sources; do
 		logical=$(logical_config_path "$src")
 		case "$logical" in
 			/vendor/*) partition=vendor ;;
