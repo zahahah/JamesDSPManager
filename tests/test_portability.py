@@ -230,7 +230,7 @@ class PortabilityTests(unittest.TestCase):
             self.assertTrue((module / "system/vendor/etc/audio_effects_config.xml").exists())
             self.assertFalse((module / "system/odm/etc/audio_effects_config.xml").exists())
 
-    def test_config_roots_with_multiple_fallback_candidates_fails_closed(self):
+    def test_config_roots_selects_highest_priority_partition(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_module(tmp)
             fs_root = module / "device-root"
@@ -244,8 +244,40 @@ class PortabilityTests(unittest.TestCase):
             )
 
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / "skip_mount").exists())
-            self.assertIn("BLOCKED reason=native_vendor_config_ambiguous", (module / "logs/late-load.status").read_text())
+            self.assertFalse((module / "skip_mount").exists())
+            self.assertTrue((module / "system/odm/etc/audio_effects_config.xml").exists())
+            self.assertFalse((module / "system/product/etc/audio_effects_config.xml").exists())
+
+    def test_all_valid_vendor_sku_configs_are_patched_for_active_sku_selection(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_module(tmp)
+            fs_root = module / "device-root"
+            alor = self.write_native_config(
+                fs_root / "vendor/etc/audio/sku_alor/audio_effects_config.xml"
+            )
+            canoe = self.write_native_config(
+                fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config.xml"
+            )
+
+            result = self.run_post_fs(
+                module,
+                config_roots=[fs_root / "vendor/etc"],
+                fs_root=fs_root,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((module / "skip_mount").exists())
+            for source in (alor, canoe):
+                logical_relative = source.relative_to(fs_root / "vendor")
+                staged = module / "system/vendor" / logical_relative
+                patched = staged.read_text()
+                self.assertIn(JDSP_UUID, patched)
+                self.assertIn(STOCK_UUID, patched)
+                self.assertEqual(patched.count('name="jdsp"'), 1)
+            context = (module / "logs/late-load-context.txt").read_text()
+            self.assertIn("portable_candidate_count=2", context)
+            self.assertIn("prepared_config=/vendor/etc/audio/sku_alor/audio_effects_config.xml", context)
+            self.assertIn("prepared_config=/vendor/etc/audio/sku_canoe/audio_effects_config.xml", context)
 
     def test_missing_flock_fails_closed_before_preparation(self):
         with tempfile.TemporaryDirectory() as tmp:

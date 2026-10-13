@@ -550,7 +550,7 @@ fi
             self.assertIn("profile=portable", context)
             self.assertIn("native_config_candidate=/vendor/etc/audio_effects_config.xml", context)
 
-    def test_portable_late_load_fails_closed_on_ambiguous_native_configs(self):
+    def test_portable_late_load_uses_highest_priority_native_config_partition(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             module = self.make_late_load_module(str(root / "module"))
@@ -581,8 +581,10 @@ fi
             )
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / "skip_mount").exists())
-            self.assertEqual((module / "logs/late-load.status").read_text(), "BLOCKED reason=native_vendor_config_ambiguous\n")
+            self.assertFalse((module / "skip_mount").exists())
+            self.assertIn("READY late_load=1", (module / "logs/late-load.status").read_text())
+            self.assertTrue((module / "system/odm/etc/audio_effects_config.xml").exists())
+            self.assertFalse((module / "system/product/etc/audio_effects_config.xml").exists())
 
     def test_portable_audio_reload_does_not_restart_unknown_hal(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -210,16 +210,24 @@ prepare_one_portable_config() {
 	patch_jdsp_vendor_xml "$tmp" portable
 	mv -f "$tmp" "$dst" || late_block vendor_config_copy_failed
 	logical=$(logical_config_path "$src")
-	printf 'native_config_candidate=%s not_proven_factory_path=1\nprepared_config_1=%s -> %s\n' "$logical" "$logical" "$dst" \
+	printf 'native_config_candidate=%s not_proven_factory_path=1\nprepared_config=%s -> %s\n' "$logical" "$logical" "$dst" \
 		>>"$LOGDIR/late-load-context.txt"
-	JDSP_PREPARED_CONFIG_DST="$dst"
+	JDSP_PREPARED_CONFIG_DSTS="${JDSP_PREPARED_CONFIG_DSTS}${JDSP_PREPARED_CONFIG_DSTS:+
+}$dst"
+	if [ -z "$JDSP_PREPARED_CONFIG_FIRST" ]; then
+		JDSP_PREPARED_CONFIG_FIRST=1
+		printf 'prepared_config_1=%s -> %s\n' "$logical" "$dst" \
+			>>"$LOGDIR/late-load-context.txt"
+	fi
 	vendor_config_source="portable_native_aidl_config:$logical"
 }
 
 reject_unvalidated_portable_payloads() {
 	unexpected=""
 	for file in $(find "$MODPATH/system" "$MOD_VENDOR" "$MOD_ODM" -type f \( -name "*audio_effects*.xml" -o -name "*audio_effects*.conf" \) 2>/dev/null); do
-		[ "$file" = "$JDSP_PREPARED_CONFIG_DST" ] && continue
+		if printf '%s\n' "$JDSP_PREPARED_CONFIG_DSTS" | grep -Fqx "$file"; then
+			continue
+		fi
 		case " $unexpected " in *" $file "*) continue ;; esac
 		unexpected="$unexpected $file"
 	done
@@ -259,16 +267,38 @@ prepare_portable_native_configs() {
 	valid=""
 	count=0
 	for src in $candidates; do
-		is_native_aidl_xml "$src" || continue
-		valid="$valid $(logical_config_path "$src")"
-		selected="$src"
-		count=$((count + 1))
+		if is_native_aidl_xml "$src"; then
+			valid="$valid $(logical_config_path "$src")"
+			count=$((count + 1))
+		else
+			printf 'portable_candidate_unsupported=%s\n' \
+				"$(logical_config_path "$src")" >>"$LOGDIR/late-load-context.txt"
+			late_block native_vendor_config_unsupported
+		fi
 	done
 	printf 'portable_candidate_count=%s%s\n' "$count" "$valid" \
 		>>"$LOGDIR/late-load-context.txt"
 	[ "$count" -gt 0 ] || late_block native_vendor_config_missing
-	[ "$count" -eq 1 ] || late_block native_vendor_config_ambiguous
-	prepare_one_portable_config "$selected"
+
+	# SKU directories contain mutually exclusive device configs (Samsung
+	# commonly ships several). Patch each validated variant within the highest
+	# priority partition so the active SKU has the effect, without copying or
+	# translating configs from unrelated partitions.
+	selected_partition=""
+	for src in $candidates; do
+		logical=$(logical_config_path "$src")
+		case "$logical" in
+			/vendor/*) partition=vendor ;;
+			/odm/*) partition=odm ;;
+			/system/*) partition=system ;;
+			/product/*) partition=product ;;
+			/system_ext/*) partition=system_ext ;;
+			*) continue ;;
+		esac
+		if [ -z "$selected_partition" ]; then selected_partition="$partition"; fi
+		[ "$partition" = "$selected_partition" ] || continue
+		prepare_one_portable_config "$src"
+	done
 }
 legacy_xml_to_aidl_config() {
 	src="$1"

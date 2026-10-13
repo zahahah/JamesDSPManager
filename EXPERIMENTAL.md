@@ -4,18 +4,19 @@ This ZIP is an experimental late-load diagnostic build. It keeps the validated
 Mustang path intact, but unknown devices use conservative native AIDL config
 preparation and do not restart the Audio HAL automatically.
 
-The version is `v6.5.9-test1-portability`, not the stable v6.5.9 release.
+The version is `v6.5.9-test2-portability`, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable `dist/JamesDSPManager-v6.5.9.zip` remains the published artifact.
 
 Portable preparation prefers the existing vendor `audio_effects_config.xml`,
-or a unique supported candidate in vendor, ODM, system, product, system_ext or
-SKU directories. It does not prove which file the factory actually reads.
+or validated candidates from the highest-priority available partition. For
+multiple SKU configs in that partition, it patches each SKU variant. It does
+not prove which file the factory actually reads.
 It supports conservative line-oriented XML with double-quoted effect/library
 attributes, one tag per line, and self-closing library/effect entries. Inline,
-multiline or otherwise unsupported XML, ambiguous fallback candidates, and
-unvalidated staged audio configuration payloads are blocked rather than guessed.
+multiline or otherwise unsupported XML and unvalidated staged audio
+configuration payloads are blocked rather than guessed.
 No legacy-to-AIDL translation or speculative SONAME substitution is performed
 for unknown late-load firmware. Early boot retains its historical path.
 
