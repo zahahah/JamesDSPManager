@@ -4,6 +4,7 @@ MODPATH=${0%/*}
 LOGDIR="$MODPATH/logs"
 STATUS="$LOGDIR/audio-reload.status"
 BOOT_GUARD="$LOGDIR/audio-reload.boot-id"
+SAMSUNG_BOOT_GUARD="$LOGDIR/audio-reload.samsung-boot-id"
 DUMP_BEFORE="$LOGDIR/audio-reload-before.txt"
 DUMP_AFTER="$LOGDIR/audio-reload-after.txt"
 JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
@@ -72,6 +73,7 @@ detect_reload_profile() {
 	fi
 	case "$device" in
 		mustang) printf 'mustang\n' ;;
+		h8q) printf 'samsung_h8q\n' ;;
 		*) printf 'portable\n' ;;
 	esac
 }
@@ -123,6 +125,81 @@ alive() {
 	[ -n "$1" ] && [ -d "$PROC_ROOT/$1" ]
 }
 
+init_service_pid() {
+	"$GETPROP_BIN" "init.svc_debug_pid.$1" 2>/dev/null | tr -d '[:space:]'
+}
+
+samsung_h8q_refresh() {
+	service_name=${JDSP_SAMSUNG_AUDIO_HAL_INIT_SERVICE:-vendor.audio-hal-aidl}
+	boot_id=$(cat "$BOOT_ID_FILE" 2>/dev/null || printf unknown)
+	service_state=$("$GETPROP_BIN" "init.svc.$service_name" 2>/dev/null)
+	[ "$service_state" = running ] || \
+		portable_status "BLOCKED reason=samsung_audio_hal_service_not_running profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
+	before_service=$(init_service_pid "$service_name")
+	before_audio=$("$PIDOF_BIN" audioserver 2>/dev/null | awk '{print $1}')
+	alive "$before_service" || \
+		portable_status "BLOCKED reason=samsung_audio_hal_pid_missing profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
+	alive "$before_audio" || \
+		portable_status "BLOCKED reason=audioserver_pid_missing_before_restart profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
+	if [ -f "$SAMSUNG_BOOT_GUARD" ] && [ "$(sed -n '1p' "$SAMSUNG_BOOT_GUARD")" = "$boot_id" ]; then
+		portable_status "BLOCKED reason=samsung_refresh_already_attempted_this_boot profile=$JDSP_PROFILE restart=not_attempted service=$service_name"
+	fi
+	before_effect_count=$(factory_effect_count)
+	case "$before_effect_count" in ''|*[!0-9]*)
+		portable_status "BLOCKED reason=samsung_factory_effect_count_unavailable profile=$JDSP_PROFILE restart=not_attempted service=$service_name" ;;
+	esac
+	{
+		printf 'profile=%s\nboot_id=%s\ninit_service=%s\nbefore_hal_pid=%s\nbefore_audioserver_pid=%s\nbefore_effects=%s\n' \
+			"$JDSP_PROFILE" "$boot_id" "$service_name" "$before_service" "$before_audio" "$before_effect_count"
+		"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|jdsp|f27317f4|f98765f4|UUID:' | head -120
+	} >"$DUMP_BEFORE" 2>&1
+	printf '%s\n' "$boot_id" >"$SAMSUNG_BOOT_GUARD"
+	"$SETPROP_BIN" ctl.restart "$service_name"
+
+	new_service=''
+	new_audio=''
+	waited=0
+	while [ "$waited" -lt 25 ]; do
+		candidate=$(init_service_pid "$service_name")
+		audio_candidate=$("$PIDOF_BIN" audioserver 2>/dev/null | awk '{print $1}')
+		if [ -n "$candidate" ] && [ "$candidate" != "$before_service" ] && alive "$candidate" && \
+			[ -n "$audio_candidate" ] && [ "$audio_candidate" != "$before_audio" ] && alive "$audio_candidate"; then
+			new_service=$candidate
+			new_audio=$audio_candidate
+			break
+		fi
+		waited=$((waited + 1))
+		"$SLEEP_BIN" 1
+	done
+	[ -n "$new_service" ] || \
+		portable_status "BLOCKED reason=samsung_hal_restart_or_audioserver_refresh_timeout profile=$JDSP_PROFILE restart=attempted service=$service_name before_hal=$before_service before_audioserver=$before_audio"
+
+	waited=0
+	while [ "$waited" -lt 10 ]; do
+		contains_jdsp && break
+		waited=$((waited + 1))
+		"$SLEEP_BIN" 1
+	done
+	{
+		printf 'after_hal_pid=%s\nafter_audioserver_pid=%s\n' "$new_service" "$new_audio"
+		"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|jdsp|f27317f4|f98765f4|UUID:' | head -160
+	} >"$DUMP_AFTER" 2>&1
+	contains_jdsp || \
+		portable_status "BLOCKED reason=samsung_factory_still_missing_jamesdsp profile=$JDSP_PROFILE restart=once service=$service_name before_hal=$before_service after_hal=$new_service before_audioserver=$before_audio after_audioserver=$new_audio"
+	after_effect_count=$(factory_effect_count)
+	case "$after_effect_count" in ''|*[!0-9]*)
+		portable_status "BLOCKED reason=samsung_factory_effect_count_unavailable_after_refresh profile=$JDSP_PROFILE restart=once service=$service_name" ;;
+	esac
+	[ "$after_effect_count" -ge "$before_effect_count" ] || \
+		portable_status "BLOCKED reason=samsung_factory_effect_count_decreased profile=$JDSP_PROFILE restart=once service=$service_name before_effects=$before_effect_count after_effects=$after_effect_count"
+	"$SLEEP_BIN" 2
+	[ "$(init_service_pid "$service_name")" = "$new_service" ] && alive "$new_service" || \
+		portable_status "BLOCKED reason=samsung_hal_unstable_after_refresh profile=$JDSP_PROFILE restart=once service=$service_name"
+	[ "$("$PIDOF_BIN" audioserver 2>/dev/null | awk '{print $1}')" = "$new_audio" ] && alive "$new_audio" || \
+		portable_status "BLOCKED reason=audioserver_unstable_after_refresh profile=$JDSP_PROFILE restart=once service=$service_name"
+	portable_status "READY reason=target_loaded profile=$JDSP_PROFILE restart=once service=$service_name before_hal=$before_service after_hal=$new_service before_audioserver=$before_audio after_audioserver=$new_audio before_effects=$before_effect_count after_effects=$after_effect_count"
+}
+
 [ "${KSU_LATE_LOAD:-0}" = 1 ] || status 'SKIPPED reason=not_late_load'
 [ -f "$MODPATH/.late-load-reload-experimental" ] || \
 	status 'SKIPPED reason=experimental_marker_missing'
@@ -144,6 +221,7 @@ if [ "$JDSP_PROFILE" != mustang ]; then
 	fi
 	contains_jdsp && \
 		portable_status "READY reason=target_already_loaded profile=$JDSP_PROFILE restart=not_needed xml=$portable_xml"
+	[ "$JDSP_PROFILE" = samsung_h8q ] && samsung_h8q_refresh
 	portable_status "BLOCKED reason=default_factory_needs_device_specific_refresh profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
 fi
 

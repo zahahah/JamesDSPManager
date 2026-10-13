@@ -100,6 +100,37 @@ class PortabilityTests(unittest.TestCase):
             self.assertIn(STOCK_UUID, patched)
             self.assertIn("READY late_load=1", (module / "logs/late-load.status").read_text())
 
+    def test_h8q_device_uses_targeted_samsung_profile(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_module(tmp)
+            fs_root = module / "device-root"
+            vendor = self.write_rooted_vendor_config(fs_root)
+            getprop = mock_executable(module / "getprop", "echo h8q\n")
+            linker = mock_executable(module / "linker", "exit 0\n")
+            env = {
+                **os.environ,
+                "KSU_LATE_LOAD": "1",
+                "JDSP_GETPROP_BIN": str(getprop),
+                "JDSP_LINKER_BIN": str(linker),
+                "JDSP_FLOCK_BIN": str(module / "flock"),
+                "JDSP_SOURCE_VENDOR_CONFIG": str(vendor),
+                "JDSP_FS_ROOT": str(fs_root),
+            }
+
+            result = subprocess.run(
+                ["sh", str(module / "post-fs-data.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn(
+                "profile=samsung_h8q",
+                (module / "logs/late-load.status").read_text(),
+            )
+
     def test_portable_inline_native_config_fails_closed_without_staging_output(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_module(tmp)
@@ -519,6 +550,97 @@ exit 7
             status = (module / "logs/audio-reload.status").read_text()
             self.assertIn("READY reason=target_already_loaded", status)
             self.assertIn("restart=not_needed", status)
+
+    def test_samsung_h8q_refresh_restarts_confirmed_hal_and_waits_for_audioserver_cache(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module = root / "module"
+            logs = module / "logs"
+            mocks = root / "mocks"
+            proc = root / "proc"
+            module.mkdir()
+            logs.mkdir()
+            mocks.mkdir()
+            for pid in ("101", "102", "201", "202"):
+                (proc / pid).mkdir(parents=True)
+            shutil.copy2(ROOT / "audio-reload.sh", module / "audio-reload.sh")
+            (module / ".late-load-reload-experimental").touch()
+            xml = root / "audio_effects_config.xml"
+            xml.write_text(f'<effect name="jamesdsp" uuid="{JDSP_UUID}"/>\n')
+            lib = root / "libjamesdsp.so"
+            lib.touch()
+            service_pid = root / "service.pid"
+            service_pid.write_text("101")
+            audio_pid = root / "audio.pid"
+            audio_pid.write_text("102")
+            loaded = root / "loaded"
+            controls = root / "controls"
+            getprop = mock_executable(
+                mocks / "getprop",
+                f'''case "$1" in
+  ro.product.device) echo h8q ;;
+  init.svc.vendor.audio-hal-aidl) echo running ;;
+  init.svc_debug_pid.vendor.audio-hal-aidl) cat "{service_pid}" ;;
+esac
+''',
+            )
+            pidof = mock_executable(
+                mocks / "pidof",
+                f'''if [ "$*" = "-s audioserver" ] || [ "$*" = "audioserver" ]; then cat "{audio_pid}"; fi
+''',
+            )
+            service = mock_executable(mocks / "service", 'echo "Service $2: found"\n')
+            dumpsys = mock_executable(
+                mocks / "dumpsys",
+                f'''if [ -f "{loaded}" ]; then
+  echo 'Effects (22):'
+  echo 'UUID: {JDSP_UUID}'
+else
+  echo 'Effects (21):'
+fi
+''',
+            )
+            setprop = mock_executable(
+                mocks / "setprop",
+                f'''echo "$@" >>"{controls}"
+echo 201 >"{service_pid}"
+echo 202 >"{audio_pid}"
+touch "{loaded}"
+''',
+            )
+            linker = mock_executable(mocks / "linker64", "exit 0\n")
+            sleep = mock_executable(mocks / "sleep", "exit 0\n")
+            boot_id = root / "boot_id"
+            boot_id.write_text("samsung-test-boot")
+            env = {
+                **os.environ,
+                "KSU_LATE_LOAD": "1",
+                "JDSP_COMPAT_PROFILE": "samsung_h8q",
+                "JDSP_EFFECT_XML": str(xml),
+                "JDSP_EFFECT_LIB": str(lib),
+                "JDSP_GETPROP_BIN": str(getprop),
+                "JDSP_PIDOF_BIN": str(pidof),
+                "JDSP_SERVICE_BIN": str(service),
+                "JDSP_DUMPSYS_BIN": str(dumpsys),
+                "JDSP_SETPROP_BIN": str(setprop),
+                "JDSP_LINKER_BIN": str(linker),
+                "JDSP_SLEEP_BIN": str(sleep),
+                "JDSP_BOOT_ID_FILE": str(boot_id),
+                "JDSP_PROC_ROOT": str(proc),
+            }
+            result = subprocess.run(
+                ["sh", str(module / "audio-reload.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(controls.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
+            self.assertIn(
+                "READY reason=target_loaded profile=samsung_h8q restart=once",
+                (logs / "audio-reload.status").read_text(),
+            )
 
 
 if __name__ == "__main__":

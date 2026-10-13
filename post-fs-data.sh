@@ -24,7 +24,7 @@ late_block() {
 
 late_ready() {
 	if [ "${JDSP_PROFILE:-}" != mustang ]; then
-		printf 'READY late_load=1 vendor_config=%s profile=portable lib=exact restart=not_requested\n' "$1" >"$STATUS"
+		printf 'READY late_load=1 vendor_config=%s profile=%s lib=exact restart=not_requested\n' "$1" "$JDSP_PROFILE" >"$STATUS"
 		exit 0
 	fi
 	printf 'READY late_load=1 vendor_config=%s lib=patched restart=service\n' "$1" \
@@ -45,6 +45,7 @@ detect_jdsp_profile() {
 	fi
 	case "$device" in
 		mustang) printf 'mustang\n' ;;
+		h8q) printf 'samsung_h8q\n' ;;
 		*) printf 'portable\n' ;;
 	esac
 }
