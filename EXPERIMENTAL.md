@@ -5,7 +5,7 @@ provided by a tester. It keeps the validated Mustang path intact. Other
 unrecognized devices still use conservative native AIDL config preparation
 and do not restart the Audio HAL automatically.
 
-The version is v6.5.9-test9-samsung-aidl-pin, not the stable v6.5.9 release.
+The version is v6.5.9-test10-samsung-aidl-pin, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable dist/JamesDSPManager-v6.5.9.zip remains the published artifact.
@@ -52,6 +52,13 @@ JamesDSP implementation as libjamesdsp_real.so. The wrapper forwards
 queryEffect, createEffect and destroyEffect without changing descriptors or DSP
 behavior. Mustang and all other profiles continue mounting the original library
 directly.
+Test9 did not reach Magic Mount: the preparation looked for the wrapper below
+the installer's temporary common directory, which is removed after installation,
+and correctly stopped with `samsung_h8q_wrapper_missing`. Test10 stores the
+wrapper under the persistent tools directory instead. On the first h8q
+preparation it atomically preserves the installed original DSO as
+libjamesdsp_real.so before installing the wrapper; later callbacks preserve
+that real DSO rather than copying the wrapper over it.
 It supports conservative line-oriented XML with double-quoted effect/library
 attributes, one tag per line, and self-closing library/effect entries. Inline,
 multiline or otherwise unsupported XML and unvalidated staged audio

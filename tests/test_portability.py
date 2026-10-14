@@ -21,13 +21,12 @@ class PortabilityTests(unittest.TestCase):
         module = pathlib.Path(tmp)
         (module / "system/vendor/lib64/soundfx").mkdir(parents=True)
         (module / "system/etc").mkdir(parents=True)
-        (module / "common/files/aidl").mkdir(parents=True)
+        (module / "tools").mkdir(parents=True)
         (module / "logs").mkdir()
         shutil.copy2(ROOT / "post-fs-data.sh", module / "post-fs-data.sh")
         (module / ".AIDL").touch()
         (module / "system/vendor/lib64/soundfx/libjamesdsp.so").write_text("installed-original")
-        (module / "common/files/aidl/libjamesdsp.so").write_text("real-aidl")
-        (module / "common/files/aidl/libjamesdsp_pinwrap.so").write_text("pin-wrapper")
+        (module / "tools/libjamesdsp_pinwrap.so").write_text("pin-wrapper")
         mock_executable(module / "flock", "exit 0\n")
         return module
 
@@ -389,12 +388,23 @@ class PortabilityTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             libdir = module / "system/vendor/lib64/soundfx"
             self.assertEqual((libdir / "libjamesdsp.so").read_text(), "pin-wrapper")
-            self.assertEqual((libdir / "libjamesdsp_real.so").read_text(), "real-aidl")
+            self.assertEqual((libdir / "libjamesdsp_real.so").read_text(), "installed-original")
             context = (module / "logs/late-load-context.txt").read_text()
             self.assertIn("samsung_h8q_aidl_wrapper=", context)
             self.assertIn("samsung_h8q_aidl_real=", context)
             self.assertIn("libjamesdsp.so", link_log.read_text())
             self.assertIn("libjamesdsp_real.so", link_log.read_text())
+
+            second = self.run_post_fs(
+                module,
+                vendor_config=vendor,
+                fs_root=fs_root,
+                profile="samsung_h8q",
+                linker_body=f'echo "$@" >>"{link_log}"\nexit 0\n',
+            )
+            self.assertEqual(second.returncode, 0, second.stderr)
+            self.assertEqual((libdir / "libjamesdsp.so").read_text(), "pin-wrapper")
+            self.assertEqual((libdir / "libjamesdsp_real.so").read_text(), "installed-original")
 
     def test_missing_flock_fails_closed_before_preparation(self):
         with tempfile.TemporaryDirectory() as tmp:

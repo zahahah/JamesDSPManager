@@ -373,17 +373,24 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 	[ -f "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" ] || \
 		late_block jamesdsp_lib_missing
 	if [ "$JDSP_PROFILE" = samsung_h8q ]; then
-		wrapper="$MODPATH/common/files/aidl/libjamesdsp_pinwrap.so"
-		real="$MODPATH/common/files/aidl/libjamesdsp.so"
+		wrapper="$MODPATH/tools/libjamesdsp_pinwrap.so"
+		installed="$MOD_VENDOR/lib64/soundfx/libjamesdsp.so"
+		real="$MOD_VENDOR/lib64/soundfx/libjamesdsp_real.so"
 		[ -f "$wrapper" ] || late_block samsung_h8q_wrapper_missing
-		[ -f "$real" ] || late_block samsung_h8q_real_lib_missing
-		cp -f "$real" "$MOD_VENDOR/lib64/soundfx/libjamesdsp_real.so" || \
-			late_block samsung_h8q_real_lib_copy_failed
-		cp -f "$wrapper" "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" || \
+		if [ ! -f "$real" ]; then
+			real_tmp="$real.tmp.$$"
+			cp -f "$installed" "$real_tmp" || \
+				late_block samsung_h8q_real_lib_copy_failed
+			mv -f "$real_tmp" "$real" || \
+				late_block samsung_h8q_real_lib_copy_failed
+		fi
+		wrapper_tmp="$installed.tmp.$$"
+		cp -f "$wrapper" "$wrapper_tmp" || \
+			late_block samsung_h8q_wrapper_copy_failed
+		mv -f "$wrapper_tmp" "$installed" || \
 			late_block samsung_h8q_wrapper_copy_failed
 		printf 'samsung_h8q_aidl_wrapper=%s\nsamsung_h8q_aidl_real=%s\n' \
-			"$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" \
-			"$MOD_VENDOR/lib64/soundfx/libjamesdsp_real.so" \
+			"$installed" "$real" \
 			>>"$LOGDIR/late-load-context.txt"
 	fi
 	mkdir -p "$MOD_VENDOR/etc"

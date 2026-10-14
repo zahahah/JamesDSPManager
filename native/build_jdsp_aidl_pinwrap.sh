@@ -2,7 +2,7 @@
 set -eu
 
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-OUT="$ROOT/common/files/aidl/libjamesdsp_pinwrap.so"
+OUT="$ROOT/tools/libjamesdsp_pinwrap.so"
 BUILD=${TMPDIR:-/tmp}/jdsp-aidl-pinwrap.$$
 CC=${CC:-clang}
 STRIP=${STRIP:-llvm-strip}
