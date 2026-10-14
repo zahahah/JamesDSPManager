@@ -372,6 +372,20 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 	[ -f "$MODPATH/.AIDL" ] || late_block aidl_marker_missing
 	[ -f "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" ] || \
 		late_block jamesdsp_lib_missing
+	if [ "$JDSP_PROFILE" = samsung_h8q ]; then
+		wrapper="$MODPATH/common/files/aidl/libjamesdsp_pinwrap.so"
+		real="$MODPATH/common/files/aidl/libjamesdsp.so"
+		[ -f "$wrapper" ] || late_block samsung_h8q_wrapper_missing
+		[ -f "$real" ] || late_block samsung_h8q_real_lib_missing
+		cp -f "$real" "$MOD_VENDOR/lib64/soundfx/libjamesdsp_real.so" || \
+			late_block samsung_h8q_real_lib_copy_failed
+		cp -f "$wrapper" "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" || \
+			late_block samsung_h8q_wrapper_copy_failed
+		printf 'samsung_h8q_aidl_wrapper=%s\nsamsung_h8q_aidl_real=%s\n' \
+			"$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" \
+			"$MOD_VENDOR/lib64/soundfx/libjamesdsp_real.so" \
+			>>"$LOGDIR/late-load-context.txt"
+	fi
 	mkdir -p "$MOD_VENDOR/etc"
 	if [ "$JDSP_PROFILE" = mustang ]; then
 		if [ -f "$SOURCE_VENDOR_CONFIG" ]; then
@@ -409,6 +423,13 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 		"$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" \
 		>"$LOGDIR/late-load-linker.txt" 2>&1; then
 		late_block linker_dependency_resolution_failed
+	fi
+	if [ "$JDSP_PROFILE" = samsung_h8q ]; then
+		if ! "$LINKER_BIN" --list \
+			"$MOD_VENDOR/lib64/soundfx/libjamesdsp_real.so" \
+			>"$LOGDIR/late-load-linker-real.txt" 2>&1; then
+			late_block linker_real_dependency_resolution_failed
+		fi
 	fi
 
 	late_ready "$vendor_config_source"

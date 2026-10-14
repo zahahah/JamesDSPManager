@@ -45,11 +45,12 @@ class ExperimentalPackageTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             with zipfile.ZipFile(output) as archive:
                 props = archive.read("module.prop").decode()
-                self.assertIn("version=v6.5.9-test8-samsung-legacy-name-aidl", props)
-                self.assertIn("versionCode=118", props)
+                self.assertIn("version=v6.5.9-test9-samsung-aidl-pin", props)
+                self.assertIn("versionCode=119", props)
                 self.assertIn("id=ainur_jamesdsp", props)
                 self.assertNotIn("update.json", archive.namelist())
                 self.assertIn("EXPERIMENTAL.md", archive.namelist())
+                self.assertIn("common/files/aidl/libjamesdsp_pinwrap.so", archive.namelist())
                 for name in ("common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"):
                     self.assertEqual(archive.read(name), (ROOT / name).read_bytes())
                 self.assertFalse(any("rootless" in name.lower() for name in archive.namelist()))

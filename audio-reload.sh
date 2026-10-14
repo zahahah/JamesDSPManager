@@ -218,6 +218,11 @@ if [ "$JDSP_PROFILE" != mustang ]; then
 	if ! "$LINKER_BIN" --list "$EFFECT_LIB" >"$LOGDIR/audio-reload-linker.txt" 2>&1; then
 		portable_status "BLOCKED reason=mounted_lib_linker_failed profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
 	fi
+	if [ "$JDSP_PROFILE" = samsung_h8q ] && [ -f /vendor/lib64/soundfx/libjamesdsp_real.so ]; then
+		if ! "$LINKER_BIN" --list /vendor/lib64/soundfx/libjamesdsp_real.so >"$LOGDIR/audio-reload-linker-real.txt" 2>&1; then
+			portable_status "BLOCKED reason=mounted_real_lib_linker_failed profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+		fi
+	fi
 	if ! service_found "$DEFAULT_FACTORY"; then
 		portable_status "BLOCKED reason=default_factory_binder_missing profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
 	fi

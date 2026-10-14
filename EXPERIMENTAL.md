@@ -1,11 +1,11 @@
-# Galaxy h8q late-load refresh test
+# Galaxy h8q AIDL library pin test
 
 This ZIP is an experimental late-load test for the Samsung Galaxy h8q evidence
 provided by a tester. It keeps the validated Mustang path intact. Other
 unrecognized devices still use conservative native AIDL config preparation
 and do not restart the Audio HAL automatically.
 
-The version is v6.5.9-test8-samsung-legacy-name-aidl, not the stable v6.5.9 release.
+The version is v6.5.9-test9-samsung-aidl-pin, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable dist/JamesDSPManager-v6.5.9.zip remains the published artifact.
@@ -40,6 +40,18 @@ considers audio_effects.xml and audio_effects_sec.xml because Samsung may retain
 legacy-looking names for AIDL content. These names are accepted only when the
 document passes structural validation and declares at least one AIDL-suffixed
 effect library. Dedicated haptic and spatializer XMLs remain excluded.
+Test8 and the target-process mount inspection proved that the QTI process which
+hosts IFactory/default sees both the patched XML and the mounted 64-bit library,
+yet it still omits the JamesDSP implementation descriptor. ViPERFX_RE 2.1.1
+works around an Android 17 QTI factory `dlclose` by retaining an extra
+RTLD_NOLOAD reference to its AIDL DSO before returning from queryEffect or
+createEffect. The stock JamesDSP AIDL DSO does not contain that workaround.
+For samsung_h8q only, this build exposes a small ABI-forwarding library as
+libjamesdsp.so, retains it with the same technique, and loads the unchanged
+JamesDSP implementation as libjamesdsp_real.so. The wrapper forwards
+queryEffect, createEffect and destroyEffect without changing descriptors or DSP
+behavior. Mustang and all other profiles continue mounting the original library
+directly.
 It supports conservative line-oriented XML with double-quoted effect/library
 attributes, one tag per line, and self-closing library/effect entries. Inline,
 multiline or otherwise unsupported XML and unvalidated staged audio
@@ -61,8 +73,10 @@ Useful logs after installing/testing:
 - logs/late-load.status
 - logs/late-load-context.txt
 - logs/late-load-linker.txt
+- logs/late-load-linker-real.txt
 - logs/audio-reload.status
 - logs/audio-reload-linker.txt
+- logs/audio-reload-linker-real.txt
 - logs/service.status
 
 READY from module preparation only means config and library staging passed.
@@ -70,7 +84,7 @@ On h8q, audio-reload.status separately reports whether the bounded refresh led
 to factory discovery. A BLOCKED result after the attempt is not evidence of a
 working effect.
 
-This is not a Samsung success claim. The new behavior has not yet been
+This is not a Samsung success claim. The pinning workaround has not yet been
 validated on a Galaxy h8q. Factory discovery, app creation/enabling, audible
 processing, pause/resume, relevant AVCs and unexpected reboots still need
 real-device validation. Installation, exploit repetition, manual mounts,

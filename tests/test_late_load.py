@@ -704,6 +704,7 @@ exit 0
             mocks.mkdir()
             shutil.copy2(ROOT / "patch.sh", module / "patch.sh")
             (libdir / "libjamesdsp.so").touch()
+            (libdir / "libjamesdsp_real.so").touch()
             patchelf_log = root / "patchelf.log"
             mock_executable(
                 tools / "patchelf",
@@ -724,7 +725,9 @@ esac
             }
             result = subprocess.run(["sh", str(module / "patch.sh")], env=env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("--replace-needed android.hardware.audio.effect-V1-ndk.so android.hardware.audio.effect-V9-ndk.so", patchelf_log.read_text())
+            patch_log = patchelf_log.read_text()
+            self.assertIn("--replace-needed android.hardware.audio.effect-V1-ndk.so android.hardware.audio.effect-V9-ndk.so", patch_log)
+            self.assertIn("libjamesdsp_real.so", patch_log)
 
             patchelf_log.unlink()
             env.update({"KSU_LATE_LOAD": "1", "JDSP_COMPAT_PROFILE": "portable"})
