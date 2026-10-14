@@ -5,7 +5,7 @@ provided by a tester. It keeps the validated Mustang path intact. Other
 unrecognized devices still use conservative native AIDL config preparation
 and do not restart the Audio HAL automatically.
 
-The version is v6.5.9-test7-samsung-config-discovery, not the stable v6.5.9 release.
+The version is v6.5.9-test8-samsung-legacy-name-aidl, not the stable v6.5.9 release.
 The module ID and the two signed root APKs are unchanged. No APK was rebuilt
 or resigned, and stable auto-update metadata is excluded from this ZIP.
 The stable dist/JamesDSPManager-v6.5.9.zip remains the published artifact.
@@ -34,6 +34,12 @@ audio_effects_config_stub.xml and audio_effects_config_sec.xml. Only files that
 pass the same bounded native-AIDL XML validation are staged; unsupported
 variants are logged and left untouched. Other portable profiles keep the
 narrow audio_effects_config.xml search.
+Test7 proved that all five config/config_sec/config_stub candidates were staged
+and visible but still not consumed by IFactory/default. On h8q, this build also
+considers audio_effects.xml and audio_effects_sec.xml because Samsung may retain
+legacy-looking names for AIDL content. These names are accepted only when the
+document passes structural validation and declares at least one AIDL-suffixed
+effect library. Dedicated haptic and spatializer XMLs remain excluded.
 It supports conservative line-oriented XML with double-quoted effect/library
 attributes, one tag per line, and self-closing library/effect entries. Inline,
 multiline or otherwise unsupported XML and unvalidated staged audio

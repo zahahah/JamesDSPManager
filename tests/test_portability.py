@@ -310,7 +310,7 @@ class PortabilityTests(unittest.TestCase):
             self.assertIn("prepared_config=/vendor/etc/audio/sku_alor/audio_effects_config.xml", context)
             self.assertIn("prepared_config=/vendor/etc/audio/sku_canoe/audio_effects_config.xml", context)
 
-    def test_samsung_h8q_patches_valid_sec_and_stub_aidl_configs(self):
+    def test_samsung_h8q_patches_valid_named_and_legacy_named_aidl_configs(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_module(tmp)
             fs_root = module / "device-root"
@@ -320,6 +320,8 @@ class PortabilityTests(unittest.TestCase):
                 fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config.xml",
                 fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config_stub.xml",
                 fs_root / "vendor/etc/audio_effects_config_sec.xml",
+                fs_root / "vendor/etc/audio/sku_alor/audio_effects.xml",
+                fs_root / "vendor/etc/audio_effects_sec.xml",
             )
             for path in paths:
                 self.write_native_config(path)
@@ -343,7 +345,7 @@ class PortabilityTests(unittest.TestCase):
                 (module / "system/vendor/etc/audio_effects_config_legacy.xml").exists()
             )
             context = (module / "logs/late-load-context.txt").read_text()
-            self.assertIn("portable_candidate_count=5", context)
+            self.assertIn("portable_candidate_count=7", context)
             self.assertIn(
                 "portable_candidate_unsupported=/vendor/etc/audio_effects_config_legacy.xml",
                 context,
@@ -354,6 +356,14 @@ class PortabilityTests(unittest.TestCase):
             )
             self.assertIn(
                 "prepared_config=/vendor/etc/audio/sku_alor/audio_effects_config_stub.xml",
+                context,
+            )
+            self.assertIn(
+                "prepared_config=/vendor/etc/audio/sku_alor/audio_effects.xml",
+                context,
+            )
+            self.assertIn(
+                "prepared_config=/vendor/etc/audio_effects_sec.xml",
                 context,
             )
 

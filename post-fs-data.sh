@@ -157,7 +157,14 @@ logical_config_path() {
 
 is_native_aidl_xml() {
 	[ -f "$1" ] || return 1
-	case "$1" in *audio_effects_config*.xml) ;; *) return 1 ;; esac
+	case "$1" in
+		*audio_effects_config*.xml) ;;
+		*audio_effects.xml|*audio_effects_sec.xml)
+			# Some Samsung AIDL factories retain legacy-looking file names. Require
+			# an AIDL-suffixed library so legacy wrapper configs stay untouched.
+			grep -Eq 'path="[^"]*aidl[.]so"' "$1" || return 1 ;;
+		*) return 1 ;;
+	esac
 	# Bounded line-oriented XML validation, not a general XML parser. Unsupported
 	# constructs are rejected before touching the mountable destination.
 	awk '
@@ -257,7 +264,7 @@ prepare_portable_native_configs() {
 			candidates="$candidates $root/audio_effects_config.xml"
 		fi
 		if [ "$JDSP_PROFILE" = samsung_h8q ]; then
-			config_globs='audio_effects_config*.xml'
+			config_globs='audio_effects_config*.xml audio_effects.xml audio_effects_sec.xml'
 		else
 			config_globs='audio_effects_config.xml'
 		fi
