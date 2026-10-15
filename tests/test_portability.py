@@ -704,7 +704,7 @@ exit 7
             self.assertIn("READY reason=target_already_loaded", status)
             self.assertIn("restart=not_needed", status)
 
-    def test_samsung_h8q_refresh_restarts_confirmed_hal_and_waits_for_audioserver_cache(self):
+    def test_samsung_h8q_missing_descriptor_collects_diagnostics_without_restart(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             module = root / "module"
@@ -717,6 +717,8 @@ exit 7
             for pid in ("101", "102", "201", "202"):
                 (proc / pid).mkdir(parents=True)
             shutil.copy2(ROOT / "audio-reload.sh", module / "audio-reload.sh")
+            diagnostics = root / "diagnostics"
+            mock_executable(module / "aidl-factory-diagnostics.sh", f'echo called >>"{diagnostics}"\n')
             (module / ".late-load-reload-experimental").touch()
             (module / "module.prop").write_text("versionCode=115\n")
             (logs / "audio-reload.samsung-boot-id").write_text("samsung-test-boot\n114\n")
@@ -795,20 +797,15 @@ touch "{loaded}"
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(controls.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
+            self.assertFalse(controls.exists())
+            self.assertEqual(diagnostics.read_text(), "called\n")
             self.assertIn(
-                "READY reason=target_loaded profile=samsung_h8q restart=once",
+                "BLOCKED reason=samsung_factory_descriptor_missing profile=samsung_h8q restart=not_attempted",
                 (logs / "audio-reload.status").read_text(),
             )
 
-            # Samsung factory dumps may not expose the AOSP-style effect
-            # count. A missing count must not suppress the guarded refresh;
-            # the exact JamesDSP implementation UUID remains the success gate.
-            (logs / "audio-reload.samsung-boot-id").unlink()
-            service_pid.write_text("101")
-            audio_pid.write_text("102")
-            loaded.unlink()
-            controls.write_text("")
+            # A factory dump without a numeric count still must not trigger a
+            # restart or be mistaken for a registered JamesDSP descriptor.
             env["MOCK_NO_EFFECT_COUNT"] = "1"
             result = subprocess.run(
                 ["sh", str(module / "audio-reload.sh")],
@@ -818,10 +815,11 @@ touch "{loaded}"
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(controls.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
+            self.assertFalse(controls.exists())
+            self.assertEqual(diagnostics.read_text(), "called\ncalled\n")
             status = (logs / "audio-reload.status").read_text()
-            self.assertIn("READY reason=target_loaded profile=samsung_h8q restart=once", status)
-            self.assertIn("before_effects=unavailable after_effects=unavailable", status)
+            self.assertIn("BLOCKED reason=samsung_factory_descriptor_missing", status)
+            self.assertIn("restart=not_attempted", status)
 
 
 if __name__ == "__main__":
