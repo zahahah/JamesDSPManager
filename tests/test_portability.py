@@ -369,6 +369,63 @@ class PortabilityTests(unittest.TestCase):
                 context,
             )
 
+    def test_samsung_h8q_promotes_matching_full_sku_config_to_factory_default_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_module(tmp)
+            fs_root = module / "device-root"
+            alor = self.write_native_config(
+                fs_root / "vendor/etc/audio/sku_alor/audio_effects_config.xml"
+            )
+            canoe = self.write_native_config(
+                fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config.xml"
+            )
+
+            result = self.run_post_fs(
+                module,
+                config_roots=[fs_root / "vendor/etc"],
+                fs_root=fs_root,
+                profile="samsung_h8q",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            canonical = module / "system/vendor/etc/audio_effects_config.xml"
+            self.assertTrue(canonical.is_file())
+            self.assertIn(JDSP_UUID, canonical.read_text())
+            self.assertIn(STOCK_UUID, canonical.read_text())
+            for source in (alor, canoe):
+                staged = module / "system/vendor" / source.relative_to(fs_root / "vendor")
+                self.assertIn(JDSP_UUID, staged.read_text())
+            self.assertIn(
+                "samsung_factory_config=/vendor/etc/audio/sku_alor/audio_effects_config.xml -> /vendor/etc/audio_effects_config.xml",
+                (module / "logs/late-load-context.txt").read_text(),
+            )
+
+    def test_samsung_h8q_refuses_ambiguous_full_sku_configs(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_module(tmp)
+            fs_root = module / "device-root"
+            self.write_native_config(
+                fs_root / "vendor/etc/audio/sku_alor/audio_effects_config.xml"
+            )
+            self.write_native_config(
+                fs_root / "vendor/etc/audio/sku_canoe/audio_effects_config.xml",
+                '<effect name="second_stock" library="stock_fx" uuid="22222222-3333-4444-5555-666666666666"/>',
+            )
+
+            result = self.run_post_fs(
+                module,
+                config_roots=[fs_root / "vendor/etc"],
+                fs_root=fs_root,
+                profile="samsung_h8q",
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((module / "skip_mount").exists())
+            self.assertIn(
+                "BLOCKED reason=samsung_factory_canonical_config_ambiguous",
+                (module / "logs/late-load.status").read_text(),
+            )
+
 
     def test_samsung_h8q_stages_pinned_wrapper_and_real_library(self):
         with tempfile.TemporaryDirectory() as tmp:

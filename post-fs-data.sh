@@ -317,6 +317,42 @@ prepare_portable_native_configs() {
 		[ "$partition" = "$selected_partition" ] || continue
 		prepare_one_portable_config "$src"
 	done
+	if [ "$JDSP_PROFILE" = samsung_h8q ] && [ ! -f "$SOURCE_VENDOR_CONFIG" ]; then
+		# Standard AIDL effect factories resolve audio_effects_config.xml by its
+		# canonical partition path. Samsung's SKU XMLs may be visible in the
+		# mount namespace but never consulted by that factory. Only promote a
+		# full SKU config when all discovered full SKU variants are identical;
+		# do not guess across materially different device configurations.
+		canonical_src=""
+		canonical_staged=""
+		for src in $valid_sources; do
+			logical=$(logical_config_path "$src")
+			case "$logical" in
+				/vendor/etc/audio/sku_*/audio_effects_config.xml) ;;
+				*) continue ;;
+			esac
+			staged=$(module_path_for_config "$src") || late_block vendor_config_copy_failed
+			if [ -z "$canonical_src" ]; then
+				canonical_src="$logical"
+				canonical_staged="$staged"
+			elif ! cmp -s "$canonical_staged" "$staged"; then
+				printf 'samsung_canonical_config_variant_mismatch=%s,%s\n' \
+					"$canonical_src" "$logical" >>"$LOGDIR/late-load-context.txt"
+				late_block samsung_factory_canonical_config_ambiguous
+			fi
+		done
+		[ -n "$canonical_staged" ] || late_block samsung_factory_canonical_config_missing
+		canonical_dst="$MOD_VENDOR/etc/audio_effects_config.xml"
+		mkdir -p "${canonical_dst%/*}" || late_block vendor_config_copy_failed
+		canonical_tmp="$canonical_dst.tmp.$$"
+		cp -f "$canonical_staged" "$canonical_tmp" || late_block vendor_config_copy_failed
+		mv -f "$canonical_tmp" "$canonical_dst" || late_block vendor_config_copy_failed
+		JDSP_PREPARED_CONFIG_DSTS="${JDSP_PREPARED_CONFIG_DSTS}${JDSP_PREPARED_CONFIG_DSTS:+
+}$canonical_dst"
+		printf 'samsung_factory_config=%s -> /vendor/etc/audio_effects_config.xml\n' \
+			"$canonical_src" >>"$LOGDIR/late-load-context.txt"
+		vendor_config_source="portable_native_aidl_config:/vendor/etc/audio_effects_config.xml"
+	fi
 }
 legacy_xml_to_aidl_config() {
 	src="$1"
