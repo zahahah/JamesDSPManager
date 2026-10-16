@@ -11,7 +11,7 @@ patch_aidl_dependencies() {
 		[ "${JDSP_COMPAT_PROFILE:-}" = samsung_h8q ]; then
 		PATCH_DEFAULT=0
 		module_version=$(sed -n 's/^versionCode=//p' "$MODPATH/module.prop" 2>/dev/null | head -n 1)
-		[ "$module_version" = 127 ] && \
+		{ [ "$module_version" = 127 ] || [ "$module_version" = 128 ]; } && \
 			[ -f "$MODPATH/.test18-samsung-ndk-retarget" ] && PATCH_DEFAULT=1
 	fi
 	PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-$PATCH_DEFAULT}
