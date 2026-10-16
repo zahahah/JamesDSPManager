@@ -22,6 +22,13 @@ rebuild or re-sign the APK.
 - The one-shot restart is present only in this experimental ZIP. It may
   interrupt audio and has not been validated on-device. It is intentionally not
   enabled by the stable package.
+- The ZIP also carries `common/files/JamesDSPManagerZahah.apk`, a separately
+  signed RootJamesDSP `james.dsp` build (`1.6.14-zahah-samsung-test`, version
+  code 61). It is an optional sidecar for manual testing, not installed or
+  updated automatically; the module leaves any existing app installation
+  untouched. It uses the authorized maintainer certificate and can update the
+  test APK at version code 60 without uninstalling it. SHA-256:
+  `e64c7d5d1ea558e43a76a5321d0b8ae367f83ec86cf175c6964ffc42031694f3`.
 
 ## Logs to return
 

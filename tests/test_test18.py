@@ -45,6 +45,11 @@ class Test18Tests(unittest.TestCase):
                 self.assertIn("versionCode=127", props)
                 self.assertIn(".test18-samsung-viper-refresh", names)
                 self.assertIn(".test18-samsung-ndk-retarget", names)
+                self.assertIn("common/files/JamesDSPManagerZahah.apk", names)
+                self.assertEqual(
+                    archive.read("common/files/JamesDSPManagerZahah.apk"),
+                    (ROOT / "common/files/JamesDSPManagerZahah.apk").read_bytes(),
+                )
                 self.assertIn("real_library_preload_ready", archive.read(
                     "tools/libjamesdsp_pinwrap.so").decode("latin-1"))
                 self.assertIn("test-only", archive.read(

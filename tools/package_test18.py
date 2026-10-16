@@ -17,11 +17,16 @@ OUTPUT = Path(os.environ.get(
     "JDSP_TEST18_PACKAGE_OUTPUT",
     ROOT / "dist/JamesDSPManager-v6.5.9-test18-samsung-viper-method.zip",
 ))
+APP = ROOT / "common/files/JamesDSPManagerZahah.apk"
+APP_SHA256 = "e64c7d5d1ea558e43a76a5321d0b8ae367f83ec86cf175c6964ffc42031694f3"
 
 
 def build(output: Path = OUTPUT) -> str:
     if output.resolve() == (ROOT / "dist/JamesDSPManager-v6.5.9.zip").resolve():
         raise ValueError("Experimental package cannot overwrite the stable release")
+    app = APP.read_bytes()
+    if sha256(app).hexdigest() != APP_SHA256:
+        raise ValueError("Unexpected owner-signed Samsung test app")
 
     with TemporaryDirectory() as tmp:
         baseline = Path(tmp) / "test17.zip"
@@ -50,6 +55,7 @@ def build(output: Path = OUTPUT) -> str:
         payloads[".test18-samsung-viper-refresh"] = b"test-only; one-shot guarded audio HAL refresh\n"
         payloads[".test18-samsung-ndk-retarget"] = b"test-only opt-in for the validated linker adaptation\n"
         payloads["TEST18.md"] = (ROOT / "TEST18.md").read_bytes()
+        payloads["common/files/JamesDSPManagerZahah.apk"] = app
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, "w", compression=ZIP_STORED) as archive:
