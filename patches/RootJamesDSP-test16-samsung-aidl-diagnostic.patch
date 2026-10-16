@@ -1,0 +1,172 @@
+diff --git a/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt b/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt
+index 9a09fed..e0be8dd 100644
+--- a/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt
++++ b/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt
+@@ -4,8 +4,11 @@ import android.content.BroadcastReceiver
+ import android.content.Context
+ import android.content.Intent
+ import android.content.IntentFilter
++import android.os.Build
+ import android.media.audiofx.AudioEffect
+ import android.media.audiofx.AudioEffectHidden
++import android.util.Log
++import me.timschneeberger.rootlessjamesdsp.flavor.RootShellImpl
+ import me.timschneeberger.rootlessjamesdsp.interop.structure.EelVmVariable
+ import me.timschneeberger.rootlessjamesdsp.utils.Constants
+ import me.timschneeberger.rootlessjamesdsp.utils.extensions.AudioEffectExtensions.getParameterInt
+@@ -20,6 +23,7 @@ import me.timschneeberger.rootlessjamesdsp.utils.extensions.crc
+ import me.timschneeberger.rootlessjamesdsp.utils.extensions.toShort
+ import timber.log.Timber
+ import java.util.UUID
++import java.util.concurrent.atomic.AtomicBoolean
+ import kotlin.math.roundToInt
+ 
+ class JamesDspRemoteEngine(
+@@ -298,10 +302,15 @@ class JamesDspRemoteEngine(
+     companion object {
+         private val EFFECT_TYPE_CUSTOM = UUID.fromString("f98765f4-c321-5de6-9a45-123459495ab2")
+         private val EFFECT_JAMESDSP = UUID.fromString("f27317f4-c984-4de6-9a90-545759495bf2")
++        private const val AIDL_DIAG_TAG = "JDSP_AIDL_DIAG"
++        private val aidlDiagnosticAttempted = AtomicBoolean(false)
+ 
+         fun isPluginInstalled(): PluginState {
+-            // 1. Standard API check (Works for HIDL and older devices)
+-            val effects = AudioEffect.queryEffects()
++            runSamsungAidlDiagnosticOnce()
++
++            // Some vendor AIDL factories return null while their descriptor list
++            // is unavailable. A null result must not crash the app.
++            val effects = AudioEffect.queryEffects().orEmpty()
+             for (effect in effects) {
+                 if (effect.uuid == EFFECT_JAMESDSP) {
+                     Timber.d("Plugin detected via standard queryEffects (HIDL)")
+@@ -309,26 +318,103 @@ class JamesDspRemoteEngine(
+                 }
+             }
+ 
+-            // 2. Physical file existence check (Ultimate fallback for AIDL root modules)
+-            // If the system API completely fails to list the effect, we check if Magisk mounted the .so files
+-            val possiblePaths = arrayOf(
++            // The app can have a separate mount namespace from the audio HAL.
++            // Check the app's view first, then check the HAL's own root view via
++            // the root shell instead of treating the app's hidden mount as absent.
++            if (isPluginLibraryPresent()) {
++                Timber.d("JamesDSP library detected in app or audio HAL mount view")
++                return PluginState.Available
++            }
++
++            Timber.e("JamesDSP plugin not found on this device")
++            return PluginState.Unavailable
++        }
++
++        /**
++         * Samsung-only, one-shot probe for the test build. The created effect is
++         * never enabled and is released immediately, so Pixel's normal path and
++         * audio processing remain unchanged.
++         */
++        private fun runSamsungAidlDiagnosticOnce() {
++            if (!Build.MANUFACTURER.equals("samsung", ignoreCase = true)) return
++            if (!aidlDiagnosticAttempted.compareAndSet(false, true)) return
++
++            Log.i(AIDL_DIAG_TAG, "probe_begin manufacturer=${Build.MANUFACTURER} model=${Build.MODEL}")
++            try {
++                val descriptors = AudioEffect.queryEffects()
++                if (descriptors == null) {
++                    Log.i(AIDL_DIAG_TAG, "queryEffects_result=null")
++                } else {
++                    Log.i(AIDL_DIAG_TAG, "queryEffects_result=count:${descriptors.size}")
++                    descriptors.forEach { descriptor ->
++                        Log.i(
++                            AIDL_DIAG_TAG,
++                            "descriptor name=${descriptor.name} type=${descriptor.type} uuid=${descriptor.uuid} implementor=${descriptor.implementor}"
++                        )
++                    }
++                    val found = descriptors.any {
++                        it.uuid == EFFECT_JAMESDSP && it.type == EFFECT_TYPE_CUSTOM
++                    }
++                    Log.i(AIDL_DIAG_TAG, "jamesdsp_descriptor=${if (found) "present" else "absent"}")
++                }
++            } catch (e: Exception) {
++                Log.e(AIDL_DIAG_TAG, "queryEffects_exception=${e.javaClass.name}: ${e.message}", e)
++            }
++
++            var probe: AudioEffectHidden? = null
++            try {
++                probe = AudioEffectHidden(EFFECT_TYPE_CUSTOM, EFFECT_JAMESDSP, 0, 0)
++                Log.i(AIDL_DIAG_TAG, "createEffect_result=success")
++            } catch (e: Exception) {
++                Log.e(AIDL_DIAG_TAG, "createEffect_result=exception:${e.javaClass.name}: ${e.message}", e)
++            } finally {
++                try {
++                    probe?.enabled = false
++                } catch (e: Exception) {
++                    Log.e(AIDL_DIAG_TAG, "probe_disable_exception=${e.javaClass.name}: ${e.message}", e)
++                }
++                try {
++                    if (probe != null) {
++                        probe.release()
++                        Log.i(AIDL_DIAG_TAG, "probe_effect_released=true")
++                    }
++                } catch (e: Exception) {
++                    Log.e(AIDL_DIAG_TAG, "probe_effect_release_exception=${e.javaClass.name}: ${e.message}", e)
++                }
++            }
++            Log.i(AIDL_DIAG_TAG, "probe_end")
++        }
++
++        private val possibleLibraryPaths = listOf(
+                 "/vendor/lib/soundfx/libjamesdsp.so",
+                 "/vendor/lib64/soundfx/libjamesdsp.so",
+                 "/odm/lib/soundfx/libjamesdsp.so",
+                 "/odm/lib64/soundfx/libjamesdsp.so",
+                 "/system/lib/soundfx/libjamesdsp.so",
+                 "/system/lib64/soundfx/libjamesdsp.so"
+-            )
+-
+-            for (path in possiblePaths) {
+-                if (java.io.File(path).exists()) {
+-                    Timber.d("Plugin detected via physical file check at $path (AIDL fallback)")
+-                    return PluginState.Available
+-                }
++        )
++
++        private fun isPluginLibraryPresent(): Boolean {
++            if (possibleLibraryPaths.any { java.io.File(it).isFile }) return true
++
++            val processNames = listOf("audiohalservice.qti", "secaudiohalaidl", "audioserver")
++            val command = """
++                for service in ${processNames.joinToString(" ")}; do
++                  for pid in ${'$'}(pidof ${'$'}service 2>/dev/null); do
++                    for path in ${possibleLibraryPaths.joinToString(" ")}; do
++                      [ -f "/proc/${'$'}pid/root${'$'}path" ] && exit 0
++                    done
++                  done
++                done
++                exit 1
++            """.trimIndent()
++
++            return try {
++                RootShellImpl.cmd(command)
++            } catch (e: Exception) {
++                Timber.w(e, "Unable to inspect audio HAL mount view")
++                false
+             }
+-
+-            Timber.e("JamesDSP plugin not found on this device")
+-            return PluginState.Unavailable
+         }
+     }
+ }
+diff --git a/buildSrc/src/main/kotlin/AndroidConfig.kt b/buildSrc/src/main/kotlin/AndroidConfig.kt
+index e57e3c4..906d954 100644
+--- a/buildSrc/src/main/kotlin/AndroidConfig.kt
++++ b/buildSrc/src/main/kotlin/AndroidConfig.kt
+@@ -5,7 +5,7 @@ object AndroidConfig {
+     const val targetSdk = 34
+ 
+     const val versionName = "1.6.15"
+-    const val versionCode = 55
++    const val versionCode = 60
+ 
+     const val kotlinVersion = "2.1.0"
+     const val kspVersion = "2.1.0-1.0.29"
