@@ -37,6 +37,14 @@ static void jdsp_log(int prio, const char* fmt, const char* value) {
     __android_log_print(prio, LOG_TAG, fmt, value ? value : "(null)");
 }
 
+static void jdsp_log_result(int prio, const char* event, int32_t result) {
+    __android_log_print(prio, LOG_TAG, "event=%s result=%d", event, result);
+}
+
+__attribute__((constructor)) static void jdsp_log_wrapper_loaded(void) {
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "event=wrapper_loaded");
+}
+
 static void pin_self_once(void) {
     if (g_self_pin != NULL) return;
 
@@ -66,11 +74,15 @@ static void* open_real_library(void) {
     for (int i = 0; candidates[i] != NULL; ++i) {
         void* handle = dlopen(candidates[i], RTLD_NOW | RTLD_LOCAL);
         if (handle != NULL) {
-            jdsp_log(ANDROID_LOG_INFO, "Loaded real JamesDSP AIDL library: %s", candidates[i]);
+            __android_log_print(ANDROID_LOG_INFO, LOG_TAG,
+                    "event=real_library_loaded path=%s", candidates[i]);
             return handle;
         }
+        const char* error = dlerror();
+        __android_log_print(ANDROID_LOG_ERROR, LOG_TAG,
+                "event=real_library_open_failed path=%s error=%s",
+                candidates[i], error ? error : "unknown");
     }
-    jdsp_log(ANDROID_LOG_ERROR, "Failed to load real JamesDSP AIDL library: %s", dlerror());
     return NULL;
 }
 
@@ -89,6 +101,11 @@ static int ensure_real_symbols(void) {
     g_query_effect = (jdsp_query_effect_t)dlsym(g_real_handle, "queryEffect");
     g_create_effect = (jdsp_create_effect_t)dlsym(g_real_handle, "createEffect");
     g_destroy_effect = (jdsp_destroy_effect_t)dlsym(g_real_handle, "destroyEffect");
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG,
+            "event=real_symbols_resolved query=%s create=%s destroy=%s",
+            g_query_effect ? "yes" : "no",
+            g_create_effect ? "yes" : "no",
+            g_destroy_effect ? "yes" : "no");
     if (g_query_effect == NULL || g_create_effect == NULL || g_destroy_effect == NULL) {
         jdsp_log(ANDROID_LOG_ERROR, "Missing real JamesDSP AIDL symbol: %s", dlerror());
         return 0;
@@ -97,16 +114,34 @@ static int ensure_real_symbols(void) {
 }
 
 __attribute__((visibility("default"))) int32_t queryEffect(const void* uuid, void* descriptor) {
-    if (!ensure_real_symbols()) return JDSP_BINDER_EX_ILLEGAL_ARGUMENT;
-    return g_query_effect(uuid, descriptor);
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "event=query_effect_entered");
+    if (!ensure_real_symbols()) {
+        jdsp_log_result(ANDROID_LOG_ERROR, "query_effect_unavailable", JDSP_BINDER_EX_ILLEGAL_ARGUMENT);
+        return JDSP_BINDER_EX_ILLEGAL_ARGUMENT;
+    }
+    int32_t result = g_query_effect(uuid, descriptor);
+    jdsp_log_result(ANDROID_LOG_INFO, "query_effect_returned", result);
+    return result;
 }
 
 __attribute__((visibility("default"))) int32_t createEffect(const void* uuid, void* effect) {
-    if (!ensure_real_symbols()) return JDSP_BINDER_EX_ILLEGAL_ARGUMENT;
-    return g_create_effect(uuid, effect);
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "event=create_effect_entered");
+    if (!ensure_real_symbols()) {
+        jdsp_log_result(ANDROID_LOG_ERROR, "create_effect_unavailable", JDSP_BINDER_EX_ILLEGAL_ARGUMENT);
+        return JDSP_BINDER_EX_ILLEGAL_ARGUMENT;
+    }
+    int32_t result = g_create_effect(uuid, effect);
+    jdsp_log_result(ANDROID_LOG_INFO, "create_effect_returned", result);
+    return result;
 }
 
 __attribute__((visibility("default"))) int32_t destroyEffect(const void* effect) {
-    if (!ensure_real_symbols()) return JDSP_BINDER_EX_ILLEGAL_ARGUMENT;
-    return g_destroy_effect(effect);
+    __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "event=destroy_effect_entered");
+    if (!ensure_real_symbols()) {
+        jdsp_log_result(ANDROID_LOG_ERROR, "destroy_effect_unavailable", JDSP_BINDER_EX_ILLEGAL_ARGUMENT);
+        return JDSP_BINDER_EX_ILLEGAL_ARGUMENT;
+    }
+    int32_t result = g_destroy_effect(effect);
+    jdsp_log_result(ANDROID_LOG_INFO, "destroy_effect_returned", result);
+    return result;
 }

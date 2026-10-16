@@ -718,7 +718,8 @@ exit 7
                 (proc / pid).mkdir(parents=True)
             shutil.copy2(ROOT / "audio-reload.sh", module / "audio-reload.sh")
             diagnostics = root / "diagnostics"
-            mock_executable(module / "aidl-factory-diagnostics.sh", f'echo called >>"{diagnostics}"\n')
+            helper = mock_executable(module / "aidl-factory-diagnostics.sh", f'echo called >>"{diagnostics}"\n')
+            helper.chmod(0o644)  # Installer default before explicit permission setup.
             (module / ".late-load-reload-experimental").touch()
             (module / "module.prop").write_text("versionCode=115\n")
             (logs / "audio-reload.samsung-boot-id").write_text("samsung-test-boot\n114\n")
@@ -803,6 +804,7 @@ touch "{loaded}"
                 "BLOCKED reason=samsung_factory_descriptor_missing profile=samsung_h8q restart=not_attempted",
                 (logs / "audio-reload.status").read_text(),
             )
+            self.assertIn("diagnostics=collected", (logs / "audio-reload.status").read_text())
 
             # A factory dump without a numeric count still must not trigger a
             # restart or be mistaken for a registered JamesDSP descriptor.

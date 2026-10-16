@@ -34,9 +34,11 @@ class Test13Tests(unittest.TestCase):
     def test_samsung_missing_descriptor_is_diagnostic_only(self):
         reload_script = (ROOT / "audio-reload.sh").read_text()
         branch = reload_script.split('if [ "$JDSP_PROFILE" = samsung_h8q ]; then')[-1]
-        self.assertIn('"$MODPATH/aidl-factory-diagnostics.sh"', branch)
+        self.assertIn('sh "$MODPATH/aidl-factory-diagnostics.sh"', branch)
         self.assertIn("samsung_factory_descriptor_missing", branch)
         self.assertNotIn("samsung_h8q_refresh", branch.split("\n\tfi\n", 1)[0])
+        self.assertIn('set_perm "$MODPATH/aidl-factory-diagnostics.sh" 0 0 0755',
+                      (ROOT / "customize.sh").read_text())
         diagnostic = (ROOT / "aidl-factory-diagnostics.sh").read_text()
         for unsafe in ("ctl.restart", "mount -", "setprop", "killall"):
             self.assertNotIn(unsafe, diagnostic)

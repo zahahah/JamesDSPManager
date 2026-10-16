@@ -231,8 +231,12 @@ if [ "$JDSP_PROFILE" != mustang ]; then
 	if [ "$JDSP_PROFILE" = samsung_h8q ]; then
 		# The factory has the mounted files but may reject their descriptor.
 		# Capture that distinction without another disruptive audio restart.
-		"$MODPATH/aidl-factory-diagnostics.sh" || :
-		portable_status "BLOCKED reason=samsung_factory_descriptor_missing profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
+		diagnostics=unavailable
+		if [ -f "$MODPATH/aidl-factory-diagnostics.sh" ] &&
+			sh "$MODPATH/aidl-factory-diagnostics.sh"; then
+			diagnostics=collected
+		fi
+		portable_status "BLOCKED reason=samsung_factory_descriptor_missing profile=$JDSP_PROFILE restart=not_attempted diagnostics=$diagnostics xml=$portable_xml"
 	fi
 	portable_status "BLOCKED reason=default_factory_needs_device_specific_refresh profile=$JDSP_PROFILE restart=not_attempted xml=$portable_xml"
 fi
