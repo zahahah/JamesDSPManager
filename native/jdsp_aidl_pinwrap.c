@@ -33,6 +33,8 @@ static jdsp_query_effect_t g_query_effect;
 static jdsp_create_effect_t g_create_effect;
 static jdsp_destroy_effect_t g_destroy_effect;
 
+static int load_real_symbols(void);
+
 static void jdsp_log(int prio, const char* fmt, const char* value) {
     __android_log_print(prio, LOG_TAG, fmt, value ? value : "(null)");
 }
@@ -43,6 +45,14 @@ static void jdsp_log_result(int prio, const char* event, int32_t result) {
 
 __attribute__((constructor)) static void jdsp_log_wrapper_loaded(void) {
     __android_log_print(ANDROID_LOG_INFO, LOG_TAG, "event=wrapper_loaded");
+#ifdef JDSP_EAGER_PRELOAD_REAL
+	/* Test-only: make dlopen/dependency failures visible at factory load time. */
+	if (load_real_symbols()) {
+		__android_log_print(ANDROID_LOG_INFO, LOG_TAG, "event=real_library_preload_ready");
+	} else {
+		__android_log_print(ANDROID_LOG_ERROR, LOG_TAG, "event=real_library_preload_failed");
+	}
+#endif
 }
 
 static void pin_self_once(void) {
@@ -86,8 +96,7 @@ static void* open_real_library(void) {
     return NULL;
 }
 
-static int ensure_real_symbols(void) {
-    pin_self_once();
+static int load_real_symbols(void) {
     if (g_real_handle != NULL && g_query_effect != NULL &&
         g_create_effect != NULL && g_destroy_effect != NULL) {
         return 1;
@@ -111,6 +120,11 @@ static int ensure_real_symbols(void) {
         return 0;
     }
     return 1;
+}
+
+static int ensure_real_symbols(void) {
+	pin_self_once();
+	return load_real_symbols();
 }
 
 __attribute__((visibility("default"))) int32_t queryEffect(const void* uuid, void* descriptor) {

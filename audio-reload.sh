@@ -229,6 +229,12 @@ if [ "$JDSP_PROFILE" != mustang ]; then
 	contains_jdsp && \
 		portable_status "READY reason=target_already_loaded profile=$JDSP_PROFILE restart=not_needed xml=$portable_xml"
 	if [ "$JDSP_PROFILE" = samsung_h8q ]; then
+		# Only the separately packaged test18 experiment carries this marker.
+		# The guarded refresh is never enabled by the stable package.
+		module_version=$(sed -n 's/^versionCode=//p' "$MODPATH/module.prop" 2>/dev/null | head -n 1)
+		if [ "$module_version" = 127 ] && [ -f "$MODPATH/.test18-samsung-viper-refresh" ]; then
+			samsung_h8q_refresh
+		fi
 		# The factory has the mounted files but may reject their descriptor.
 		# Capture that distinction without another disruptive audio restart.
 		diagnostics=unavailable

@@ -31,12 +31,14 @@ class Test13Tests(unittest.TestCase):
             self.assertIn("does not turn", module.__doc__)
             self.assertNotIn("Old text", result)
 
-    def test_samsung_missing_descriptor_is_diagnostic_only(self):
+    def test_samsung_refresh_is_scoped_to_test18_marker_and_version(self):
         reload_script = (ROOT / "audio-reload.sh").read_text()
         branch = reload_script.split('if [ "$JDSP_PROFILE" = samsung_h8q ]; then')[-1]
         self.assertIn('sh "$MODPATH/aidl-factory-diagnostics.sh"', branch)
         self.assertIn("samsung_factory_descriptor_missing", branch)
-        self.assertNotIn("samsung_h8q_refresh", branch.split("\n\tfi\n", 1)[0])
+        self.assertIn('[ "$module_version" = 127 ]', branch)
+        self.assertIn('.test18-samsung-viper-refresh', branch)
+        self.assertIn('samsung_h8q_refresh', branch)
         self.assertIn('set_perm "$MODPATH/aidl-factory-diagnostics.sh" 0 0 0755',
                       (ROOT / "customize.sh").read_text())
         diagnostic = (ROOT / "aidl-factory-diagnostics.sh").read_text()

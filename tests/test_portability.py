@@ -823,6 +823,22 @@ touch "{loaded}"
             self.assertIn("BLOCKED reason=samsung_factory_descriptor_missing", status)
             self.assertIn("restart=not_attempted", status)
 
+            # Only test18's exact module version plus its marker opts into the
+            # bounded Samsung HAL refresh. Earlier builds remain diagnostic-only.
+            (module / "module.prop").write_text("versionCode=127\n")
+            (module / ".test18-samsung-viper-refresh").touch()
+            result = subprocess.run(
+                ["sh", str(module / "audio-reload.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(controls.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
+            status = (logs / "audio-reload.status").read_text()
+            self.assertIn("READY reason=target_loaded profile=samsung_h8q restart=once", status)
+
 
 if __name__ == "__main__":
     unittest.main()

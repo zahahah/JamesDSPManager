@@ -392,6 +392,12 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 	# mount. Multiple KernelSU callbacks must not update shared module files
 	# concurrently; the lock is released automatically when this script exits.
 	JDSP_PROFILE=$(detect_jdsp_profile)
+	# Experimental Samsung builds may capture factory startup before the
+	# descriptor cache is constructed. Stable packages omit this script.
+	if [ "$JDSP_PROFILE" = samsung_h8q ] &&
+		[ -f "$MODPATH/samsung-aidl-early-log.sh" ]; then
+		sh "$MODPATH/samsung-aidl-early-log.sh" >/dev/null 2>&1 &
+	fi
 	resolve_flock || late_block late_load_lock_unavailable
 	exec 9>"$LOGDIR/late-load-prepare.lock" || \
 		late_block late_load_lock_open_failed

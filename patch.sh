@@ -2,14 +2,19 @@
 
 patch_aidl_dependencies() {
 	[ "$AIDL" = true ] || return 0
-	# Preserve historical early-boot adaptation. Portable late-load may retarget
-	# module-local versioned NDK SONAMEs to installed versions; the caller's
-	# linker check remains the fail-closed compatibility gate.
-	if [ "${KSU_LATE_LOAD:-0}" = 1 ] && [ "${JDSP_COMPAT_PROFILE:-}" != mustang ]; then
-		PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-1}
-	else
-		PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-1}
+	# Preserve historical adaptation except for Samsung h8q late-load, where
+	# exact SONAMEs are the safer default. The experimental Samsung test ZIP may
+	# explicitly opt back in with its test-only marker; callers can always
+	# override either default through JDSP_PATCH_AIDL_NDK.
+	PATCH_DEFAULT=1
+	if [ "${KSU_LATE_LOAD:-0}" = 1 ] &&
+		[ "${JDSP_COMPAT_PROFILE:-}" = samsung_h8q ]; then
+		PATCH_DEFAULT=0
+		module_version=$(sed -n 's/^versionCode=//p' "$MODPATH/module.prop" 2>/dev/null | head -n 1)
+		[ "$module_version" = 127 ] && \
+			[ -f "$MODPATH/.test18-samsung-ndk-retarget" ] && PATCH_DEFAULT=1
 	fi
+	PATCH_AIDL_NDK=${JDSP_PATCH_AIDL_NDK:-$PATCH_DEFAULT}
 	[ "$PATCH_AIDL_NDK" = 1 ] || {
 		echo " -- AIDL NDK SONAME patch skipped for profile ${JDSP_COMPAT_PROFILE:-unknown} -- "
 		return 0
