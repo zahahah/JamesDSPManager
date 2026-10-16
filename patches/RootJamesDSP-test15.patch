@@ -1,0 +1,70 @@
+diff --git a/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt b/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt
+index 9a09fed..a7856d6 100644
+--- a/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt
++++ b/app/src/main/java/me/timschneeberger/rootlessjamesdsp/interop/JamesDspRemoteEngine.kt
+@@ -8,0 +9 @@ import android.media.audiofx.AudioEffectHidden
++import me.timschneeberger.rootlessjamesdsp.flavor.RootShellImpl
+@@ -303,2 +304,3 @@ class JamesDspRemoteEngine(
+-            // 1. Standard API check (Works for HIDL and older devices)
+-            val effects = AudioEffect.queryEffects()
++            // Some vendor AIDL factories return null while their descriptor list
++            // is unavailable. A null result must not crash the app.
++            val effects = AudioEffect.queryEffects().orEmpty()
+@@ -312,3 +314,13 @@ class JamesDspRemoteEngine(
+-            // 2. Physical file existence check (Ultimate fallback for AIDL root modules)
+-            // If the system API completely fails to list the effect, we check if Magisk mounted the .so files
+-            val possiblePaths = arrayOf(
++            // The app can have a separate mount namespace from the audio HAL.
++            // Check the app's view first, then check the HAL's own root view via
++            // the root shell instead of treating the app's hidden mount as absent.
++            if (isPluginLibraryPresent()) {
++                Timber.d("JamesDSP library detected in app or audio HAL mount view")
++                return PluginState.Available
++            }
++
++            Timber.e("JamesDSP plugin not found on this device")
++            return PluginState.Unavailable
++        }
++
++        private val possibleLibraryPaths = listOf(
+@@ -321,7 +333,22 @@ class JamesDspRemoteEngine(
+-            )
+-
+-            for (path in possiblePaths) {
+-                if (java.io.File(path).exists()) {
+-                    Timber.d("Plugin detected via physical file check at $path (AIDL fallback)")
+-                    return PluginState.Available
+-                }
++        )
++
++        private fun isPluginLibraryPresent(): Boolean {
++            if (possibleLibraryPaths.any { java.io.File(it).isFile }) return true
++
++            val processNames = listOf("audiohalservice.qti", "secaudiohalaidl", "audioserver")
++            val command = """
++                for service in ${processNames.joinToString(" ")}; do
++                  for pid in ${'$'}(pidof ${'$'}service 2>/dev/null); do
++                    for path in ${possibleLibraryPaths.joinToString(" ")}; do
++                      [ -f "/proc/${'$'}pid/root${'$'}path" ] && exit 0
++                    done
++                  done
++                done
++                exit 1
++            """.trimIndent()
++
++            return try {
++                RootShellImpl.cmd(command)
++            } catch (e: Exception) {
++                Timber.w(e, "Unable to inspect audio HAL mount view")
++                false
+@@ -329,3 +355,0 @@ class JamesDspRemoteEngine(
+-
+-            Timber.e("JamesDSP plugin not found on this device")
+-            return PluginState.Unavailable
+diff --git a/buildSrc/src/main/kotlin/AndroidConfig.kt b/buildSrc/src/main/kotlin/AndroidConfig.kt
+index e57e3c4..88ca2e1 100644
+--- a/buildSrc/src/main/kotlin/AndroidConfig.kt
++++ b/buildSrc/src/main/kotlin/AndroidConfig.kt
+@@ -8 +8 @@ object AndroidConfig {
+-    const val versionCode = 55
++    const val versionCode = 59
