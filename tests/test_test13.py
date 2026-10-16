@@ -38,6 +38,7 @@ class Test13Tests(unittest.TestCase):
         self.assertIn("samsung_factory_descriptor_missing", branch)
         self.assertIn('[ "$module_version" = 127 ]', branch)
         self.assertIn('[ "$module_version" = 128 ]', branch)
+        self.assertIn('[ "$module_version" = 129 ]', branch)
         self.assertIn('.test18-samsung-viper-refresh', branch)
         self.assertIn('samsung_h8q_refresh', branch)
         self.assertIn('set_perm "$MODPATH/aidl-factory-diagnostics.sh" 0 0 0755',

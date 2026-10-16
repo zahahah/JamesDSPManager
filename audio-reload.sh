@@ -232,7 +232,8 @@ if [ "$JDSP_PROFILE" != mustang ]; then
 		# Only the separately packaged test18 experiment carries this marker.
 		# The guarded refresh is never enabled by the stable package.
 		module_version=$(sed -n 's/^versionCode=//p' "$MODPATH/module.prop" 2>/dev/null | head -n 1)
-		if { [ "$module_version" = 127 ] || [ "$module_version" = 128 ]; } && \
+		if { [ "$module_version" = 127 ] || [ "$module_version" = 128 ] || \
+			[ "$module_version" = 129 ]; } && \
 			[ -f "$MODPATH/.test18-samsung-viper-refresh" ]; then
 			samsung_h8q_refresh
 		fi

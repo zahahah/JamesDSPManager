@@ -39,6 +39,7 @@ class Test19Tests(unittest.TestCase):
             source = path.read_text()
             self.assertIn('[ "$module_version" = 127 ]', source)
             self.assertIn('[ "$module_version" = 128 ]', source)
+            self.assertIn('[ "$module_version" = 129 ]', source)
 
 
 if __name__ == "__main__":
