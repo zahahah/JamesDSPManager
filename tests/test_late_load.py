@@ -583,7 +583,7 @@ exit 0
             zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.9.zip"
             env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
             result = subprocess.run(
-                ["python3", str(ROOT / "tools/package_659_mustang_late_load.py")],
+                ["python3", str(ROOT / "tools/package_pixel_test.py")],
                 env=env,
                 capture_output=True,
                 text=True,
