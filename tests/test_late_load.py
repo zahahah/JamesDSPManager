@@ -555,11 +555,27 @@ fi
                 "BLOCKED reason=test_audio_block\n",
             )
 
-    def run_jdsp_app(self, module: pathlib.Path, mocks: pathlib.Path, pm_body: str) -> subprocess.CompletedProcess[str]:
+    def run_jdsp_app(
+        self,
+        module: pathlib.Path,
+        mocks: pathlib.Path,
+        pm_body: str,
+        extra_env: dict[str, str] | None = None,
+    ) -> subprocess.CompletedProcess[str]:
         temp_apk = module / "tmp-install.apk"
         mock_executable(mocks / "getprop", "echo 1\n")
         mock_executable(mocks / "chcon", "exit 0\n")
-        mock_executable(mocks / "pm", pm_body)
+        pm = mock_executable(mocks / "pm", pm_body)
+        cmd = mock_executable(
+            mocks / "cmd",
+            '''case "$1" in
+  package) shift; exec "$MOCK_PACKAGE_MANAGER" "$@" ;;
+  notification) echo "$@" >>"$MOCK_NOTIFICATION_LOG"; exit 0 ;;
+esac
+exit 1
+''',
+        )
+        mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
         return subprocess.run(
             ["sh", str(module / "jdsp_app.sh")],
             env={
@@ -567,32 +583,155 @@ fi
                 "PATH": f"{mocks}:{os.environ['PATH']}",
                 "JDSP_TEMP_INSTALL_PATH": str(temp_apk),
                 "MOCK_PM_LOG": str(module.parent / "pm.log"),
+                "MOCK_INSTALLED_APK_PATH": "",
+                "JDSP_SDCARD_PATH": str(module.parent / "sdcard"),
+                "JDSP_CMD_BIN": str(cmd),
+                "MOCK_PACKAGE_MANAGER": str(pm),
+                "MOCK_NOTIFICATION_LOG": str(module.parent / "notifications.log"),
+                **(extra_env or {}),
             },
             capture_output=True,
             text=True,
             check=False,
         )
 
-    def test_jdsp_app_installer_exits_when_exact_package_is_installed(self):
+    def make_jdsp_package_manager(self, root: pathlib.Path, mode: str) -> str:
+        state = root / "package-installed"
+        state.write_text("installed\n")
+        pm_log = root / "pm.log"
+        return f'''state="{state}"
+echo "$@" >>"{pm_log}"
+case "$1 $2" in
+  "list packages")
+    [ "$(cat "$state")" = installed ] && echo package:james.dsp
+    exit 0
+    ;;
+  "list users") echo 'UserInfo{{0:Owner:13}}'; exit 0 ;;
+  "path james.dsp")
+    [ "$(cat "$state")" = installed ] && [ -n "$MOCK_INSTALLED_APK_PATH" ] && echo "package:$MOCK_INSTALLED_APK_PATH"
+    exit 0
+    ;;
+  "install --user")
+    if [ "{mode}" = mismatch ] && [ "$(cat "$state")" = installed ]; then
+      echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'
+      exit 1
+    fi
+    echo installed >"$state"
+    echo Success
+    exit 0
+    ;;
+  "uninstall --user") echo removed >"$state"; echo Success; exit 0 ;;
+esac
+exit 0
+'''
+
+    def setup_jdsp_app_test(self, root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+        module = root / "module"
+        mocks = root / "mocks"
+        module.mkdir()
+        mocks.mkdir()
+        (module / "logs").mkdir()
+        shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+        (module / "JamesDSPManager.apk").write_text("new apk")
+        return module, mocks
+
+    def run_signature_mismatch_case(self, choice: str) -> tuple[subprocess.CompletedProcess[str], pathlib.Path, pathlib.Path]:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = pathlib.Path(tmp.name)
+        module, mocks = self.setup_jdsp_app_test(root)
+        pm_body = self.make_jdsp_package_manager(root, "mismatch")
+        getevent = mock_executable(mocks / "getevent", f'''case "{choice}" in
+  up) echo '[ 1.0] KEY_VOLUMEUP DOWN'; exit 0 ;;
+  down) echo '[ 1.0] KEY_VOLUMEDOWN DOWN'; exit 0 ;;
+  *) exit 1 ;;
+esac
+''')
+        result = self.run_jdsp_app(
+            module,
+            mocks,
+            pm_body,
+            {
+                "JDSP_GETEVENT_BIN": str(getevent),
+            },
+        )
+        return result, root, module
+
+    def test_jdsp_app_updates_existing_package_in_place_when_signature_matches(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            module = root / "module"
-            mocks = root / "mocks"
-            module.mkdir()
-            mocks.mkdir()
-            (module / "logs").mkdir()
-            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
-            (module / "JamesDSPManager.apk").write_text("apk")
-            pm_body = '''if [ "$1 $2" = "list packages" ]; then
-  echo package:james.dsp
-  exit 0
-fi
-echo "$@" >>"$MOCK_PM_LOG"
-'''
+            module, mocks = self.setup_jdsp_app_test(root)
+            pm_body = self.make_jdsp_package_manager(root, "same")
             result = self.run_jdsp_app(module, mocks, pm_body)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("already installed", (module / "logs/jamesdsp_app_install.log").read_text())
-            self.assertFalse((root / "pm.log").exists())
+            log = (module / "logs/jamesdsp_app_install.log").read_text()
+            self.assertIn("Install result (User 0): Success", log)
+            commands = (root / "pm.log").read_text()
+            self.assertIn("install --user 0 -r -g", commands)
+            self.assertNotIn("uninstall", commands)
+
+    def test_jdsp_app_skips_reinstall_when_installed_apk_already_matches_module(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks = self.setup_jdsp_app_test(root)
+            installed_apk = root / "installed.apk"
+            shutil.copy2(module / "JamesDSPManager.apk", installed_apk)
+            pm_body = self.make_jdsp_package_manager(root, "same")
+            result = self.run_jdsp_app(
+                module,
+                mocks,
+                pm_body,
+                {"MOCK_INSTALLED_APK_PATH": str(installed_apk)},
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("install --user", (root / "pm.log").read_text())
+            self.assertIn("already matches the module payload", (module / "logs/jamesdsp_app_install.log").read_text())
+
+    def test_jdsp_app_keeps_existing_app_and_copies_apk_when_user_declines(self):
+        result, root, module = self.run_signature_mismatch_case("down")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = (root / "pm.log").read_text()
+        self.assertNotIn("uninstall", commands)
+        self.assertEqual((root / "sdcard/Download/JamesDSPManager.apk").read_text(), "new apk")
+        self.assertTrue((module / ".jdsp_apk_signature_declined").exists())
+        self.assertIn("Volume Down selected", (module / "logs/jamesdsp_app_install.log").read_text())
+        self.assertIn("notification post", (root / "notifications.log").read_text())
+
+    def test_jdsp_app_defaults_to_keep_and_copy_when_no_volume_key_is_pressed(self):
+        result, root, module = self.run_signature_mismatch_case("none")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("uninstall", (root / "pm.log").read_text())
+        self.assertEqual((root / "sdcard/Download/JamesDSPManager.apk").read_text(), "new apk")
+        self.assertIn("No volume-key response", (module / "logs/jamesdsp_app_install.log").read_text())
+
+    def test_jdsp_app_replaces_different_signature_only_after_volume_up(self):
+        result, root, module = self.run_signature_mismatch_case("up")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        commands = (root / "pm.log").read_text()
+        self.assertIn("uninstall --user 0 james.dsp", commands)
+        self.assertGreaterEqual(commands.count("install --user 0 -r -g"), 2)
+        self.assertIn("Install after approved removal (User 0): Success", (module / "logs/jamesdsp_app_install.log").read_text())
+
+    def test_jdsp_app_does_not_reprompt_for_the_same_declined_apk_on_next_boot(self):
+        result, root, module = self.run_signature_mismatch_case("down")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        notifications_before = (root / "notifications.log").read_text()
+        mocks = root / "mocks"
+        getevent = mock_executable(mocks / "getevent", 'echo "unexpected prompt" >>"$MOCK_GETEVENT_LOG"; exit 1\n')
+        pm_body = self.make_jdsp_package_manager(root, "mismatch")
+        result = self.run_jdsp_app(
+            module,
+            mocks,
+            pm_body,
+            {
+                "JDSP_GETEVENT_BIN": str(getevent),
+                "MOCK_GETEVENT_LOG": str(root / "getevent.log"),
+            },
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse((root / "getevent.log").exists())
+        self.assertEqual((root / "notifications.log").read_text(), notifications_before)
+        self.assertIn("without prompting again", (module / "logs/jamesdsp_app_install.log").read_text())
 
     def test_jdsp_app_installer_installs_when_only_lookalike_package_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -632,7 +771,7 @@ exit 0
 
     def test_pixel_prerelease_contains_only_root_apks_and_new_boot_config(self):
         with tempfile.TemporaryDirectory() as tmp:
-            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.1.zip"
+            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.2.zip"
             env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
             result = subprocess.run(
                 ["python3", str(ROOT / "tools/package_6510_pixel_aidl.py")],
@@ -650,10 +789,10 @@ exit 0
                 readme = archive.read("README.md").decode("utf-8")
                 self.assertIn("JamesDSP does not depend on PIXAML", readme)
                 self.assertIn("through several soft reboots", readme)
-                self.assertIn("version=v6.5.10-pixel-builtin-aidl-beta.1", archive.read("module.prop").decode("utf-8"))
+                self.assertIn("version=v6.5.10-pixel-builtin-aidl-beta.2", archive.read("module.prop").decode("utf-8"))
                 update = archive.read("update.json").decode("utf-8")
-                self.assertIn('"version": "v6.5.10-pixel-builtin-aidl-beta.1"', update)
-                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.1", update)
+                self.assertIn('"version": "v6.5.10-pixel-builtin-aidl-beta.2"', update)
+                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.2", update)
                 self.assertEqual(
                     {name for name in names if name.endswith(".apk")},
                     {"common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"},
@@ -662,9 +801,13 @@ exit 0
 
     def test_installer_does_not_remove_an_existing_app(self):
         installer = (ROOT / "common/install.sh").read_text()
-        self.assertIn("Existing james.dsp apps stay untouched", installer)
+        app_helper = (ROOT / "jdsp_app.sh").read_text()
+        self.assertIn("install --user", app_helper)
+        self.assertIn("INSTALL_FAILED_UPDATE_INCOMPATIBLE", app_helper)
+        self.assertIn("Volume Up selected", app_helper)
+        self.assertIn("No volume-key response; keeping the existing app by default", app_helper)
+        self.assertIn("copy_apk_to_sdcard", app_helper)
         self.assertNotIn("pm uninstall", installer)
-        self.assertIn("Different signers need manual migration", installer)
 
 
 if __name__ == "__main__":

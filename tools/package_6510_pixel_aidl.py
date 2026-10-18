@@ -11,10 +11,10 @@ import package_659_mustang_late_load as stable
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path(os.environ.get(
     "JDSP_PACKAGE_OUTPUT",
-    ROOT / "dist/JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.1.zip",
+    ROOT / "dist/JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.2.zip",
 ))
-VERSION = "v6.5.10-pixel-builtin-aidl-beta.1"
-VERSION_CODE = 112
+VERSION = "v6.5.10-pixel-builtin-aidl-beta.2"
+VERSION_CODE = 113
 ROOT_APK = "common/files/JamesDSPManagerThePBone.apk"
 ROOT_APK_SHA256 = "70aa92562017856777a9a616ec8b55e8354f0dee093812df53fe2404dd9c24f9"
 PAYLOADS = dict(stable.PAYLOADS)

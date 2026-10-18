@@ -93,8 +93,8 @@ ui_print "- UI installation -"
 ui_print "   Which UI you want to install?"
 ui_print "   Vol Up = Original 9.5, Vol Down = ThePBone 1.6.15"
 ui_print "   APKs use the current maintainer signing key"
-ui_print "   Existing james.dsp apps stay untouched"
-ui_print "   Different signers need manual migration"
+ui_print "   Same-signature apps will be updated on boot"
+ui_print "   Different signatures require volume-key confirmation"
 copy_profile_backup
 if chooseport; then
 	ui_print "   Original version was selected"

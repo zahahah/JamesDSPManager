@@ -2,7 +2,7 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
-## Pixel test pre-release: v6.5.10-pixel-builtin-aidl-beta.1
+## Pixel test build: v6.5.10-pixel-builtin-aidl-beta.2
 
 This test build prepares the AIDL effect-factory config during the regular
 KernelSU boot path, even when `KSU_LATE_LOAD` is unset. The existing late-load
@@ -15,9 +15,24 @@ bundled 1.6.15 app, but the source snapshot is based on local 1.6.14 code. The
 Rootless APK is retained as a repository release artifact only and is not part
 of this root-only module ZIP.
 
-The new regular-boot AIDL config path has host-test coverage but has not yet
-been validated by flashing this prerelease on a device. The current installed
-setup is separate from this change.
+The regular-boot AIDL config path and APK migration flow have host-test
+coverage, but this beta has not yet been flashed or validated on a device.
+
+At boot, the module tries to install the selected `james.dsp` APK with Android's
+normal replace operation. If the existing app has the same signing certificate,
+Android updates it in place and preserves its data. If Android rejects the
+update because the signer differs, the module posts a notification and waits
+30 seconds for a volume-key choice:
+
+- **Volume Up:** remove `james.dsp` for all users, then install the module APK.
+  Removing the old app also removes its app data. Back it up first if you need
+  its presets or settings.
+- **Volume Down or no response:** keep the installed app and copy the new APK to
+  `/sdcard/Download/JamesDSPManager.apk`. No response is treated as **No**.
+
+After a No choice or timeout, that same module APK won't ask again on every
+boot. A changed module APK triggers a new prompt, and removing the old app lets
+the module install the selected APK normally.
 
 ## Stable release: v6.5.9
 
@@ -44,13 +59,11 @@ process instance. There is no restart loop, `killall`, native hook, or write to
 the physical system/vendor partitions. The built-in early-boot path stays
 separate.
 
-The module never removes an installed `james.dsp` app. The installer stages the
-selected APK during flash; the service stage installs it only when the exact
-`james.dsp` package is absent. Existing apps stay untouched, including app
-data. The Original and ThePBone APKs use the maintainer signing key, so Android
-will reject an in-place update from a different signer. If that happens, back
-up presets and app data first, then migrate manually. The ThePBone APK remains
-version 1.6.15, version code 55; only its signature changed.
+Removing the module never removes the installed `james.dsp` app. On module
+boot, matching-signature APKs are updated in place. Different-signature
+migrations require explicit Volume Up confirmation; declining or timing out
+keeps the app and stages the APK in Downloads instead of touching app data.
+The ThePBone APK remains version 1.6.15, version code 56.
 
 ## Build and test
 

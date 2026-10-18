@@ -1,3 +1,15 @@
+### v6.5.10-pixel-builtin-aidl-beta.2
+
+* Update an existing `james.dsp` installation in place when Android accepts
+  the module APK's signing certificate, preserving the app data.
+* If Android reports a signer mismatch, ask through a system notification and
+  wait 30 seconds for Volume Up (remove and replace) or Volume Down (keep).
+* Treat timeout as No by default; keep the existing app, copy the new APK to
+  `/sdcard/Download/JamesDSPManager.apk`, and avoid repeating the prompt for
+  the same module APK on every boot.
+* Host-test both choices, the timeout default, matching-signature update, and
+  the one-time decline behavior. Device validation is still pending.
+
 ### v6.5.10-pixel-builtin-aidl-beta.1
 
 * Prepare the Android AIDL effect-factory config in the regular KernelSU boot
