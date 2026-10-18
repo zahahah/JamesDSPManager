@@ -1,3 +1,16 @@
+### v6.5.10-pixel-builtin-aidl-beta.1
+
+* Prepare the Android AIDL effect-factory config in the regular KernelSU boot
+  path without requiring `KSU_LATE_LOAD`.
+* Keep late-load preparation, locking, linker validation, and reload behavior
+  unchanged.
+* Stage the config and effect through systemless module overlays only.
+* Bundle the Zahah-signed JamesDSP 1.6.15 integration APK (version code 56).
+  The APK is built from the local 1.6.14 source snapshot with the Volume
+  Manager integration, not from upstream 1.6.15 source.
+* Host tests pass; this specific regular-boot package has not yet been flashed
+  on a device.
+
 ### v6.5.9
 
 * JamesDSP works through Android's default effect factory and does not require

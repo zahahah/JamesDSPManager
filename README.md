@@ -2,6 +2,23 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
+## Pixel test pre-release: v6.5.10-pixel-builtin-aidl-beta.1
+
+This test build prepares the AIDL effect-factory config during the regular
+KernelSU boot path, even when `KSU_LATE_LOAD` is unset. The existing late-load
+preparation and reload path remains separate and unchanged. Config files are
+staged through the module overlay, not written to system partitions.
+
+The ZIP includes the Zahah-signed JamesDSP root app v1.6.15 (version code 56)
+with the Volume Manager integration. Its version metadata is aligned with the
+bundled 1.6.15 app, but the source snapshot is based on local 1.6.14 code. The
+Rootless APK is retained as a repository release artifact only and is not part
+of this root-only module ZIP.
+
+The new regular-boot AIDL config path has host-test coverage but has not yet
+been validated by flashing this prerelease on a device. The current installed
+setup is separate from this change.
+
 ## Stable release: v6.5.9
 
 I've tested this release on a Pixel 10 Pro XL (`mustang`) running Android 17,
@@ -41,7 +58,8 @@ Run the host tests and build the release ZIP with:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 tools/package_659_mustang_late_load.py
+python3 tools/package_6510_pixel_aidl.py  # build this Pixel prerelease
+python3 tools/package_659_mustang_late_load.py  # rebuild stable v6.5.9
 ```
 
 For the previous release notes, see [changelog.md](changelog.md).

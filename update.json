@@ -1,6 +1,6 @@
 {
-  "version": "v6.5.9",
-  "versionCode": 111,
-  "zipUrl": "https://github.com/zahahah/JamesDSPManager/releases/download/v6.5.9/JamesDSPManager-v6.5.9.zip",
-  "changelog": "https://raw.githubusercontent.com/zahahah/JamesDSPManager/master/changelog.md"
+  "version": "v6.5.10-pixel-builtin-aidl-beta.1",
+  "versionCode": 112,
+  "zipUrl": "https://github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.1/JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.1.zip",
+  "changelog": "https://github.com/zahahah/JamesDSPManager/releases/tag/v6.5.10-pixel-builtin-aidl-beta.1"
 }

@@ -245,6 +245,58 @@ class LateLoadTests(unittest.TestCase):
             self.assertFalse((module / ".late-load-reload-experimental").exists())
             self.assertFalse((module / "skip_mount").exists())
 
+    def test_builtin_aidl_prepares_factory_config_without_late_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = pathlib.Path(tmp)
+            (module / "system/vendor/lib64/soundfx").mkdir(parents=True)
+            (module / "system/etc").mkdir(parents=True)
+            (module / "logs").mkdir()
+            shutil.copy2(ROOT / "post-fs-data.sh", module / "post-fs-data.sh")
+            (module / ".AIDL").touch()
+            (module / "system/vendor/lib64/soundfx/libjamesdsp.so").touch()
+            (module / "aml.sh").write_text("")
+            (module / "patch.sh").write_text("")
+            legacy = module / "system_audio_effects.xml"
+            legacy.write_text(
+                f'''<audio_effects_conf>
+    <libraries>
+        <library name="bundle" path="libbundlewrapper.so"/>
+        <library name="pre_processing" path="libaudiopreprocessing.so"/>
+    </libraries>
+    <effects>
+        <effect name="equalizer" library="bundle" uuid="{XML_UUID}"/>
+        <effect name="aec" library="pre_processing" uuid="{PIXEL_UUID}"/>
+    </effects>
+</audio_effects_conf>
+'''
+            )
+            env = {
+                **os.environ,
+                "JDSP_COMPAT_PROFILE": "mustang",
+                "JDSP_SOURCE_VENDOR_CONFIG": str(module / "missing_vendor_config.xml"),
+                "JDSP_SOURCE_LEGACY_CONFIG": str(legacy),
+            }
+            result = subprocess.run(
+                ["sh", str(module / "post-fs-data.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
+            self.assertIn('path="libbundleaidl.so"', config)
+            self.assertIn(JDSP_UUID, config)
+            self.assertNotIn("libaudiopreprocessing.so", config)
+            self.assertEqual(
+                (module / "logs/builtin-aidl-config.status").read_text(),
+                "READY mode=builtin source=system_legacy "
+                f"config={module}/system/vendor/etc/audio_effects_config.xml "
+                "systemless=1 reload=not_requested\n",
+            )
+            self.assertFalse((module / ".late-load-reload-experimental").exists())
+            self.assertFalse((module / "skip_mount").exists())
+
     def test_legacy_late_load_entry_point_delegates_to_pre_mount_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
@@ -578,12 +630,12 @@ exit 0
         self.assertIn("pixaml_factory_lost_after_audio_restart", combined)
         self.assertIn("audioserver_pid_missing_after_restart", combined)
 
-    def test_release_contains_only_root_apks_and_reload_script(self):
+    def test_pixel_prerelease_contains_only_root_apks_and_new_boot_config(self):
         with tempfile.TemporaryDirectory() as tmp:
-            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.9.zip"
+            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.1.zip"
             env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
             result = subprocess.run(
-                ["python3", str(ROOT / "tools/package_pixel_test.py")],
+                ["python3", str(ROOT / "tools/package_6510_pixel_aidl.py")],
                 env=env,
                 capture_output=True,
                 text=True,
@@ -594,13 +646,14 @@ exit 0
                 names = archive.namelist()
                 self.assertIn("audio-reload.sh", names)
                 self.assertIn("post-fs-data.sh", names)
+                self.assertIn("prepare_builtin_aidl_config", archive.read("post-fs-data.sh").decode("utf-8"))
                 readme = archive.read("README.md").decode("utf-8")
                 self.assertIn("JamesDSP does not depend on PIXAML", readme)
                 self.assertIn("through several soft reboots", readme)
-                self.assertIn("version=v6.5.9", archive.read("module.prop").decode("utf-8"))
+                self.assertIn("version=v6.5.10-pixel-builtin-aidl-beta.1", archive.read("module.prop").decode("utf-8"))
                 update = archive.read("update.json").decode("utf-8")
-                self.assertIn('"version": "v6.5.9"', update)
-                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.9", update)
+                self.assertIn('"version": "v6.5.10-pixel-builtin-aidl-beta.1"', update)
+                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.1", update)
                 self.assertEqual(
                     {name for name in names if name.endswith(".apk")},
                     {"common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"},
