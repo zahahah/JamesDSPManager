@@ -13,7 +13,7 @@ BASE = "d60a800161ed6fcb6c01aa3026069dffff54bf7a"
 APP_REVISION = "1529b67b90acd786a0368fa4f8c01f04cbb904ba"
 EXPECTED = {
     "common/files/aidl/libjamesdsp.so": "8a774733621c4b5f34b3dafef27ab3f5b02fdf7c6cf97bbef9af3535cea66955",
-    "common/files/JamesDSPManagerThePBone.apk": "62c3a9b90591c291c8137a2c59c112e0532dd0ccf27472e6f01de72ecd34e289",
+    "common/files/JamesDSPManagerThePBone.apk": "b69214755c723988d9456ef6381ee2fd9fd956e67f26960f2ab0b45bd7de5f55",
 }
 
 def validate_payloads(current, baseline):
@@ -49,7 +49,8 @@ def build():
     digest = sha256(output.read_bytes()).hexdigest()
     output.with_suffix(".zip.sha256").write_text(f"{digest}  {output.name}\n")
     report = {"module_base": BASE, "app_source_branch": "pixel-test", "app_source_revision": APP_REVISION,
-              "app_ci_run": 38926545942, "changed_payloads": changed, "replacement_sha256": EXPECTED,
+              "app_release": "https://github.com/zahahah/RootJamesDSP/releases/tag/pixel-test",
+              "app_release_asset_id": 652150602, "changed_payloads": changed, "replacement_sha256": EXPECTED,
               "zip_sha256": digest, "native_source_revision": "not supplied; user-provided build",
               "device_tested": False, "module_version_intentionally_unchanged": True}
     output.with_suffix(".json").write_text(json.dumps(report, indent=2) + "\n")

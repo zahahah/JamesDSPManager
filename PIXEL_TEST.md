@@ -11,9 +11,11 @@ The packaged ZIP differs from that base in exactly two entries:
   runtime-equivalence claim is made.
 - `common/files/JamesDSPManagerThePBone.apk`: ROOT flavor (`james.dsp`) from
   RootJamesDSP pixel-test 1529b67b90acd786a0368fa4f8c01f04cbb904ba,
-  successful GitHub Actions run 38926545942, universal preview artifact.
-  Re-signed locally using the authorized owner certificate; no source edits.
-  Version 1.6.14-1 / 51, NOT upstream ThePBone 1.6.15. The legacy payload filename
+  published pixel-test pre-release, root universal release asset 652150602
+  (published 2026-10-18 UTC). Already signed with the authorized owner certificate;
+  included byte-for-byte without re-signing or source edits.
+  SHA-256: b69214755c723988d9456ef6381ee2fd9fd956e67f26960f2ab0b45bd7de5f55.
+  Version 1.6.14 / 51, NOT upstream ThePBone 1.6.15. The legacy payload filename
   is retained solely to preserve installer behavior. Select ThePBone to stage it.
 
 The other Original APK remains unchanged. No Rootless APK is included.
