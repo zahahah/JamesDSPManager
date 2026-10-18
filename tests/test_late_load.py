@@ -584,6 +584,7 @@ exit 1
                 "JDSP_TEMP_INSTALL_PATH": str(temp_apk),
                 "MOCK_PM_LOG": str(module.parent / "pm.log"),
                 "MOCK_INSTALLED_APK_PATH": "",
+                "MOCK_INSTALLED_VERSION_CODE": "",
                 "JDSP_SDCARD_PATH": str(module.parent / "sdcard"),
                 "JDSP_CMD_BIN": str(cmd),
                 "MOCK_PACKAGE_MANAGER": str(pm),
@@ -607,6 +608,7 @@ case "$1 $2" in
     exit 0
     ;;
   "list users") echo 'UserInfo{{0:Owner:13}}'; exit 0 ;;
+  "dump james.dsp") [ -n "$MOCK_INSTALLED_VERSION_CODE" ] && echo "versionCode=$MOCK_INSTALLED_VERSION_CODE minSdk=26"; exit 0 ;;
   "path james.dsp")
     [ "$(cat "$state")" = installed ] && [ -n "$MOCK_INSTALLED_APK_PATH" ] && echo "package:$MOCK_INSTALLED_APK_PATH"
     exit 0
@@ -634,6 +636,81 @@ exit 0
         shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
         (module / "JamesDSPManager.apk").write_text("new apk")
         return module, mocks
+
+    def run_install_time_migration(
+        self,
+        root: pathlib.Path,
+        installed_version: int,
+        installed_certificate: str,
+        candidate_version: int,
+        choice: str = "none",
+        install_mode: str = "success",
+    ) -> tuple[subprocess.CompletedProcess[str], pathlib.Path, pathlib.Path]:
+        module, mocks = self.setup_jdsp_app_test(root)
+        apk = module / "JamesDSPManager.apk"
+        metadata = module / "JamesDSPManager.apk.meta"
+        metadata.write_text(f"versionCode={candidate_version}\n")
+        state = root / "package-installed"
+        state.write_text("installed\n")
+        pm_log = root / "pm.log"
+        pm = mock_executable(
+            mocks / "pm",
+            f'''state="{state}"
+echo "$@" >>"{pm_log}"
+case "$1 $2" in
+  "list packages") [ "$(cat "$state")" = installed ] && echo package:james.dsp; exit 0 ;;
+  "list users") echo 'UserInfo{{0:Owner:13}}'; exit 0 ;;
+  "dump james.dsp") echo 'versionCode={installed_version} minSdk=26'; echo 'signatures:[{installed_certificate}]'; exit 0 ;;
+  "path james.dsp") echo "package:$MOCK_INSTALLED_APK_PATH"; exit 0 ;;
+  "install --user")
+    if [ "{install_mode}" = mismatch ] && [ "$(cat "$state")" = installed ]; then
+      echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 1
+    fi
+    echo installed >"$state"; echo Success; exit 0 ;;
+  "uninstall --user") echo removed >"$state"; echo Success; exit 0 ;;
+esac
+exit 0
+''',
+        )
+        cmd = mock_executable(mocks / "cmd", 'shift; exec "$MOCK_PM" "$@"\n')
+        installed_apk = root / "installed.apk"
+        installed_apk.write_text("installed package apk")
+        getevent = mock_executable(
+            mocks / "getevent",
+            {
+                "up": "echo '[ 1.0] KEY_VOLUMEUP DOWN'; exit 0\n",
+                "down": "echo '[ 1.0] KEY_VOLUMEDOWN DOWN'; exit 0\n",
+            }.get(choice, "exit 1\n"),
+        )
+        mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
+        script = ROOT / "common/app_migration.sh"
+        result = subprocess.run(
+            [
+                "sh",
+                "-c",
+                '. "$JDSP_MIGRATION_SCRIPT"; jdsp_apk_certificate_sha256() { [ "$1" = "$JDSP_APK" ] && echo "$MOCK_NEW_CERT_SHA256" || echo "$MOCK_OLD_CERT_SHA256"; }; jdsp_install_selected_apk "$JDSP_APK" "$JDSP_META" "$JDSP_MODPATH"',
+            ],
+            env={
+                **os.environ,
+                "PATH": f"{mocks}:{os.environ['PATH']}",
+                "JDSP_MIGRATION_SCRIPT": str(script),
+                "JDSP_APK": str(apk),
+                "JDSP_META": str(metadata),
+                "JDSP_MODPATH": str(module),
+                "JDSP_MIGRATION_CMD": str(cmd),
+                "JDSP_MIGRATION_GETEVENT": str(getevent),
+                "JDSP_MIGRATION_TEMP": str(root / "install.apk"),
+                "JDSP_MIGRATION_SDCARD": str(root / "sdcard"),
+                "MOCK_INSTALLED_APK_PATH": str(installed_apk),
+                "MOCK_NEW_CERT_SHA256": "a" * 64,
+                "MOCK_OLD_CERT_SHA256": "a" * 64 if installed_certificate == "same" else "b" * 64,
+                "MOCK_PM": str(pm),
+            },
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return result, root, module
 
     def run_signature_mismatch_case(self, choice: str) -> tuple[subprocess.CompletedProcess[str], pathlib.Path, pathlib.Path]:
         tmp = tempfile.TemporaryDirectory()
@@ -670,6 +747,51 @@ esac
             self.assertIn("install --user 0 -r -g", commands)
             self.assertNotIn("uninstall", commands)
 
+    def test_install_time_updates_matching_signature_only_when_candidate_is_newer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            result, root, module = self.run_install_time_migration(root, 51, "same", 56)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("versionCode 56 is newer than 51", result.stdout)
+            self.assertIn("install --user 0 -r -g", (root / "pm.log").read_text())
+            self.assertEqual((module / ".jdsp_apk_target_version_code").read_text().strip(), "56")
+
+    def test_install_time_skips_matching_signature_when_candidate_is_equal_or_older(self):
+        for installed, candidate in ((56, 56), (100, 95)):
+            with self.subTest(installed=installed, candidate=candidate), tempfile.TemporaryDirectory() as tmp:
+                root = pathlib.Path(tmp)
+                result, root, _module = self.run_install_time_migration(
+                    root, installed, "same", candidate
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn("is not newer. Keeping the installed app", result.stdout)
+                self.assertNotIn("install --user", (root / "pm.log").read_text())
+
+    def test_install_time_signature_mismatch_prompts_and_defaults_to_keep(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            result, root, _module = self.run_install_time_migration(
+                root, 56, "different", 56, choice="none"
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("Analyzing installed and selected JamesDSP signing certificates", result.stdout)
+            self.assertIn("Different JamesDSP signing certificates", result.stdout)
+            self.assertIn("No volume-key response. Keeping the installed app by default", result.stdout)
+            self.assertNotIn("uninstall --user", (root / "pm.log").read_text())
+            self.assertTrue((root / "sdcard/Download/JamesDSPManager.apk").is_file())
+
+    def test_install_time_volume_up_confirms_different_signature_removal(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            result, root, _module = self.run_install_time_migration(
+                root, 56, "different", 56, choice="up"
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            commands = (root / "pm.log").read_text()
+            self.assertIn("uninstall --user 0 james.dsp", commands)
+            self.assertIn("install --user 0 -r -g", commands)
+            self.assertFalse((root / "sdcard/Download/JamesDSPManager.apk").exists())
+
     def test_jdsp_app_skips_reinstall_when_installed_apk_already_matches_module(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -686,6 +808,22 @@ esac
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertNotIn("install --user", (root / "pm.log").read_text())
             self.assertIn("already matches the module payload", (module / "logs/jamesdsp_app_install.log").read_text())
+
+    def test_jdsp_app_skips_equal_or_newer_version_written_by_module_installer(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks = self.setup_jdsp_app_test(root)
+            (module / ".jdsp_apk_target_version_code").write_text("56\n")
+            pm_body = self.make_jdsp_package_manager(root, "same")
+            result = self.run_jdsp_app(
+                module,
+                mocks,
+                pm_body,
+                {"MOCK_INSTALLED_VERSION_CODE": "56"},
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("install --user", (root / "pm.log").read_text())
+            self.assertIn("equal to or newer", (module / "logs/jamesdsp_app_install.log").read_text())
 
     def test_jdsp_app_keeps_existing_app_and_copies_apk_when_user_declines(self):
         result, root, module = self.run_signature_mismatch_case("down")
@@ -771,7 +909,7 @@ exit 0
 
     def test_pixel_prerelease_contains_only_root_apks_and_new_boot_config(self):
         with tempfile.TemporaryDirectory() as tmp:
-            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.2.zip"
+            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.3.zip"
             env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
             result = subprocess.run(
                 ["python3", str(ROOT / "tools/package_6510_pixel_aidl.py")],
@@ -789,10 +927,21 @@ exit 0
                 readme = archive.read("README.md").decode("utf-8")
                 self.assertIn("JamesDSP does not depend on PIXAML", readme)
                 self.assertIn("through several soft reboots", readme)
-                self.assertIn("version=v6.5.10-pixel-builtin-aidl-beta.2", archive.read("module.prop").decode("utf-8"))
+                self.assertIn("version=v6.5.10-pixel-builtin-aidl-beta.3", archive.read("module.prop").decode("utf-8"))
                 update = archive.read("update.json").decode("utf-8")
-                self.assertIn('"version": "v6.5.10-pixel-builtin-aidl-beta.2"', update)
-                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.2", update)
+                self.assertIn('"version": "v6.5.10-pixel-builtin-aidl-beta.3"', update)
+                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.3", update)
+                self.assertIn("common/files/JamesDSPManager.apk.meta", names)
+                self.assertIn("common/files/JamesDSPManagerThePBone.apk.meta", names)
+                self.assertIn("common/app_migration.sh", names)
+                self.assertEqual(
+                    archive.read("common/files/JamesDSPManager.apk.meta").decode("utf-8"),
+                    "versionCode=95\n",
+                )
+                self.assertEqual(
+                    archive.read("common/files/JamesDSPManagerThePBone.apk.meta").decode("utf-8"),
+                    "versionCode=56\n",
+                )
                 self.assertEqual(
                     {name for name in names if name.endswith(".apk")},
                     {"common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"},
@@ -800,13 +949,16 @@ exit 0
                 self.assertFalse(any("rootless" in name.lower() for name in names))
 
     def test_installer_does_not_remove_an_existing_app(self):
-        installer = (ROOT / "common/install.sh").read_text()
         app_helper = (ROOT / "jdsp_app.sh").read_text()
+        installer = (ROOT / "common/install.sh").read_text()
         self.assertIn("install --user", app_helper)
         self.assertIn("INSTALL_FAILED_UPDATE_INCOMPATIBLE", app_helper)
         self.assertIn("Volume Up selected", app_helper)
         self.assertIn("No volume-key response; keeping the existing app by default", app_helper)
         self.assertIn("copy_apk_to_sdcard", app_helper)
+        self.assertIn("jdsp_install_selected_apk", (ROOT / "common/app_migration.sh").read_text())
+        self.assertIn(". \"$MODPATH/common/app_migration.sh\"", installer)
+        self.assertIn("jdsp_install_selected_apk", installer)
         self.assertNotIn("pm uninstall", installer)
 
 

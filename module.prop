@@ -1,8 +1,8 @@
 id=ainur_jamesdsp
 name=JamesDSP Manager
-version=v6.5.10-pixel-builtin-aidl-beta.2
-versionCode=113
+version=v6.5.10-pixel-builtin-aidl-beta.3
+versionCode=114
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=Root-only JamesDSP module with systemless AIDL and signature-aware app updates
+description=Root-only JamesDSP module with systemless AIDL and install-time APK migration
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970

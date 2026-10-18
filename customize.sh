@@ -17,8 +17,8 @@ MINAPI=21
 DYNLIB=true
 PARTOVER=true
 PARTITIONS="/odm"
-APPVER=91
-PAPPVER=55
+APPVER=95
+PAPPVER=56
 
 ##########################################################################################
 # Replace list

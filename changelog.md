@@ -1,3 +1,15 @@
+### v6.5.10-pixel-builtin-aidl-beta.3
+
+* Run APK update/migration during the module install instead of waiting until
+  the next boot.
+* For matching signers, install only when the bundled APK versionCode is newer;
+  equal or newer installed app versions are left untouched.
+* For different signers, ask in the installer. Volume Up confirms uninstall
+  and replacement; Volume Down or 30-second timeout keeps the existing app and
+  copies the selected APK to Downloads.
+* Keep the boot service as a fallback and avoid reinstalling an equal/newer
+  app version on subsequent boots.
+
 ### v6.5.10-pixel-builtin-aidl-beta.2
 
 * Update an existing `james.dsp` installation in place when Android accepts

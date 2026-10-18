@@ -2,7 +2,7 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
-## Pixel test build: v6.5.10-pixel-builtin-aidl-beta.2
+## Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
 
 This test build prepares the AIDL effect-factory config during the regular
 KernelSU boot path, even when `KSU_LATE_LOAD` is unset. The existing late-load
@@ -18,21 +18,23 @@ of this root-only module ZIP.
 The regular-boot AIDL config path and APK migration flow have host-test
 coverage, but this beta has not yet been flashed or validated on a device.
 
-At boot, the module tries to install the selected `james.dsp` APK with Android's
-normal replace operation. If the existing app has the same signing certificate,
-Android updates it in place and preserves its data. If Android rejects the
-update because the signer differs, the module posts a notification and waits
-30 seconds for a volume-key choice:
+During module installation, the installer checks the selected APK against the
+installed `james.dsp` app. If the signing certificate matches, it installs only
+when the bundled APK's `versionCode` is newer, updating in place and preserving
+app data. If the certificates differ, the installer asks for a volume-key
+choice:
 
 - **Volume Up:** remove `james.dsp` for all users, then install the module APK.
   Removing the old app also removes its app data. Back it up first if you need
   its presets or settings.
-- **Volume Down or no response:** keep the installed app and copy the new APK to
-  `/sdcard/Download/JamesDSPManager.apk`. No response is treated as **No**.
+- **Volume Down or no response within 30 seconds:** keep the installed app and
+  copy the new APK to `/sdcard/Download/JamesDSPManager.apk`. No response is
+  treated as **No**.
 
-After a No choice or timeout, that same module APK won't ask again on every
-boot. A changed module APK triggers a new prompt, and removing the old app lets
-the module install the selected APK normally.
+If package management is unavailable during installation, the boot service
+retries the same safe update/migration flow as a fallback. After a No choice,
+that same module APK won't ask again on every boot. A changed module APK can
+trigger a new prompt.
 
 ## Stable release: v6.5.9
 

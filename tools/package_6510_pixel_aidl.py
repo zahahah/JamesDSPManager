@@ -11,13 +11,23 @@ import package_659_mustang_late_load as stable
 ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = Path(os.environ.get(
     "JDSP_PACKAGE_OUTPUT",
-    ROOT / "dist/JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.2.zip",
+    ROOT / "dist/JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.3.zip",
 ))
-VERSION = "v6.5.10-pixel-builtin-aidl-beta.2"
-VERSION_CODE = 113
+VERSION = "v6.5.10-pixel-builtin-aidl-beta.3"
+VERSION_CODE = 114
 ROOT_APK = "common/files/JamesDSPManagerThePBone.apk"
 ROOT_APK_SHA256 = "70aa92562017856777a9a616ec8b55e8354f0dee093812df53fe2404dd9c24f9"
+APK_METADATA = {
+    "common/files/JamesDSPManager.apk.meta": "versionCode=95\n",
+    "common/files/JamesDSPManagerThePBone.apk.meta": "versionCode=56\n",
+}
 PAYLOADS = dict(stable.PAYLOADS)
+PAYLOADS.update({
+    "common/apk_certificate.sh": 0o100644,
+    "common/app_migration.sh": 0o100644,
+    "common/files/JamesDSPManager.apk.meta": 0o100644,
+    "common/files/JamesDSPManagerThePBone.apk.meta": 0o100644,
+})
 SIGNED_APK_HASHES = dict(stable.SIGNED_APK_HASHES)
 SIGNED_APK_HASHES[ROOT_APK] = ROOT_APK_SHA256
 
@@ -26,6 +36,9 @@ def build(output: Path = OUTPUT) -> str:
     for name, expected in SIGNED_APK_HASHES.items():
         if sha256((ROOT / name).read_bytes()).hexdigest() != expected:
             raise ValueError(f"Unexpected APK payload: {name}")
+    for name, expected in APK_METADATA.items():
+        if (ROOT / name).read_text(encoding="utf-8") != expected:
+            raise ValueError(f"Unexpected APK version/signature metadata: {name}")
 
     output.parent.mkdir(parents=True, exist_ok=True)
     with ZipFile(output, "w", compression=ZIP_STORED) as archive:
@@ -55,6 +68,8 @@ def build(output: Path = OUTPUT) -> str:
             raise ValueError("Unexpected update metadata")
         if "KSU_LATE_LOAD" not in archive.read("post-fs-data.sh").decode("utf-8"):
             raise ValueError("Missing regular and late-load boot handling")
+        if "jdsp_install_selected_apk" not in archive.read("common/app_migration.sh").decode("utf-8"):
+            raise ValueError("Missing install-time APK migration handler")
 
     return sha256(output.read_bytes()).hexdigest()
 

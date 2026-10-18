@@ -93,20 +93,26 @@ ui_print "- UI installation -"
 ui_print "   Which UI you want to install?"
 ui_print "   Vol Up = Original 9.5, Vol Down = ThePBone 1.6.15"
 ui_print "   APKs use the current maintainer signing key"
-ui_print "   Same-signature apps will be updated on boot"
+ui_print "   Same-signature apps are checked and updated during installation"
 ui_print "   Different signatures require volume-key confirmation"
 copy_profile_backup
 if chooseport; then
 	ui_print "   Original version was selected"
 	mv -f "$MODPATH/common/files/JamesDSPManager.apk" "$MODPATH/JamesDSPManager.apk"
+	SELECTED_APK_META="$MODPATH/common/files/JamesDSPManager.apk.meta"
 	touch "$MODPATH/.apkorig"
-	ui_print "   Keeping existing james.dsp under user control"
 else
 	ui_print "   ThePBone version was selected"
 	mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
+	SELECTED_APK_META="$MODPATH/common/files/JamesDSPManagerThePBone.apk.meta"
 	touch "$MODPATH/.apkpbone"
-	ui_print "   Keeping existing james.dsp under user control"
 fi
+
+# Update or migrate the app while the user is still in the module installer.
+# The boot service remains a fallback if Package Manager is unavailable here.
+. "$MODPATH/common/app_migration.sh"
+jdsp_install_selected_apk "$MODPATH/JamesDSPManager.apk" "$SELECTED_APK_META" "$MODPATH"
+
 set -x
 # Audio effects patching 
 ui_print " "
@@ -159,7 +165,7 @@ fi
 
 sed -i "1a NVBASE=$NVBASE" "$MODPATH/service.sh"
 
-ui_print "   Staging APK to /sdcard; service installs only if james.dsp is absent"
+ui_print "   Staging the selected APK to /sdcard as a manual-install fallback"
 cp -rf "$MODPATH/common/files/JamesDSP" /storage/emulated/0/JamesDSP
 cp -f "$MODPATH/JamesDSPManager.apk" /storage/emulated/0/JamesDSPManager.apk
 [ "$API" -gt 29 ] && { ui_print "   Enabling hidden api policy"; settings put global hidden_api_policy 1 2>/dev/null; }

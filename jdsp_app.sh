@@ -227,6 +227,21 @@ if is_package_installed && installed_apk_matches "$APK_SOURCE"; then
 	exit 0
 fi
 
+# The module installer writes this target version after handling the selected
+# APK. Never reinstall an equal or newer version on later boots.
+if is_package_installed && [ -f "$MODPATH/.jdsp_apk_target_version_code" ]; then
+	target_version=$(cat "$MODPATH/.jdsp_apk_target_version_code")
+	installed_version=$($PM_CMD dump "$PKG" 2>/dev/null | \
+		sed -n 's/.*versionCode=\([0-9][0-9]*\).*/\1/p' | head -n 1)
+	case "$target_version" in ''|*[!0-9]*) target_version="" ;; esac
+	case "$installed_version" in ''|*[!0-9]*) installed_version="" ;; esac
+	if [ -n "$target_version" ] && [ -n "$installed_version" ] && \
+		[ "$installed_version" -ge "$target_version" ]; then
+		echo "Installed james.dsp versionCode $installed_version is equal to or newer than module APK $target_version; skipping." >> "$LOGFILE"
+		exit 0
+fi
+fi
+
 # A declined signature migration should not interrupt every boot. If the
 # module APK changes, its fingerprint changes and the user is asked again.
 if is_package_installed && [ -f "$SIGNATURE_DECLINED_MARKER" ] && \
