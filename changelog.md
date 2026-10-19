@@ -532,6 +532,10 @@
 
 App [GitHub](https://github.com/james34602/JamesDSPManager)
 
+### v6.5.13-pixel-native-control-v3-test
+
+- Add clear spacing and an explicit signing-certificate analysis notice before comparing the installed and selected JamesDSP APKs.
+
 ### v6.5.12-pixel-native-control-v3-test
 
 - Restore executable permissions for bundled `tools/patchelf` after installer-wide permission normalization so the native AIDL compatibility gate can run.

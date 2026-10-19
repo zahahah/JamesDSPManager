@@ -46,10 +46,10 @@ jobs:
             sh -n "$file" || exit 1
           done
       - name: Build and verify the pinned test ZIP
-        run: python3 tools/package_6512_pixel_native_control_v3.py
+        run: python3 tools/package_6513_pixel_native_control_v3.py
       - name: Verify ZIP checksum
         working-directory: dist
-        run: sha256sum -c JamesDSPManager-v6.5.12-pixel-native-control-v3-test.zip.sha256
+        run: sha256sum -c JamesDSPManager-v6.5.13-pixel-native-control-v3-test.zip.sha256
       - name: Upload test ZIP and provenance as an Actions artifact
         uses: actions/upload-artifact@v4
         with:
@@ -57,6 +57,6 @@ jobs:
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/JamesDSPManager-v6.5.12-pixel-native-control-v3-test.zip
-            dist/JamesDSPManager-v6.5.12-pixel-native-control-v3-test.zip.sha256
-            dist/JamesDSPManager-v6.5.12-pixel-native-control-v3-test.zip.json
+            dist/JamesDSPManager-v6.5.13-pixel-native-control-v3-test.zip
+            dist/JamesDSPManager-v6.5.13-pixel-native-control-v3-test.zip.sha256
+            dist/JamesDSPManager-v6.5.13-pixel-native-control-v3-test.zip.json

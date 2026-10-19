@@ -644,7 +644,19 @@ esac
                 root, 56, "different", 56, choice="none"
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("Analyzing installed and selected JamesDSP signing certificates", result.stdout)
+            self.assertIn("Analysing installed and selected JamesDSP signing certificates", result.stdout)
+            output_lines = result.stdout.splitlines()
+            analysis_index = output_lines.index(
+                "Analysing installed and selected JamesDSP signing certificates"
+            )
+            self.assertEqual(output_lines[analysis_index - 1], " ")
+            self.assertEqual(output_lines[analysis_index + 1], " ")
+            self.assertLess(
+                analysis_index,
+                output_lines.index(
+                    "Installed and selected JamesDSP APKs have different signing certificates."
+                ),
+            )
             self.assertIn("Different JamesDSP signing certificates", result.stdout)
             self.assertIn("No volume-key response. Keeping the installed app by default", result.stdout)
             self.assertNotIn("uninstall --user", (root / "pm.log").read_text())
@@ -793,7 +805,7 @@ exit 0
             self.assertTrue(zip_path.exists())
             with zipfile.ZipFile(zip_path) as archive:
                 self.assertIn(
-                    "version=v6.5.12-pixel-native-control-v3-test",
+                    "version=v6.5.13-pixel-native-control-v3-test",
                     archive.read("module.prop").decode("utf-8"),
                 )
 

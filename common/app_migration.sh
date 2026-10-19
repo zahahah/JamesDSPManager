@@ -177,7 +177,9 @@ jdsp_install_selected_apk() {
 
 	old_version=$(jdsp_migration_installed_version)
 	installed_apk=$(jdsp_migration_installed_apk)
-	jdsp_migration_ui_print "Analyzing installed and selected JamesDSP signing certificates..."
+	jdsp_migration_ui_print " "
+	jdsp_migration_ui_print "Analysing installed and selected JamesDSP signing certificates"
+	jdsp_migration_ui_print " "
 	if ! command -v jdsp_apk_certificate_sha256 >/dev/null 2>&1; then
 		. "$module_path/common/apk_certificate.sh"
 	fi
