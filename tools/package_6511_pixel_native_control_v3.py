@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the guarded Pixel native-control-v3 test ZIP reproducibly."""
+"""Build the guarded native-control-v3 test ZIP reproducibly."""
 
 from hashlib import sha256
 import json
@@ -66,7 +66,7 @@ def verify_worktree() -> None:
     changed = set(git("diff", "--name-only", BASELINE, "--").splitlines())
     if changed != CHANGED_FILES:
         raise ValueError(
-            "Unexpected tracked source changes relative to the Pixel baseline: "
+            "Unexpected tracked source changes relative to the test baseline: "
             f"missing={sorted(CHANGED_FILES - changed)}, extra={sorted(changed - CHANGED_FILES)}"
         )
     for name in CHANGED_FILES:
@@ -111,7 +111,7 @@ def verify_payloads() -> None:
 
     for name, expected in previous.SIGNED_APK_HASHES.items():
         if sha256((ROOT / name).read_bytes()).hexdigest() != expected:
-            raise ValueError(f"APK payload differs from the established Pixel test build: {name}")
+            raise ValueError(f"APK payload differs from the established test build: {name}")
 
     service = (ROOT / "service.sh").read_text(encoding="utf-8")
     late_load_branch = service.split('if [ "${KSU_LATE_LOAD:-0}"', 1)[1].split("fi", 1)[0]
@@ -177,7 +177,7 @@ def build(output: Path = OUTPUT) -> str:
         "versionCode": VERSION_CODE,
         "driverSha256": DRIVER_SHA256,
         "branch": "pixel-test-new-aidl",
-        "deviceScope": "Google Pixel 10 Pro XL (mustang), API 36+; not device-validated",
+        "deviceScope": "Android API 36+; no device model restriction; experimental AIDL cross-ABI probe; not device-validated",
         "audioServiceRestart": "disabled",
     }
     output.with_suffix(output.suffix + ".json").write_text(

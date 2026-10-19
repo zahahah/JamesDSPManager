@@ -27,7 +27,7 @@ class NativeControlPatchTests(unittest.TestCase):
         self.calls = self.root / "patchelf-calls"
         self.patchelf = self.root / "patchelf"
 
-    def run_patch(self, needed=EXPECTED, add_available=True):
+    def run_patch(self, needed=EXPECTED, add_available=True, allow_mismatch=False):
         if add_available:
             for dependency in EXPECTED:
                 (self.deps / dependency).touch()
@@ -44,6 +44,7 @@ class NativeControlPatchTests(unittest.TestCase):
             "MOD_VENDOR": str(self.module / "system/vendor"),
             "JDSP_PATCHELF_BIN": str(self.patchelf),
             "JDSP_SYSTEM_LIB_DIRS": str(self.deps),
+            "JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH": "1" if allow_mismatch else "0",
         }
         return subprocess.run(
             ["sh", "-c", '. "$1/patch.sh"', "patch-test", str(ROOT)],
@@ -73,6 +74,15 @@ class NativeControlPatchTests(unittest.TestCase):
         result = self.run_patch(add_available=False)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("device lacks exact AIDL dependency", result.stderr)
+
+    def test_experimental_mode_logs_missing_v4_abi_without_rewriting_binary(self):
+        before = (self.libdir / "libjamesdsp.so").read_bytes()
+        needed = [name.replace("-V4-", "-V3-") for name in EXPECTED]
+        result = self.run_patch(needed=needed, add_available=False, allow_mismatch=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("EXPERIMENTAL WARNING", result.stdout)
+        self.assertIn("EXPERIMENTAL AIDL ABI probe enabled", result.stdout)
+        self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
 
 
 if __name__ == "__main__":

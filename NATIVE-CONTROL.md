@@ -32,11 +32,13 @@ The pinned library was built for Android 16 ARM64 and directly needs:
 - `android.hardware.common-V2-ndk.so`
 - `android.hardware.common.fmq-V1-ndk.so`
 
-The module candidate is guarded to Pixel 10 Pro XL (`mustang`), API 36 or newer.
-This guard is a conservative test boundary, not proof of compatibility with
-that Pixel. In particular, Samsung devices observed with an AIDL V3 factory
-are outside this candidate's scope. `patch.sh` validates exact dependencies;
-it does not change `DT_NEEDED` or SONAMEs to make an ABI mismatch appear usable.
+The module candidate requires Android API 36 or newer but is not pinned to a
+particular device model. An experimental cross-ABI probe allows the overlay to
+proceed when the exact AIDL V4 dependencies are missing or the linker preflight
+fails. This only enables a device test; it does not make the artifact compatible
+with an AIDL V3 factory. The module logs the mismatch and never changes
+`DT_NEEDED` or SONAMEs. A `lib=experimental_link_check_bypassed` status means
+the library was not resolved by the preflight and must not be treated as loaded.
 
 ## Do not over-interpret status
 

@@ -230,12 +230,42 @@ class LateLoadTests(unittest.TestCase):
                 "BLOCKED reason=linker_dependency_resolution_failed\n",
             )
 
-    def test_native_control_candidate_fails_closed_outside_pixel_target(self):
+    def test_native_control_candidate_allows_other_models_on_api36(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             (module / "native-control").mkdir()
             shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
             getprop = self.mock_getprop(module, "samsung", "SM-F971U", "36")
+            linker = mock_executable(module / "linker", "touch \"$LINKER_WAS_CALLED\"; exit 1\n")
+            env = self.env_for_post_fs(module, linker)
+            env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((module / "skip_mount").exists())
+            self.assertTrue((module / "linker-called").exists())
+            self.assertIn("lib=experimental_link_check_bypassed", (module / "logs/late-load.status").read_text())
+            self.assertIn("EXPERIMENTAL WARNING: linker preflight failed", (module / "logs/late-load-linker.txt").read_text())
+
+    def test_native_control_candidate_rejects_malformed_sdk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_late_load_module(tmp)
+            (module / "native-control").mkdir()
+            shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
+            getprop = self.mock_getprop(module, "samsung", "SM-F971U", "36-beta")
+            linker = mock_executable(module / "linker", "exit 0\n")
+            env = self.env_for_post_fs(module, linker)
+            env["JDSP_GETPROP_BIN"] = str(getprop)
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((module / "skip_mount").exists())
+            self.assertIn("BLOCKED reason=native_control_v3_requires_api36_or_newer", (module / "logs/late-load.status").read_text())
+
+    def test_native_control_candidate_rejects_api_below_36(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_late_load_module(tmp)
+            (module / "native-control").mkdir()
+            shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
+            getprop = self.mock_getprop(module, "samsung", "SM-F971U", "35")
             linker = mock_executable(module / "linker", "touch \"$LINKER_WAS_CALLED\"\n")
             env = self.env_for_post_fs(module, linker)
             env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
@@ -243,31 +273,14 @@ class LateLoadTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((module / "skip_mount").exists())
             self.assertFalse((module / "linker-called").exists())
-            self.assertEqual(
-                (module / "logs/late-load.status").read_text(),
-                "BLOCKED reason=native_control_v3_requires_pixel_mustang_api36_or_newer restart=not_requested\n",
-            )
+            self.assertIn("BLOCKED reason=native_control_v3_requires_api36_or_newer", (module / "logs/late-load.status").read_text())
 
-    def test_native_control_candidate_rejects_malformed_sdk(self):
+    def test_native_control_candidate_accepts_supported_api36(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             (module / "native-control").mkdir()
             shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
-            getprop = self.mock_getprop(module, "Google", "mustang", "36-beta")
-            linker = mock_executable(module / "linker", "exit 0\n")
-            env = self.env_for_post_fs(module, linker)
-            env["JDSP_GETPROP_BIN"] = str(getprop)
-            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / "skip_mount").exists())
-            self.assertIn("BLOCKED reason=native_control_v3_requires_pixel_mustang_api36_or_newer", (module / "logs/late-load.status").read_text())
-
-    def test_native_control_candidate_accepts_pixel_mustang_api36(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            module = self.make_late_load_module(tmp)
-            (module / "native-control").mkdir()
-            shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
-            getprop = self.mock_getprop(module, "Google", "mustang", "36")
+            getprop = self.mock_getprop(module, "Google", "pixel", "36")
             linker = mock_executable(module / "linker", "exit 0\n")
             env = self.env_for_post_fs(module, linker)
             env["JDSP_GETPROP_BIN"] = str(getprop)

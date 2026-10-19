@@ -25,24 +25,24 @@ else
 	MOD_ODM="$MODPATH/odm"
 fi
 
-# The control-v3 binary is scoped to the Pixel 10 Pro XL test device. Its
-# Android AIDL Effect V4 dependency is not a safe drop-in for Samsung's V3 HAL.
-# Block before preparing any systemless audio overlay on other devices.
+# The native-control-v3 binary was built for Android API 36+ and is not pinned
+# to one device model. This candidate explicitly allows an experimental ABI
+# probe: mismatches are logged, not rewritten, and must be verified on-device.
 if [ -f "$BUILT_CONTROL_V3" ]; then
-	manufacturer=$("$GETPROP_BIN" ro.product.manufacturer 2>/dev/null | tr '[:upper:]' '[:lower:]')
-	device=$("$GETPROP_BIN" ro.product.device 2>/dev/null)
 	sdk=$("$GETPROP_BIN" ro.build.version.sdk 2>/dev/null)
 	case "$sdk" in
 		''|*[!0-9]*) sdk_valid=false ;;
 		*) sdk_valid=true ;;
 	esac
-	if [ "$manufacturer" != google ] || [ "$device" != mustang ] || \
-		[ "$sdk_valid" != true ] || [ "$sdk" -lt 36 ]; then
-		printf 'BLOCKED reason=native_control_v3_requires_pixel_mustang_api36_or_newer restart=not_requested\n' >"$STATUS"
+	if [ "$sdk_valid" != true ] || [ "$sdk" -lt 36 ]; then
+		printf 'BLOCKED reason=native_control_v3_requires_api36_or_newer restart=not_requested\n' >"$STATUS"
 		touch "$MODPATH/skip_mount"
 		exit 0
 	fi
 fi
+
+JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH=1
+ABI_STATUS=validated
 
 late_block() {
 	printf 'BLOCKED reason=%s\n' "$1" >"$STATUS"
@@ -56,10 +56,12 @@ if [ "${KSU_LATE_LOAD:-0}" != 1 ] && [ -f "$BUILT_CONTROL_V3" ]; then
 	AIDL=true
 	. "$MODPATH/patch.sh" >"$LOGDIR/native-control-dependency-check.log" 2>&1 || \
 		late_block native_control_dependency_mismatch
+	grep -q '^EXPERIMENTAL WARNING:' "$LOGDIR/native-control-dependency-check.log" && \
+		ABI_STATUS=experimental_abi_mismatch
 fi
 
 late_ready() {
-	printf 'READY late_load=1 vendor_config=%s lib=validated restart=not_requested processing=unverified\n' "$1" \
+	printf 'READY late_load=1 vendor_config=%s lib=%s restart=not_requested processing=unverified\n' "$1" "$ABI_STATUS" \
 		>"$STATUS"
 	exit 0
 }
@@ -233,15 +235,24 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 
 	AIDL=true
 	if [ -f "$MODPATH/patch.sh" ]; then
-		# Validate exact AIDL NDK dependencies; never rename SONAMEs to another ABI.
+		# Log exact dependencies without rewriting. This candidate explicitly
+		# permits a non-blocking cross-ABI probe for AIDL V3 devices.
 		. "$MODPATH/patch.sh" >"$LOGDIR/late-load-patch.log" 2>&1 || \
 			late_block patchelf_failed
+		grep -q '^EXPERIMENTAL WARNING:' "$LOGDIR/late-load-patch.log" && \
+			ABI_STATUS=experimental_abi_mismatch
 	fi
 
 	if ! "$LINKER_BIN" --list \
 		"$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" \
 		>"$LOGDIR/late-load-linker.txt" 2>&1; then
-		late_block linker_dependency_resolution_failed
+		if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ] && [ -f "$BUILT_CONTROL_V3" ]; then
+			printf 'EXPERIMENTAL WARNING: linker preflight failed; continuing for ABI probe\n' \
+				>>"$LOGDIR/late-load-linker.txt"
+			ABI_STATUS=experimental_link_check_bypassed
+		else
+			late_block linker_dependency_resolution_failed
+		fi
 	fi
 
 	late_ready "$vendor_config_source"

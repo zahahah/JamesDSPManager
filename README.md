@@ -2,7 +2,7 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
-## Pixel test build: v6.5.11-pixel-native-control-v3-test
+## AIDL native-control-v3 test build: v6.5.11-pixel-native-control-v3-test
 
 This is a device-test candidate that replaces the AIDL driver with the
 Android-built `libjamesdspaidl.so` from LightningDSP native control v3. The
@@ -20,12 +20,14 @@ the fallback. Service registration, Pixel ABI compatibility, descriptor
 discovery, effect creation, audio processing, and audible control changes are
 all unverified with this candidate.
 
-The build depends on Android audio-effect AIDL V4, media common types V5,
-hardware common V2, and common FMQ V1. This is explicitly scoped by the module
-to the Pixel 10 Pro XL (`mustang`) on Android API 36 or newer. Other devices,
-including the Samsung device previously observed with an AIDL V3 factory, fail
-closed before the module prepares its audio overlay. Dependency names are
-validated exactly and are never rewritten to a different AIDL ABI.
+The binary was built against Android audio-effect AIDL V4, media common types
+V5, hardware common V2, and common FMQ V1. This candidate requires Android API
+36 or newer, but has no device-model restriction. It also includes an explicit
+experimental cross-ABI probe mode: missing AIDL dependencies or a failed linker
+preflight are logged but do not block the overlay, so devices exposing AIDL V3
+can be tested. The ELF dependency names are never rewritten. This is a test
+attempt, not evidence that an AIDL V3 device can load the library or process
+audio; a device may simply reject the effect.
 
 Late-load does not restart Audio HAL or audioserver. A ready mount/config status
 is not evidence that `jdsp.control` registered or that audio is processed. See

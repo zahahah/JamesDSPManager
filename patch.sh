@@ -1,6 +1,7 @@
 #!/system/bin/sh
-# This candidate must preserve the exact AIDL ABI it was built against.
-# Do not rewrite DT_NEEDED names to a different interface version.
+# This candidate must preserve the AIDL ABI it was built against. Do not
+# rewrite DT_NEEDED names. The test module may explicitly bypass failed checks
+# so an AIDL V3 device can be probed; that does not establish compatibility.
 [ "${AIDL:-false}" = true ] || return 0
 
 MY_LIB="$MOD_VENDOR/lib64/soundfx/libjamesdsp.so"
@@ -26,10 +27,14 @@ for REQUIRED in \
 	android.media.audio.common.types-V5-ndk.so \
 	android.hardware.common-V2-ndk.so \
 	android.hardware.common.fmq-V1-ndk.so; do
-	printf '%s\n' "$NEEDED_LIST" | grep -Fxq "$REQUIRED" || {
+	if ! printf '%s\n' "$NEEDED_LIST" | grep -Fxq "$REQUIRED"; then
+		if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ]; then
+			echo "EXPERIMENTAL WARNING: driver lacks expected dependency: $REQUIRED"
+			continue
+		fi
 		echo "unexpected AIDL driver ABI: required dependency missing: $REQUIRED" >&2
 		return 1
-	}
+	fi
 	discovered=false
 	for root in $LIB_ROOTS; do
 		if [ -f "$root/$REQUIRED" ]; then
@@ -37,11 +42,19 @@ for REQUIRED in \
 			break
 		fi
 	done
-	[ "$discovered" = true ] || {
+	if [ "$discovered" != true ]; then
+		if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ]; then
+			echo "EXPERIMENTAL WARNING: device lacks dependency: $REQUIRED"
+			continue
+		fi
 		echo "device lacks exact AIDL dependency: $REQUIRED" >&2
 		return 1
-	}
+	fi
 done
 
-echo "AIDL dependency versions validated without rewriting DT_NEEDED"
+if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ]; then
+	echo "EXPERIMENTAL AIDL ABI probe enabled; DT_NEEDED was not rewritten"
+else
+	echo "AIDL dependency versions validated without rewriting DT_NEEDED"
+fi
 return 0

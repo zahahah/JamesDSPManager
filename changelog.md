@@ -540,13 +540,15 @@ App [GitHub](https://github.com/james34602/JamesDSPManager)
 * Include the artifact's original build provenance and GPL-2.0 license text.
 * Require the exact AIDL V4/V5/V2/V1 dependencies; do not rewrite `DT_NEEDED`
   names to another framework/vendor ABI.
-* Restrict this test candidate to Pixel 10 Pro XL (`mustang`) on API 36+ and
-  fail closed elsewhere. Samsung V3 compatibility is not claimed.
+* Require API 36+ but do not pin the candidate to one device model. Enable an
+  experimental AIDL V3 cross-ABI probe when dependency or linker preflight
+  checks fail; log mismatches and do not rewrite ELF dependencies. Successful
+  AIDL V3 loading/processing is not claimed.
 * Disable automatic audio HAL/audioserver restarts in late-load. No device has
   been tested with this artifact, and the app has no client for `jdsp.control`.
 * Restore executable permissions for bundled `tools/patchelf` after installer-wide
   permission normalization so the native AIDL compatibility gate can run.
-* Keep this candidate limited to compatible Pixel test devices; no audio service
-  restart is added.
+* Keep cross-ABI loading experimental and visible in status logs; no audio
+  service restart is added.
 * Add clear spacing and an explicit signing-certificate analysis notice before
   comparing the installed and selected JamesDSP APKs.
