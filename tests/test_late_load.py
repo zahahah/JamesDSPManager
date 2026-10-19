@@ -85,6 +85,16 @@ class LateLoadTests(unittest.TestCase):
             "JDSP_SOURCE_VENDOR_CONFIG": str(module / "live_vendor_config.xml"),
         }
 
+    def mock_getprop(self, module: pathlib.Path, manufacturer: str, device: str, sdk: str) -> pathlib.Path:
+        return mock_executable(
+            module / "getprop",
+            "case \"$1\" in\n"
+            f"  ro.product.manufacturer) echo '{manufacturer}' ;;\n"
+            f"  ro.product.device) echo '{device}' ;;\n"
+            f"  ro.build.version.sdk) echo '{sdk}' ;;\n"
+            "esac\n",
+        )
+
     def run_post_fs(self, module: pathlib.Path, linker: pathlib.Path) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
             ["sh", str(module / "post-fs-data.sh")],
@@ -100,7 +110,7 @@ class LateLoadTests(unittest.TestCase):
             linker = mock_executable(module / "linker", "exit 0\n")
             result = self.run_post_fs(module, linker)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / ".late-load-reload-experimental").exists())
+            self.assertFalse((module / ".late-load-reload-experimental").exists())
             self.assertFalse((module / ".late-load-no-effect").exists())
             self.assertFalse((module / "skip_mount").exists())
             patched = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
@@ -108,7 +118,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertIn(XML_UUID, patched)
             self.assertEqual(
                 (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=patched_from_live_vendor lib=patched restart=service\n",
+                "READY late_load=1 vendor_config=patched_from_live_vendor lib=validated restart=not_requested processing=unverified\n",
             )
 
     def test_post_fs_data_prepares_late_load_without_pixaml(self):
@@ -120,7 +130,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertFalse((module / "skip_mount").exists())
             self.assertEqual(
                 (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=patched_from_live_vendor lib=patched restart=service\n",
+                "READY late_load=1 vendor_config=patched_from_live_vendor lib=validated restart=not_requested processing=unverified\n",
             )
 
     def test_parallel_late_load_preparation_is_serialized(self):
@@ -205,7 +215,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertIn(JDSP_UUID, patched)
             self.assertEqual(
                 (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=generated_from_system_legacy lib=patched restart=service\n",
+                "READY late_load=1 vendor_config=generated_from_system_legacy lib=validated restart=not_requested processing=unverified\n",
             )
 
     def test_post_fs_data_fails_closed_when_late_load_lib_cannot_link(self):
@@ -219,6 +229,52 @@ class LateLoadTests(unittest.TestCase):
                 (module / "logs/late-load.status").read_text(),
                 "BLOCKED reason=linker_dependency_resolution_failed\n",
             )
+
+    def test_native_control_candidate_fails_closed_outside_pixel_target(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_late_load_module(tmp)
+            (module / "native-control").mkdir()
+            shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
+            getprop = self.mock_getprop(module, "samsung", "SM-F971U", "36")
+            linker = mock_executable(module / "linker", "touch \"$LINKER_WAS_CALLED\"\n")
+            env = self.env_for_post_fs(module, linker)
+            env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((module / "skip_mount").exists())
+            self.assertFalse((module / "linker-called").exists())
+            self.assertEqual(
+                (module / "logs/late-load.status").read_text(),
+                "BLOCKED reason=native_control_v3_requires_pixel_mustang_api36_or_newer restart=not_requested\n",
+            )
+
+    def test_native_control_candidate_rejects_malformed_sdk(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_late_load_module(tmp)
+            (module / "native-control").mkdir()
+            shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
+            getprop = self.mock_getprop(module, "Google", "mustang", "36-beta")
+            linker = mock_executable(module / "linker", "exit 0\n")
+            env = self.env_for_post_fs(module, linker)
+            env["JDSP_GETPROP_BIN"] = str(getprop)
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((module / "skip_mount").exists())
+            self.assertIn("BLOCKED reason=native_control_v3_requires_pixel_mustang_api36_or_newer", (module / "logs/late-load.status").read_text())
+
+    def test_native_control_candidate_accepts_pixel_mustang_api36(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_late_load_module(tmp)
+            (module / "native-control").mkdir()
+            shutil.copy2(ROOT / "native-control/provenance.json", module / "native-control/provenance.json")
+            getprop = self.mock_getprop(module, "Google", "mustang", "36")
+            linker = mock_executable(module / "linker", "exit 0\n")
+            env = self.env_for_post_fs(module, linker)
+            env["JDSP_GETPROP_BIN"] = str(getprop)
+            result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((module / "skip_mount").exists())
+            self.assertTrue((module / "logs/late-load.status").read_text().startswith("READY late_load=1"))
 
 
     def test_builtin_clears_late_load_markers(self):
@@ -312,219 +368,35 @@ class LateLoadTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertEqual(
                 (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=patched_from_live_vendor lib=patched restart=service\n",
+                "READY late_load=1 vendor_config=patched_from_live_vendor lib=validated restart=not_requested processing=unverified\n",
             )
 
-    def test_late_load_service_restarts_default_factory_once(self):
+    def test_late_load_service_never_restarts_audio_or_runs_reload(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = pathlib.Path(tmp)
-            module = root / "module"
-            logs = module / "logs"
-            mocks = root / "mocks"
-            proc = root / "proc"
-            module.mkdir()
-            logs.mkdir()
-            mocks.mkdir()
-            (proc / "100").mkdir(parents=True)
-            (proc / "300").mkdir(parents=True)
-            (proc / "500").mkdir(parents=True)
-            shutil.copy2(ROOT / "audio-reload.sh", module / "audio-reload.sh")
+            module = pathlib.Path(tmp)
+            (module / "logs").mkdir()
+            shutil.copy2(ROOT / "service.sh", module / "service.sh")
             (module / ".late-load-reload-experimental").touch()
-            xml = root / "audio_effects_config.xml"
-            xml.write_text(
-                f'<library name="bundle" path="libbundleaidl.so"/>\n'
-                f'<effect name="pixel_eq" uuid="{XML_UUID}"/>\n'
-                f'<effect name="jamesdsp" uuid="{JDSP_UUID}"/>\n'
+            reload_calls = module / "logs/audio-reload.calls"
+            (module / "audio-reload.sh").write_text(
+                f'#!/system/bin/sh\necho called >>"{reload_calls}"\n'
             )
-            lib = root / "libjamesdsp.so"
-            lib.touch()
-            boot_id = root / "boot_id"
-            boot_id.write_text("boot-1\n")
-            hal_pid = root / "hal_pid"
-            hal_pid.write_text("100\n")
-            audioserver_pid = root / "audioserver_pid"
-            audioserver_pid.write_text("300\n")
-            factory_loaded = root / "factory_loaded"
-            factory_loaded.write_text("0\n")
-            controls = root / "controls"
-
-            dumpsys = mock_executable(
-                mocks / "dumpsys",
-                f'''if [ "$1" = --pid ]; then
-  cat "$MOCK_FACTORY_PID"
-  exit 0
-fi
-if [ "$(cat "$MOCK_FACTORY_LOADED")" = 1 ]; then
-  echo 'Effects (22):'
-else
-  echo 'Effects (21):'
-fi
-cat <<'UUIDS'
-{STOCK_UUIDS}
-UUIDS
-if [ "$(cat "$MOCK_FACTORY_LOADED")" = 1 ]; then
-  echo 'UUID: {JDSP_UUID}'
-fi
-''',
+            (module / "jdsp_app.sh").write_text("#!/system/bin/sh\nexit 0\n")
+            result = subprocess.run(
+                ["sh", str(module / "service.sh")],
+                env={**os.environ, "KSU_LATE_LOAD": "1"},
+                capture_output=True,
+                text=True,
+                check=False,
             )
-            service = mock_executable(
-                mocks / "service",
-                '''if [ "$2" = android.hardware.audio.effect.IFactory/default ] ||
-   { [ "$2" = android.hardware.audio.effect.IFactory/aml ] &&
-     [ "${MOCK_AML_ACTIVE:-0}" = 1 ] &&
-     [ ! -f "$MOCK_AML_RESTARTED" ]; }; then
-  echo "Service $2: found"
-else
-  echo "Service $2: not found"
-fi
-''',
-            )
-            linker = mock_executable(mocks / "linker64", "exit 0\n")
-            getprop = mock_executable(mocks / "getprop", ":\n")
-            setprop = mock_executable(
-                mocks / "setprop",
-                '''echo "$1 $2" >>"$MOCK_CONTROLS"
-if [ "$1" = ctl.restart ] && [ "$2" = vendor.audio-hal-aidl ]; then
-  [ -n "$MOCK_AML_RESTARTED" ] && echo 1 >"$MOCK_AML_RESTARTED"
-  echo 200 >"$MOCK_HAL_PID"
-  echo 400 >"$MOCK_AUDIOSERVER_PID"
-  echo 1 >"$MOCK_FACTORY_LOADED"
-  mkdir -p "$MOCK_PROC_ROOT/200"
-  mkdir -p "$MOCK_PROC_ROOT/400"
-fi
-''',
-            )
-            pidof = mock_executable(
-                mocks / "pidof",
-                '''if [ "$1" = audioserver ]; then
-  count=$(cat "$MOCK_AUDIO_LOOKUPS" 2>/dev/null || echo 0)
-  count=$((count + 1))
-  echo "$count" >"$MOCK_AUDIO_LOOKUPS"
-  if [ "$count" -eq 2 ]; then exit 0; fi
-  cat "$MOCK_AUDIOSERVER_PID"
-elif [ "$1" = -s ] && [ "$2" = vendor.aml.effect-service ] &&
-     [ "${MOCK_AML_ACTIVE:-0}" = 1 ] &&
-     [ ! -f "$MOCK_AML_RESTARTED" ]; then
-  echo 500
-elif [ "$1" = -s ]; then
-  cat "$MOCK_HAL_PID"
-fi
-''',
-            )
-            sleep = mock_executable(mocks / "sleep", ":\n")
-
-            env = os.environ.copy()
-            env.update(
-                {
-                    "KSU_LATE_LOAD": "1",
-                    "JDSP_EFFECT_XML": str(xml),
-                    "JDSP_EFFECT_LIB": str(lib),
-                    "JDSP_BOOT_ID_FILE": str(boot_id),
-                    "JDSP_PROC_ROOT": str(proc),
-                    "JDSP_DUMPSYS_BIN": str(dumpsys),
-                    "JDSP_SERVICE_BIN": str(service),
-                    "JDSP_LINKER_BIN": str(linker),
-                    "JDSP_GETPROP_BIN": str(getprop),
-                    "JDSP_SETPROP_BIN": str(setprop),
-                    "JDSP_PIDOF_BIN": str(pidof),
-                    "JDSP_SLEEP_BIN": str(sleep),
-                    "MOCK_HAL_PID": str(hal_pid),
-                    "MOCK_FACTORY_LOADED": str(factory_loaded),
-                    "MOCK_AUDIOSERVER_PID": str(audioserver_pid),
-                    "MOCK_AUDIO_LOOKUPS": str(root / "audio-lookups"),
-                    "MOCK_CONTROLS": str(controls),
-                    "MOCK_PROC_ROOT": str(proc),
-                }
-            )
-            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("READY reason=target_loaded restart=once", (logs / "audio-reload.status").read_text())
-            self.assertIn("pixaml=not_active", (logs / "audio-reload.status").read_text())
-            self.assertEqual(controls.read_text().splitlines(), ["ctl.restart vendor.audio-hal-aidl"])
+            self.assertFalse(reload_calls.exists())
             self.assertEqual(
-                (logs / "audio-reload.boot-id").read_text().splitlines(),
-                ["boot-1", "200"],
+                (module / "logs/service.status").read_text(),
+                "SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n",
             )
 
-            # Re-entering service for the same HAL process must not restart it
-            # again, even if the effect has disappeared from its factory.
-            controls.write_text("")
-            factory_loaded.write_text("0\n")
-            (root / "audio-lookups").write_text("0\n")
-            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(
-                (logs / "audio-reload.status").read_text().strip(),
-                "BLOCKED reason=reload_already_attempted_for_hal_instance",
-            )
-            self.assertEqual(controls.read_text(), "")
-
-            # A userspace/soft reboot can replace the HAL while preserving the
-            # kernel boot id. Allow one guarded refresh for that new instance.
-            controls.write_text("")
-            hal_pid.write_text("500\n")
-            audioserver_pid.write_text("600\n")
-            (proc / "500").mkdir(exist_ok=True)
-            (proc / "600").mkdir(exist_ok=True)
-            (root / "audio-lookups").write_text("0\n")
-            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("READY reason=target_loaded restart=once", (logs / "audio-reload.status").read_text())
-            self.assertEqual(controls.read_text().splitlines(), ["ctl.restart vendor.audio-hal-aidl"])
-            self.assertEqual(
-                (logs / "audio-reload.boot-id").read_text().splitlines(),
-                ["boot-1", "200"],
-            )
-
-            # Older releases stored only the kernel boot id; allow one
-            # migration attempt to the HAL-instance guard format.
-            controls.write_text("")
-            factory_loaded.write_text("0\n")
-            (logs / "audio-reload.boot-id").write_text("boot-1\n")
-            hal_pid.write_text("700\n")
-            audioserver_pid.write_text("800\n")
-            (proc / "700").mkdir(exist_ok=True)
-            (proc / "800").mkdir(exist_ok=True)
-            (root / "audio-lookups").write_text("0\n")
-            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("READY reason=target_loaded restart=once", (logs / "audio-reload.status").read_text())
-            self.assertEqual(controls.read_text().splitlines(), ["ctl.restart vendor.audio-hal-aidl"])
-            self.assertEqual(
-                (logs / "audio-reload.boot-id").read_text().splitlines(),
-                ["boot-1", "200"],
-            )
-
-            (logs / "audio-reload.boot-id").unlink()
-            controls.write_text("")
-            factory_loaded.write_text("0\n")
-            hal_pid.write_text("100\n")
-            audioserver_pid.write_text("300\n")
-            (root / "audio-lookups").write_text("0\n")
-            env["MOCK_AML_ACTIVE"] = "1"
-            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("READY reason=target_loaded restart=once", (logs / "audio-reload.status").read_text())
-            self.assertIn("pixaml=preserved", (logs / "audio-reload.status").read_text())
-            self.assertEqual(controls.read_text().splitlines(), ["ctl.restart vendor.audio-hal-aidl"])
-
-            (logs / "audio-reload.boot-id").unlink()
-            controls.write_text("")
-            factory_loaded.write_text("0\n")
-            hal_pid.write_text("100\n")
-            audioserver_pid.write_text("300\n")
-            (root / "audio-lookups").write_text("0\n")
-            aml_restarted = root / "aml-restarted"
-            env["MOCK_AML_RESTARTED"] = str(aml_restarted)
-            result = subprocess.run(["sh", str(module / "audio-reload.sh")], env=env, capture_output=True, text=True, check=False)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(
-                (logs / "audio-reload.status").read_text().strip(),
-                "BLOCKED reason=pixaml_factory_lost_after_audio_restart",
-            )
-            self.assertEqual(controls.read_text().splitlines(), ["ctl.restart vendor.audio-hal-aidl"])
-
-    def test_late_load_service_starts_app_helper_before_audio_reload_return(self):
+    def test_late_load_service_starts_app_helper_and_reports_restart_disabled(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = pathlib.Path(tmp)
             (module / "logs").mkdir()
@@ -532,9 +404,6 @@ fi
             (module / ".late-load-reload-experimental").touch()
             (module / "jdsp_app.sh").write_text(
                 '#!/system/bin/sh\n[ -z "$MODPATH" ] && MODPATH="${0%/*}"\necho app >>"$MODPATH/logs/app-helper.calls"\n'
-            )
-            (module / "audio-reload.sh").write_text(
-                '#!/system/bin/sh\nMODPATH="${0%/*}"\necho BLOCKED reason=test_audio_block >"$MODPATH/logs/audio-reload.status"\n'
             )
             result = subprocess.run(
                 ["sh", str(module / "service.sh")],
@@ -549,10 +418,11 @@ fi
                 if calls.exists():
                     break
                 subprocess.run(["sleep", "0.05"], check=False)
+            self.assertTrue(calls.exists())
             self.assertEqual(calls.read_text(), "app\n")
             self.assertEqual(
                 (module / "logs/service.status").read_text(),
-                "BLOCKED reason=test_audio_block\n",
+                "SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n",
             )
 
     def run_jdsp_app(
@@ -907,9 +777,9 @@ exit 0
         self.assertIn("pixaml_factory_lost_after_audio_restart", combined)
         self.assertIn("audioserver_pid_missing_after_restart", combined)
 
-    def test_pixel_prerelease_contains_only_root_apks_and_new_boot_config(self):
+    def test_previous_pixel_builder_refuses_candidate_version(self):
         with tempfile.TemporaryDirectory() as tmp:
-            zip_path = pathlib.Path(tmp) / "JamesDSPManager-v6.5.10-pixel-builtin-aidl-beta.3.zip"
+            zip_path = pathlib.Path(tmp) / "old-candidate.zip"
             env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
             result = subprocess.run(
                 ["python3", str(ROOT / "tools/package_6510_pixel_aidl.py")],
@@ -918,35 +788,14 @@ exit 0
                 text=True,
                 check=False,
             )
-            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("Unexpected module version", result.stderr)
+            self.assertTrue(zip_path.exists())
             with zipfile.ZipFile(zip_path) as archive:
-                names = archive.namelist()
-                self.assertIn("audio-reload.sh", names)
-                self.assertIn("post-fs-data.sh", names)
-                self.assertIn("prepare_builtin_aidl_config", archive.read("post-fs-data.sh").decode("utf-8"))
-                readme = archive.read("README.md").decode("utf-8")
-                self.assertIn("JamesDSP does not depend on PIXAML", readme)
-                self.assertIn("through several soft reboots", readme)
-                self.assertIn("version=v6.5.10-pixel-builtin-aidl-beta.3", archive.read("module.prop").decode("utf-8"))
-                update = archive.read("update.json").decode("utf-8")
-                self.assertIn('"version": "v6.5.10-pixel-builtin-aidl-beta.3"', update)
-                self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.10-pixel-builtin-aidl-beta.3", update)
-                self.assertIn("common/files/JamesDSPManager.apk.meta", names)
-                self.assertIn("common/files/JamesDSPManagerThePBone.apk.meta", names)
-                self.assertIn("common/app_migration.sh", names)
-                self.assertEqual(
-                    archive.read("common/files/JamesDSPManager.apk.meta").decode("utf-8"),
-                    "versionCode=95\n",
+                self.assertIn(
+                    "version=v6.5.11-pixel-native-control-v3-test",
+                    archive.read("module.prop").decode("utf-8"),
                 )
-                self.assertEqual(
-                    archive.read("common/files/JamesDSPManagerThePBone.apk.meta").decode("utf-8"),
-                    "versionCode=56\n",
-                )
-                self.assertEqual(
-                    {name for name in names if name.endswith(".apk")},
-                    {"common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"},
-                )
-                self.assertFalse(any("rootless" in name.lower() for name in names))
 
     def test_installer_does_not_remove_an_existing_app(self):
         app_helper = (ROOT / "jdsp_app.sh").read_text()

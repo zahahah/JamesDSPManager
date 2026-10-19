@@ -1,0 +1,66 @@
+{
+  "artifact": {
+    "filename": "libjamesdspaidl.so",
+    "sha256": "266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce",
+    "size_bytes": 2323904,
+    "elf_class": "ELF64",
+    "elf_machine": "AArch64",
+    "soname": "libjamesdspaidl.so",
+    "build_id": "2df6bb4b976575a7200bfc87a17c802b",
+    "expected_module_filename": "libjamesdsp.so"
+  },
+  "source": {
+    "repository": "https://github.com/zahahah/LightningDSP",
+    "branch": "native/control-completion-v3",
+    "commit": "6f9021f6f2a0b8d74100c87947b0884e37af671a",
+    "note": "Artifact built from the source tree represented by this commit; no app or module sources are included."
+  },
+  "build": {
+    "target": "libjamesdspaidl",
+    "product": "mini_arm64-userdebug",
+    "android_release": "Android 16 / Baklava",
+    "build_id": "CP2A.260605.016",
+    "resolved_manifest_sha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131",
+    "container_image": "jdsp-aosp-builder:android16-r1",
+    "container_image_digest": "sha256:4e12ae3867c71d42b85c87ad1387111988f0a34ea9fd9d173e63299dd13f76d5",
+    "clang": "22.0.1 (r584948b)",
+    "ninja": "1.9.0.git",
+    "parallelism": "ninja -j4; container limited to 6 CPUs and 24 GiB memory",
+    "build_attempt": 19,
+    "result": "success; exit code 0; no OOM"
+  },
+  "direct_dt_needed": [
+    "android.hardware.audio.effect-V4-ndk.so",
+    "android.media.audio.common.types-V5-ndk.so",
+    "libaudio_aidl_conversion_common_ndk.so",
+    "libaudioaidlcommon.so",
+    "libaudioutils.so",
+    "libbase.so",
+    "libbinder_ndk.so",
+    "libcutils.so",
+    "libfmq.so",
+    "liblog.so",
+    "libutils.so",
+    "android.hardware.common-V2-ndk.so",
+    "android.hardware.common.fmq-V1-ndk.so",
+    "libc++.so",
+    "libc.so",
+    "libm.so",
+    "libdl.so"
+  ],
+  "validation": {
+    "host_native_control_suite": "pass; exit code 0",
+    "host_binder_production_control_harness": "pass; exit code 0",
+    "audio_callback_boundary_check": "pass",
+    "git_diff_check": "pass",
+    "host_control_requests": "valid post-gain and FIR update paths changed observable test-context state/output; invalid, stale, destroyed-context and authorization cases rejected",
+    "test_limits": "Host harness exercises production control service/core and DSP update functions with test contexts. It does not prove Android ServiceManager/SELinux permissions, Android HAL factory callbacks, or live device audio behavior."
+  },
+  "security_and_compatibility_limits": {
+    "default_write_authorization": "root UID only; no app UID is authorized by default",
+    "android_hal_or_selinux": "not validated",
+    "pixel_hardware": "not validated with this artifact",
+    "samsung_hardware": "not validated; Samsung AIDL V3 versus this build's AIDL V4 compatibility remains unresolved",
+    "module_or_app_changes": "none"
+  }
+}

@@ -10,14 +10,8 @@ start_jdsp_app_installer() {
 if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ -f "$MODPATH/.late-load-reload-experimental" ]; then
 	mkdir -p "$MODPATH/logs"
 	start_jdsp_app_installer
-	if [ -f "$MODPATH/audio-reload.sh" ]; then
-		sh "$MODPATH/audio-reload.sh"
-	else
-		printf 'BLOCKED reason=audio_reload_script_missing\n' \
-			>"$MODPATH/logs/service.status"
-	fi
-	[ -f "$MODPATH/logs/audio-reload.status" ] && \
-		cp -f "$MODPATH/logs/audio-reload.status" "$MODPATH/logs/service.status"
+	printf 'SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n' \
+		>"$MODPATH/logs/service.status"
 	exit 0
 fi
 if [ -f "$MODPATH/.late-load-no-effect" ] || [ -f "$MODPATH/.late-load-rootless" ]; then

@@ -3,6 +3,7 @@ MODPATH=${0%/*}
 MODDIR="$MODPATH"
 LOGDIR="$MODPATH/logs"
 STATUS="$LOGDIR/late-load.status"
+BUILT_CONTROL_V3="$MODPATH/native-control/provenance.json"
 JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
 JDSP_TYPE=f98765f4-c321-5de6-9a45-123459495ab2
 XML_LIB_ANCHOR=libbundleaidl.so
@@ -12,8 +13,36 @@ LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
 FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
 SOURCE_VENDOR_CONFIG=${JDSP_SOURCE_VENDOR_CONFIG:-/vendor/etc/audio_effects_config.xml}
 SOURCE_LEGACY_CONFIG=${JDSP_SOURCE_LEGACY_CONFIG:-/system/etc/audio_effects.xml}
+GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
 
 mkdir -p "$LOGDIR"
+
+if [ -d "$MODPATH/system/vendor" ] && [ ! -L "$MODPATH/system/vendor" ]; then
+	MOD_VENDOR="$MODPATH/system/vendor"
+	MOD_ODM="$MODPATH/system/odm"
+else
+	MOD_VENDOR="$MODPATH/vendor"
+	MOD_ODM="$MODPATH/odm"
+fi
+
+# The control-v3 binary is scoped to the Pixel 10 Pro XL test device. Its
+# Android AIDL Effect V4 dependency is not a safe drop-in for Samsung's V3 HAL.
+# Block before preparing any systemless audio overlay on other devices.
+if [ -f "$BUILT_CONTROL_V3" ]; then
+	manufacturer=$("$GETPROP_BIN" ro.product.manufacturer 2>/dev/null | tr '[:upper:]' '[:lower:]')
+	device=$("$GETPROP_BIN" ro.product.device 2>/dev/null)
+	sdk=$("$GETPROP_BIN" ro.build.version.sdk 2>/dev/null)
+	case "$sdk" in
+		''|*[!0-9]*) sdk_valid=false ;;
+		*) sdk_valid=true ;;
+	esac
+	if [ "$manufacturer" != google ] || [ "$device" != mustang ] || \
+		[ "$sdk_valid" != true ] || [ "$sdk" -lt 36 ]; then
+		printf 'BLOCKED reason=native_control_v3_requires_pixel_mustang_api36_or_newer restart=not_requested\n' >"$STATUS"
+		touch "$MODPATH/skip_mount"
+		exit 0
+	fi
+fi
 
 late_block() {
 	printf 'BLOCKED reason=%s\n' "$1" >"$STATUS"
@@ -21,8 +50,16 @@ late_block() {
 	exit 0
 }
 
+# The normal boot path uses the same strict ABI validation as late-load.
+# Validate before preparing the config that makes the replacement discoverable.
+if [ "${KSU_LATE_LOAD:-0}" != 1 ] && [ -f "$BUILT_CONTROL_V3" ]; then
+	AIDL=true
+	. "$MODPATH/patch.sh" >"$LOGDIR/native-control-dependency-check.log" 2>&1 || \
+		late_block native_control_dependency_mismatch
+fi
+
 late_ready() {
-	printf 'READY late_load=1 vendor_config=%s lib=patched restart=service\n' "$1" \
+	printf 'READY late_load=1 vendor_config=%s lib=validated restart=not_requested processing=unverified\n' "$1" \
 		>"$STATUS"
 	exit 0
 }
@@ -161,14 +198,6 @@ prepare_builtin_aidl_config() {
 		"$config_source" "$config" >"$LOGDIR/builtin-aidl-config.status"
 }
 
-if [ -d "$MODPATH/system/vendor" ] && [ ! -L "$MODPATH/system/vendor" ]; then
-	MOD_VENDOR="$MODPATH/system/vendor"
-	MOD_ODM="$MODPATH/system/odm"
-else
-	MOD_VENDOR="$MODPATH/vendor"
-	MOD_ODM="$MODPATH/odm"
-fi
-
 if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 	# KernelSU Next reaches this stage before Magic Mount-rs consumes the
 	# module tree. Prepare the systemless files here, then let the overlay
@@ -181,8 +210,6 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 
 	rm -f "$MODPATH/skip_mount" "$MODPATH/.late-load-no-effect" \
 		"$MODPATH/.late-load-rootless"
-	touch "$MODPATH/.late-load-reload-experimental"
-
 	[ -f "$MODPATH/.AIDL" ] || late_block aidl_marker_missing
 	[ -f "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" ] || \
 		late_block jamesdsp_lib_missing
@@ -206,8 +233,7 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 
 	AIDL=true
 	if [ -f "$MODPATH/patch.sh" ]; then
-		# Patch AIDL NDK SONAMEs to the live firmware before the library is
-		# mounted into /vendor/lib64/soundfx.
+		# Validate exact AIDL NDK dependencies; never rename SONAMEs to another ABI.
 		. "$MODPATH/patch.sh" >"$LOGDIR/late-load-patch.log" 2>&1 || \
 			late_block patchelf_failed
 	fi
@@ -244,4 +270,6 @@ else
 	AIDL=false
 fi
 . "$MODPATH/aml.sh"
-. "$MODPATH/patch.sh"
+if [ ! -f "$BUILT_CONTROL_V3" ]; then
+	. "$MODPATH/patch.sh"
+fi

@@ -2,7 +2,41 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
-## Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
+## Pixel test build: v6.5.11-pixel-native-control-v3-test
+
+This is a device-test candidate that replaces the AIDL driver with the
+Android-built `libjamesdspaidl.so` from LightningDSP native control v3. The
+module installs it under Android's expected filename, `libjamesdsp.so`, and
+keeps the existing effect UUID/type and XML factory path. The driver SHA-256 is
+`266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce`.
+
+The new library contains a versioned `jdsp.control` Binder endpoint
+(`lightning.dsp.IJamesDspControl`) for protocol/status and a limited initial
+set of same-context controls (enable, post-gain, FIR EQ). The native default
+write authorization is root UID only. This module does not include a client
+implementation in JamesDSPManager or RootJamesDSP; the app UI therefore does
+not yet send these Binder controls. Existing `AudioEffect` operation remains
+the fallback. Service registration, Pixel ABI compatibility, descriptor
+discovery, effect creation, audio processing, and audible control changes are
+all unverified with this candidate.
+
+The build depends on Android audio-effect AIDL V4, media common types V5,
+hardware common V2, and common FMQ V1. This is explicitly scoped by the module
+to the Pixel 10 Pro XL (`mustang`) on Android API 36 or newer. Other devices,
+including the Samsung device previously observed with an AIDL V3 factory, fail
+closed before the module prepares its audio overlay. Dependency names are
+validated exactly and are never rewritten to a different AIDL ABI.
+
+Late-load does not restart Audio HAL or audioserver. A ready mount/config status
+is not evidence that `jdsp.control` registered or that audio is processed. See
+[`NATIVE-CONTROL.md`](NATIVE-CONTROL.md) for limitations and manual evidence
+needed before making a functional claim. The exact binary provenance and the
+LightningDSP GPL-2.0 license text are included in `native-control/`.
+
+The module package retains the existing app APK payload unchanged. No app-side
+control client is included in this module candidate.
+
+## Prior Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
 
 This test build prepares the AIDL effect-factory config during the regular
 KernelSU boot path, even when `KSU_LATE_LOAD` is unset. The existing late-load

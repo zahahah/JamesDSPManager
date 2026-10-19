@@ -1,8 +1,8 @@
 id=ainur_jamesdsp
-name=JamesDSP Manager
-version=v6.5.10-pixel-builtin-aidl-beta.3
-versionCode=114
+name=JamesDSP Manager (Pixel native-control-v3 test)
+version=v6.5.11-pixel-native-control-v3-test
+versionCode=115
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=Root-only JamesDSP module with systemless AIDL and install-time APK migration
+description=Pixel-only test driver with native AIDL control v1; processing and app control unverified
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970

@@ -532,3 +532,16 @@
 
 App [GitHub](https://github.com/james34602/JamesDSPManager)
 
+### v6.5.11-pixel-native-control-v3-test
+
+* Replace only the AIDL effect driver with the pinned Android ARM64
+  `libjamesdspaidl.so` native-control-v3 artifact; retain the existing effect
+  UUID/type, APK payloads, and built-in Pixel configuration path.
+* Include the artifact's original build provenance and GPL-2.0 license text.
+* Require the exact AIDL V4/V5/V2/V1 dependencies; do not rewrite `DT_NEEDED`
+  names to another framework/vendor ABI.
+* Restrict this test candidate to Pixel 10 Pro XL (`mustang`) on API 36+ and
+  fail closed elsewhere. Samsung V3 compatibility is not claimed.
+* Disable automatic audio HAL/audioserver restarts in late-load. No device has
+  been tested with this artifact, and the app has no client for `jdsp.control`.
+
