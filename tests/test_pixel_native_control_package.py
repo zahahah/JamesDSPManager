@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 spec = importlib.util.spec_from_file_location(
     "pixel_native_control_package",
-    ROOT / "tools/package_6513_pixel_native_control_v3.py",
+    ROOT / "tools/package_6511_pixel_native_control_v3.py",
 )
 package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)

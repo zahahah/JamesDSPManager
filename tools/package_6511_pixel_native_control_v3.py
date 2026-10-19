@@ -12,7 +12,7 @@ import package_6510_pixel_aidl as previous
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "3ea15a5bae87bdbe17f39d5a161c002b655fe3d8"
-VERSION = "v6.5.13-pixel-native-control-v3-test"
+VERSION = "v6.5.11-pixel-native-control-v3-test"
 VERSION_CODE = 117
 DRIVER = "common/files/aidl/libjamesdsp.so"
 DRIVER_SHA256 = "266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce"
@@ -42,7 +42,7 @@ CHANGED_FILES = {
     "tests/test_late_load.py",
     "tests/test_native_control_patch.py",
     "tests/test_pixel_native_control_package.py",
-    "tools/package_6513_pixel_native_control_v3.py",
+    "tools/package_6511_pixel_native_control_v3.py",
     "update.json",
 }
 PAYLOADS = dict(previous.PAYLOADS)

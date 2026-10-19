@@ -805,7 +805,7 @@ exit 0
             self.assertTrue(zip_path.exists())
             with zipfile.ZipFile(zip_path) as archive:
                 self.assertIn(
-                    "version=v6.5.13-pixel-native-control-v3-test",
+                    "version=v6.5.11-pixel-native-control-v3-test",
                     archive.read("module.prop").decode("utf-8"),
                 )
 

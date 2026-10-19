@@ -532,15 +532,6 @@
 
 App [GitHub](https://github.com/james34602/JamesDSPManager)
 
-### v6.5.13-pixel-native-control-v3-test
-
-- Add clear spacing and an explicit signing-certificate analysis notice before comparing the installed and selected JamesDSP APKs.
-
-### v6.5.12-pixel-native-control-v3-test
-
-- Restore executable permissions for bundled `tools/patchelf` after installer-wide permission normalization so the native AIDL compatibility gate can run.
-- Keep the native-control-v3 candidate limited to compatible Pixel test devices; no audio service restart is added.
-
 ### v6.5.11-pixel-native-control-v3-test
 
 * Replace only the AIDL effect driver with the pinned Android ARM64
@@ -553,4 +544,9 @@ App [GitHub](https://github.com/james34602/JamesDSPManager)
   fail closed elsewhere. Samsung V3 compatibility is not claimed.
 * Disable automatic audio HAL/audioserver restarts in late-load. No device has
   been tested with this artifact, and the app has no client for `jdsp.control`.
-
+* Restore executable permissions for bundled `tools/patchelf` after installer-wide
+  permission normalization so the native AIDL compatibility gate can run.
+* Keep this candidate limited to compatible Pixel test devices; no audio service
+  restart is added.
+* Add clear spacing and an explicit signing-certificate analysis notice before
+  comparing the installed and selected JamesDSP APKs.
