@@ -2,7 +2,7 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
-## Pixel test build: v6.5.11-pixel-native-control-v3-test
+## Pixel test build: v6.5.12-pixel-native-control-v3-test
 
 This is a device-test candidate that replaces the AIDL driver with the
 Android-built `libjamesdspaidl.so` from LightningDSP native control v3. The

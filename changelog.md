@@ -532,6 +532,11 @@
 
 App [GitHub](https://github.com/james34602/JamesDSPManager)
 
+### v6.5.12-pixel-native-control-v3-test
+
+- Restore executable permissions for bundled `tools/patchelf` after installer-wide permission normalization so the native AIDL compatibility gate can run.
+- Keep the native-control-v3 candidate limited to compatible Pixel test devices; no audio service restart is added.
+
 ### v6.5.11-pixel-native-control-v3-test
 
 * Replace only the AIDL effect driver with the pinned Android ARM64

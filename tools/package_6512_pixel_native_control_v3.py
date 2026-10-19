@@ -12,8 +12,8 @@ import package_6510_pixel_aidl as previous
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "3ea15a5bae87bdbe17f39d5a161c002b655fe3d8"
-VERSION = "v6.5.11-pixel-native-control-v3-test"
-VERSION_CODE = 115
+VERSION = "v6.5.12-pixel-native-control-v3-test"
+VERSION_CODE = 116
 DRIVER = "common/files/aidl/libjamesdsp.so"
 DRIVER_SHA256 = "266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce"
 OUTPUT = Path(os.environ.get(
@@ -30,6 +30,7 @@ CHANGED_FILES = {
     "NATIVE-CONTROL.md",
     "README.md",
     "changelog.md",
+    "common/functions.sh",
     DRIVER,
     "module.prop",
     "native-control/LightningDSP-Main-LICENSE.txt",
@@ -40,7 +41,7 @@ CHANGED_FILES = {
     "tests/test_late_load.py",
     "tests/test_native_control_patch.py",
     "tests/test_pixel_native_control_package.py",
-    "tools/package_6511_pixel_native_control_v3.py",
+    "tools/package_6512_pixel_native_control_v3.py",
     "update.json",
 }
 PAYLOADS = dict(previous.PAYLOADS)
@@ -118,6 +119,13 @@ def verify_payloads() -> None:
     if "restart=not_requested" not in late_load_branch:
         raise ValueError("Late-load service must explicitly report restart disabled")
 
+    installer = (ROOT / "common/functions.sh").read_text(encoding="utf-8")
+    permission_reset = installer.index("set_perm_recursive $MODPATH 0 0 0755 0644")
+    permission_finalize = installer.index("set_permissions", permission_reset)
+    patchelf_restore = installer.index('chmod 0755 "$MODPATH/tools/patchelf"', permission_finalize)
+    if not permission_reset < permission_finalize < patchelf_restore:
+        raise ValueError("Installer must restore patchelf executable mode after permission normalization")
+
 
 def write_zip(output: Path) -> None:
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +152,9 @@ def build(output: Path = OUTPUT) -> str:
             raise ValueError("Unexpected or duplicate ZIP payload paths")
         if "audio-reload.sh" in names:
             raise ValueError("Audio restart helper must not be included in this test ZIP")
+        patchelf_mode = archive.getinfo("tools/patchelf").external_attr >> 16
+        if patchelf_mode & 0o777 != 0o755:
+            raise ValueError("Packaged patchelf must be executable")
         if {name for name in names if name.endswith(".apk")} != set(previous.SIGNED_APK_HASHES):
             raise ValueError("Unexpected APK set")
         if archive.read(DRIVER) != (ROOT / DRIVER).read_bytes():

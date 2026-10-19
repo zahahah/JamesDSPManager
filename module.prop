@@ -1,7 +1,7 @@
 id=ainur_jamesdsp
 name=JamesDSP Manager (Pixel native-control-v3 test)
-version=v6.5.11-pixel-native-control-v3-test
-versionCode=115
+version=v6.5.12-pixel-native-control-v3-test
+versionCode=116
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
 description=Pixel-only test driver with native AIDL control v1; processing and app control unverified
