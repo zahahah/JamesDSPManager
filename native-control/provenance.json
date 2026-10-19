@@ -1,35 +1,34 @@
 {
   "artifact": {
     "filename": "libjamesdspaidl.so",
-    "sha256": "266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce",
+    "sha256": "cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a",
     "size_bytes": 2323904,
     "elf_class": "ELF64",
     "elf_machine": "AArch64",
     "soname": "libjamesdspaidl.so",
-    "build_id": "2df6bb4b976575a7200bfc87a17c802b",
-    "expected_module_filename": "libjamesdsp.so"
+    "build_id": "f1546f4b6980acefdeb2fe6424c0188f"
   },
   "source": {
     "repository": "https://github.com/zahahah/LightningDSP",
-    "branch": "native/control-completion-v3",
-    "commit": "6f9021f6f2a0b8d74100c87947b0884e37af671a",
-    "note": "Artifact built from the source tree represented by this commit; no app or module sources are included."
+    "requested_branch": "native/effect-bound-control-v1",
+    "commit": "bbc9bcee2f402c4ced87c10e64dfdf29a5fc5cfb",
+    "checkout_state": "detached at requested commit, clean"
   },
   "build": {
     "target": "libjamesdspaidl",
-    "product": "mini_arm64-userdebug",
-    "android_release": "Android 16 / Baklava",
+    "product": "mini_arm64",
+    "variant": "userdebug",
+    "abi": "arm64-v8a / AArch64",
+    "aosp_ref": "android-17.0.0_r1",
+    "platform_version_observed": "Baklava",
     "build_id": "CP2A.260605.016",
     "resolved_manifest_sha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131",
-    "container_image": "jdsp-aosp-builder:android16-r1",
-    "container_image_digest": "sha256:4e12ae3867c71d42b85c87ad1387111988f0a34ea9fd9d173e63299dd13f76d5",
-    "clang": "22.0.1 (r584948b)",
-    "ninja": "1.9.0.git",
-    "parallelism": "ninja -j4; container limited to 6 CPUs and 24 GiB memory",
-    "build_attempt": 19,
-    "result": "success; exit code 0; no OOM"
+    "command": "source build/envsetup.sh; lunch mini_arm64 trunk_staging userdebug; SOONG_ONLY=true; SOONG_INCREMENTAL_ANALYSIS=false; m libjamesdspaidl -j4",
+    "soong_analysis": "exit 0; 15m11s",
+    "target_build": "exit 0; 3146 actions; 18m39s",
+    "limits": "systemd scope MemoryMax=24GiB, CPUQuota=600%; Soong GOGC=50, GOMEMLIMIT=16GiB"
   },
-  "direct_dt_needed": [
+  "effect_aidl_dependencies": [
     "android.hardware.audio.effect-V4-ndk.so",
     "android.media.audio.common.types-V5-ndk.so",
     "libaudio_aidl_conversion_common_ndk.so",
@@ -48,19 +47,19 @@
     "libm.so",
     "libdl.so"
   ],
-  "validation": {
-    "host_native_control_suite": "pass; exit code 0",
-    "host_binder_production_control_harness": "pass; exit code 0",
-    "audio_callback_boundary_check": "pass",
-    "git_diff_check": "pass",
-    "host_control_requests": "valid post-gain and FIR update paths changed observable test-context state/output; invalid, stale, destroyed-context and authorization cases rejected",
-    "test_limits": "Host harness exercises production control service/core and DSP update functions with test contexts. It does not prove Android ServiceManager/SELinux permissions, Android HAL factory callbacks, or live device audio behavior."
+  "exports": ["queryEffect", "createEffect", "destroyEffect"],
+  "host_tests": {
+    "control_core_normal_asan_ubsan_optimized": "pass",
+    "publication_gate_normal_asan_ubsan": "pass",
+    "effect_control_protocol": "pass",
+    "unsafe_fast_math_rejection": "pass",
+    "full_runner": "exit 1 at check_audio_boundary.py because baseline commit cdb014c is absent from local git objects; source/tests were not modified to bypass this"
   },
-  "security_and_compatibility_limits": {
-    "default_write_authorization": "root UID only; no app UID is authorized by default",
-    "android_hal_or_selinux": "not validated",
-    "pixel_hardware": "not validated with this artifact",
-    "samsung_hardware": "not validated; Samsung AIDL V3 versus this build's AIDL V4 compatibility remains unresolved",
-    "module_or_app_changes": "none"
+  "runtime_limits": {
+    "android_service_manager_selinux": "not validated",
+    "pixel": "not validated with this artifact",
+    "samsung": "not validated; Samsung Effect AIDL V3 compatibility with this artifact's V4 dependency is unresolved",
+    "app_or_module_changes": "none",
+    "publish_release_or_push": "none"
   }
 }

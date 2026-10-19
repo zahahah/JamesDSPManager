@@ -2,49 +2,33 @@
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
 
-## AIDL native-control-v3 test build: v6.5.11-pixel-native-control-v3-test
+## AIDL effect-bound-control-v1 test build: v6.5.14-effect-bound-control-v1-test
 
-This is a device-test candidate that replaces the AIDL driver with the
-Android-built `libjamesdspaidl.so` from LightningDSP native control v3. The
-module installs it under Android's expected filename, `libjamesdsp.so`, and
-keeps the existing effect UUID/type and XML factory path. The driver SHA-256 is
-`266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce`.
+This is an experimental ARM64 driver package for testing the new
+LightningDSP effect-bound control implementation. It replaces only the AIDL
+library payload at `common/files/aidl/libjamesdsp.so`; the module installs it
+under Android's expected filename `libjamesdsp.so` while preserving the
+existing effect UUID/type and XML factory path.
 
-The new library contains a versioned `jdsp.control` Binder endpoint
-(`lightning.dsp.IJamesDspControl`) for protocol/status and a limited initial
-set of same-context controls (enable, post-gain, FIR EQ). The bundled root APK
-is built from RootJamesDSP branch `pixel-test-new-aidl` (source commit
-`53134a2`), with versionName 1.6.15 and versionCode 57. It includes an
-experimental AIDL client that probes protocol/capabilities and only attempts
-writes when the provider explicitly authorizes direct app access. The provider
-currently authorizes UID 0 by default, so this app build is expected to retain
-the legacy `AudioEffect` path; this package does not establish app-UID write
-access or map the UI EQ controls to the new service. Service registration,
-Pixel ABI compatibility, descriptor discovery, effect creation, audio
-processing, and audible native-control changes remain unverified.
+Driver SHA-256:
+`cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a`.
+The source is LightningDSP commit `bbc9bcee2f402c4ced87c10e64dfdf29a5fc5cfb`;
+Android 17 / AOSP `android-17.0.0_r1`, ARM64. Full provenance and build notes
+are in `native-control/`.
 
-The binary was built against Android audio-effect AIDL V4, media common types
-V5, hardware common V2, and common FMQ V1. There is no Android SDK or device-
-model gate in this test module. An experimental cross-ABI probe logs missing
-AIDL dependencies or a failed linker preflight without blocking the systemless
-overlay, allowing lower-API/AIDL V3 devices to be tested. The ELF dependency
-names are never rewritten. Removing the gate does not make the artifact
-compatible: a device may fail to load the library or reject the effect, and
-no AIDL V3 processing is claimed.
+**Important limitations:** this binary directly depends on Android Audio Effect
+AIDL V4. The installer now blocks the systemless mount when the exact AIDL
+dependencies cannot be resolved; this is not a Samsung AIDL V3 build. The matching effect-bound
+control transport is not yet integrated into the bundled APK, and neither
+Pixel nor Samsung runtime behavior has been established with this exact
+artifact. Treat this as a driver-loading / A-B test candidate, not a working
+control release. No Android service restart is performed by late-load.
 
-Late-load does not restart Audio HAL or audioserver. A ready mount/config status
-is not evidence that `jdsp.control` registered or that audio is processed. See
-[`NATIVE-CONTROL.md`](NATIVE-CONTROL.md) for limitations and manual evidence
-needed before making a functional claim. The exact binary provenance and the
-LightningDSP GPL-2.0 license text are included in `native-control/`.
-
-The module replaces the previous root APK payload with the signed experimental
-client build (package `james.dsp`, versionName 1.6.15, versionCode 57). The APK
-uses the authorized maintainer certificate and is included at the module's
-legacy `JamesDSPManagerThePBone.apk` payload path so the existing installer can
-update versionCode 56 in place while preserving app data. The source branch and
-commit are recorded above; this is a test build, not a claim of verified DSP
-control.
+The bundled APK payload remains the signed root build `james.dsp` 1.6.15,
+versionCode 57, unchanged from the preceding test branch. The package builder
+checks payload hashes and embeds artifact provenance. See
+[`NATIVE-CONTROL.md`](NATIVE-CONTROL.md) and [`PIXEL_TEST.md`](PIXEL_TEST.md)
+for test boundaries.
 
 ## Prior Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
 
@@ -117,7 +101,7 @@ Run the host tests and build the release ZIP with:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 tools/package_6511_pixel_native_control_v3.py  # build this Pixel prerelease
+python3 tools/package_6511_pixel_native_control_v3.py  # build the v6.5.14 test prerelease
 python3 tools/package_659_mustang_late_load.py  # rebuild stable v6.5.9
 ```
 

@@ -1,3 +1,12 @@
+### v6.5.14-effect-bound-control-v1-test
+
+* Replace only the ARM64 AIDL driver with the experimental LightningDSP
+  effect-bound-control-v1 artifact, built for Android Effect AIDL V4.
+* Preserve the prior signed root APK payload (JamesDSP 1.6.15 / versionCode 57).
+* Require exact AIDL V4 dependencies before mounting; missing dependencies block
+  the candidate rather than bypassing the check. Samsung AIDL V3 compatibility
+  remains unresolved; the bundled app is not wired to this protocol.
+
 ### v6.5.11-pixel-native-control-v3-test
 
 * Bundle the native-control-v3 library and a signed experimental RootJamesDSP
