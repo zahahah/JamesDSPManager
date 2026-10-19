@@ -16,10 +16,10 @@ OUTPUT = Path(os.environ.get(
 VERSION = "v6.5.10-pixel-builtin-aidl-beta.3"
 VERSION_CODE = 114
 ROOT_APK = "common/files/JamesDSPManagerThePBone.apk"
-ROOT_APK_SHA256 = "70aa92562017856777a9a616ec8b55e8354f0dee093812df53fe2404dd9c24f9"
+ROOT_APK_SHA256 = "b385d493acc5cf20d2ca6be1f9aaf2b155908a4218d63a347fdca48254e3ac22"
 APK_METADATA = {
     "common/files/JamesDSPManager.apk.meta": "versionCode=95\n",
-    "common/files/JamesDSPManagerThePBone.apk.meta": "versionCode=56\n",
+    "common/files/JamesDSPManagerThePBone.apk.meta": "versionCode=57\n",
 }
 PAYLOADS = dict(stable.PAYLOADS)
 PAYLOADS.update({

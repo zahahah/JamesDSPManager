@@ -246,7 +246,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertIn("lib=experimental_link_check_bypassed", (module / "logs/late-load.status").read_text())
             self.assertIn("EXPERIMENTAL WARNING: linker preflight failed", (module / "logs/late-load-linker.txt").read_text())
 
-    def test_native_control_candidate_rejects_malformed_sdk(self):
+    def test_native_control_candidate_does_not_gate_on_malformed_sdk(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             (module / "native-control").mkdir()
@@ -257,10 +257,10 @@ class LateLoadTests(unittest.TestCase):
             env["JDSP_GETPROP_BIN"] = str(getprop)
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / "skip_mount").exists())
-            self.assertIn("BLOCKED reason=native_control_v3_requires_api36_or_newer", (module / "logs/late-load.status").read_text())
+            self.assertFalse((module / "skip_mount").exists())
+            self.assertTrue((module / "logs/late-load.status").read_text().startswith("READY late_load=1"))
 
-    def test_native_control_candidate_rejects_api_below_36(self):
+    def test_native_control_candidate_does_not_gate_on_api_below_36(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             (module / "native-control").mkdir()
@@ -271,9 +271,9 @@ class LateLoadTests(unittest.TestCase):
             env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / "skip_mount").exists())
-            self.assertFalse((module / "linker-called").exists())
-            self.assertIn("BLOCKED reason=native_control_v3_requires_api36_or_newer", (module / "logs/late-load.status").read_text())
+            self.assertFalse((module / "skip_mount").exists())
+            self.assertTrue((module / "linker-called").exists())
+            self.assertIn("lib=validated", (module / "logs/late-load.status").read_text())
 
     def test_native_control_candidate_accepts_supported_api36(self):
         with tempfile.TemporaryDirectory() as tmp:

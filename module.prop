@@ -4,5 +4,5 @@ version=v6.5.11-pixel-native-control-v3-test
 versionCode=117
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=Native-control-v3 test driver with native AIDL control v1; processing and app control unverified
+description=Native-control-v3 and experimental app client; app writes and processing unverified
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970

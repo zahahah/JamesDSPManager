@@ -12,22 +12,25 @@ keeps the existing effect UUID/type and XML factory path. The driver SHA-256 is
 
 The new library contains a versioned `jdsp.control` Binder endpoint
 (`lightning.dsp.IJamesDspControl`) for protocol/status and a limited initial
-set of same-context controls (enable, post-gain, FIR EQ). The native default
-write authorization is root UID only. This module does not include a client
-implementation in JamesDSPManager or RootJamesDSP; the app UI therefore does
-not yet send these Binder controls. Existing `AudioEffect` operation remains
-the fallback. Service registration, Pixel ABI compatibility, descriptor
-discovery, effect creation, audio processing, and audible control changes are
-all unverified with this candidate.
+set of same-context controls (enable, post-gain, FIR EQ). The bundled root APK
+is built from RootJamesDSP branch `pixel-test-new-aidl` (source commit
+`53134a2`), with versionName 1.6.15 and versionCode 57. It includes an
+experimental AIDL client that probes protocol/capabilities and only attempts
+writes when the provider explicitly authorizes direct app access. The provider
+currently authorizes UID 0 by default, so this app build is expected to retain
+the legacy `AudioEffect` path; this package does not establish app-UID write
+access or map the UI EQ controls to the new service. Service registration,
+Pixel ABI compatibility, descriptor discovery, effect creation, audio
+processing, and audible native-control changes remain unverified.
 
 The binary was built against Android audio-effect AIDL V4, media common types
-V5, hardware common V2, and common FMQ V1. This candidate requires Android API
-36 or newer, but has no device-model restriction. It also includes an explicit
-experimental cross-ABI probe mode: missing AIDL dependencies or a failed linker
-preflight are logged but do not block the overlay, so devices exposing AIDL V3
-can be tested. The ELF dependency names are never rewritten. This is a test
-attempt, not evidence that an AIDL V3 device can load the library or process
-audio; a device may simply reject the effect.
+V5, hardware common V2, and common FMQ V1. There is no Android SDK or device-
+model gate in this test module. An experimental cross-ABI probe logs missing
+AIDL dependencies or a failed linker preflight without blocking the systemless
+overlay, allowing lower-API/AIDL V3 devices to be tested. The ELF dependency
+names are never rewritten. Removing the gate does not make the artifact
+compatible: a device may fail to load the library or reject the effect, and
+no AIDL V3 processing is claimed.
 
 Late-load does not restart Audio HAL or audioserver. A ready mount/config status
 is not evidence that `jdsp.control` registered or that audio is processed. See
@@ -35,8 +38,13 @@ is not evidence that `jdsp.control` registered or that audio is processed. See
 needed before making a functional claim. The exact binary provenance and the
 LightningDSP GPL-2.0 license text are included in `native-control/`.
 
-The module package retains the existing app APK payload unchanged. No app-side
-control client is included in this module candidate.
+The module replaces the previous root APK payload with the signed experimental
+client build (package `james.dsp`, versionName 1.6.15, versionCode 57). The APK
+uses the authorized maintainer certificate and is included at the module's
+legacy `JamesDSPManagerThePBone.apk` payload path so the existing installer can
+update versionCode 56 in place while preserving app data. The source branch and
+commit are recorded above; this is a test build, not a claim of verified DSP
+control.
 
 ## Prior Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
 

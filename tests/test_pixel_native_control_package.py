@@ -29,6 +29,14 @@ class PixelNativeControlPackageTests(unittest.TestCase):
                     archive.read(package.DRIVER),
                     (ROOT / package.DRIVER).read_bytes(),
                 )
+                self.assertEqual(
+                    archive.read("common/files/JamesDSPManagerThePBone.apk"),
+                    (ROOT / "common/files/JamesDSPManagerThePBone.apk").read_bytes(),
+                )
+                self.assertEqual(
+                    archive.read("common/files/JamesDSPManagerThePBone.apk.meta"),
+                    b"versionCode=57\n",
+                )
                 self.assertIn("native-control/provenance.json", names)
                 self.assertIn("native-control/LightningDSP-Main-LICENSE.txt", names)
                 self.assertIn("NATIVE-CONTROL.md", names)

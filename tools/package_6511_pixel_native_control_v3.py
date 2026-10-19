@@ -32,6 +32,8 @@ CHANGED_FILES = {
     "changelog.md",
     "common/functions.sh",
     "common/app_migration.sh",
+    "common/files/JamesDSPManagerThePBone.apk",
+    "common/files/JamesDSPManagerThePBone.apk.meta",
     DRIVER,
     "module.prop",
     "native-control/LightningDSP-Main-LICENSE.txt",
@@ -42,6 +44,7 @@ CHANGED_FILES = {
     "tests/test_late_load.py",
     "tests/test_native_control_patch.py",
     "tests/test_pixel_native_control_package.py",
+    "tools/package_6510_pixel_aidl.py",
     "tools/package_6511_pixel_native_control_v3.py",
     "update.json",
 }
@@ -176,8 +179,12 @@ def build(output: Path = OUTPUT) -> str:
         "version": VERSION,
         "versionCode": VERSION_CODE,
         "driverSha256": DRIVER_SHA256,
+        "appApkSha256": previous.SIGNED_APK_HASHES["common/files/JamesDSPManagerThePBone.apk"],
+        "appPackage": "james.dsp",
+        "appVersionName": "1.6.15",
+        "appVersionCode": 57,
         "branch": "pixel-test-new-aidl",
-        "deviceScope": "Android API 36+; no device model restriction; experimental AIDL cross-ABI probe; not device-validated",
+        "deviceScope": "No SDK/model gate; experimental AIDL cross-ABI probe; binary direct AIDL V4 dependencies remain; not device-validated",
         "audioServiceRestart": "disabled",
     }
     output.with_suffix(output.suffix + ".json").write_text(

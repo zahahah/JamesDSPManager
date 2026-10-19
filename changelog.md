@@ -1,3 +1,15 @@
+### v6.5.11-pixel-native-control-v3-test
+
+* Bundle the native-control-v3 library and a signed experimental RootJamesDSP
+  AIDL-client APK from branch `pixel-test-new-aidl` (1.6.15, versionCode 57).
+* Remove the module's SDK 36+ hard gate; try the systemless overlay on other
+  Android/AIDL versions while logging linker mismatches. No ABI rewriting or
+  compatibility claim is added; the binary still directly depends on AIDL V4.
+* Keep the app on the legacy `AudioEffect` path unless `jdsp.control` reports
+  direct app authorization; the provider remains root-authorized by default.
+* Test candidate only: no on-device proof of service discovery, app write
+  authorization, audio processing, or audible control changes.
+
 ### v6.5.10-pixel-builtin-aidl-beta.3
 
 * Run APK update/migration during the module install instead of waiting until
@@ -531,24 +543,3 @@
 * Module [GitHub](https://github.com/therealahrion/JamesDSPManager)
 
 App [GitHub](https://github.com/james34602/JamesDSPManager)
-
-### v6.5.11-pixel-native-control-v3-test
-
-* Replace only the AIDL effect driver with the pinned Android ARM64
-  `libjamesdspaidl.so` native-control-v3 artifact; retain the existing effect
-  UUID/type, APK payloads, and built-in Pixel configuration path.
-* Include the artifact's original build provenance and GPL-2.0 license text.
-* Require the exact AIDL V4/V5/V2/V1 dependencies; do not rewrite `DT_NEEDED`
-  names to another framework/vendor ABI.
-* Require API 36+ but do not pin the candidate to one device model. Enable an
-  experimental AIDL V3 cross-ABI probe when dependency or linker preflight
-  checks fail; log mismatches and do not rewrite ELF dependencies. Successful
-  AIDL V3 loading/processing is not claimed.
-* Disable automatic audio HAL/audioserver restarts in late-load. No device has
-  been tested with this artifact, and the app has no client for `jdsp.control`.
-* Restore executable permissions for bundled `tools/patchelf` after installer-wide
-  permission normalization so the native AIDL compatibility gate can run.
-* Keep cross-ABI loading experimental and visible in status logs; no audio
-  service restart is added.
-* Add clear spacing and an explicit signing-certificate analysis notice before
-  comparing the installed and selected JamesDSP APKs.

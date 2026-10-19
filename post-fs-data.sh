@@ -25,21 +25,10 @@ else
 	MOD_ODM="$MODPATH/odm"
 fi
 
-# The native-control-v3 binary was built for Android API 36+ and is not pinned
-# to one device model. This candidate explicitly allows an experimental ABI
-# probe: mismatches are logged, not rewritten, and must be verified on-device.
-if [ -f "$BUILT_CONTROL_V3" ]; then
-	sdk=$("$GETPROP_BIN" ro.build.version.sdk 2>/dev/null)
-	case "$sdk" in
-		''|*[!0-9]*) sdk_valid=false ;;
-		*) sdk_valid=true ;;
-	esac
-	if [ "$sdk_valid" != true ] || [ "$sdk" -lt 36 ]; then
-		printf 'BLOCKED reason=native_control_v3_requires_api36_or_newer restart=not_requested\n' >"$STATUS"
-		touch "$MODPATH/skip_mount"
-		exit 0
-	fi
-fi
+# The native-control-v3 binary was built against newer AIDL dependencies,
+# but there is no SDK/model gate here. Attempt the systemless overlay and let
+# the experimental linker preflight report incompatibility without rewriting
+# ELF dependencies; successful load and processing still require device tests.
 
 JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH=1
 ABI_STATUS=validated

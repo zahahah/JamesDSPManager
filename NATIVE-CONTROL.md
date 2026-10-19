@@ -17,11 +17,16 @@ The library adds a versioned Binder control/status interface:
 - Controls target actual live effect contexts; stale/invalid targets are
   rejected by the native implementation.
 - Writes are authorized to UID 0 by default. The app UID has not been granted
-  write access, and neither JamesDSPManager app branch has this Binder client.
+  write access.
+- RootJamesDSP branch `pixel-test-new-aidl` includes an experimental client and
+  the matching root APK is bundled in this ZIP. It discovers the service,
+  negotiates protocol/capabilities, and attempts writes only if the provider
+  explicitly reports direct app authorization and a single live context.
 
-Consequently, this module can deploy the provider, but does not make the new
-controls available through the app UI. The existing `AudioEffect` path remains
-present and is not replaced with a parallel DSP engine.
+This does not grant app-UID write access, and the app UI's EQ controls are not
+yet mapped to the new endpoint. With the current root-only provider policy, the
+client should preserve the legacy `AudioEffect` path. It does not replace that
+path with a parallel DSP engine.
 
 ## ABI and device scope
 
@@ -32,13 +37,13 @@ The pinned library was built for Android 16 ARM64 and directly needs:
 - `android.hardware.common-V2-ndk.so`
 - `android.hardware.common.fmq-V1-ndk.so`
 
-The module candidate requires Android API 36 or newer but is not pinned to a
-particular device model. An experimental cross-ABI probe allows the overlay to
-proceed when the exact AIDL V4 dependencies are missing or the linker preflight
-fails. This only enables a device test; it does not make the artifact compatible
-with an AIDL V3 factory. The module logs the mismatch and never changes
-`DT_NEEDED` or SONAMEs. A `lib=experimental_link_check_bypassed` status means
-the library was not resolved by the preflight and must not be treated as loaded.
+There is no SDK or device-model gate in the test module. An experimental
+cross-ABI probe allows the systemless overlay attempt to proceed when expected
+AIDL V4 dependencies are missing or linker preflight fails. The binary still
+has those direct dependencies; removing the gate does not make it compatible
+with an AIDL V3 factory. The module logs mismatch and never changes `DT_NEEDED`
+or SONAMEs. A `lib=experimental_link_check_bypassed` status means the library
+was not resolved by preflight and must not be treated as loaded.
 
 ## Do not over-interpret status
 
