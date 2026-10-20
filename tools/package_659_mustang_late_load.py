@@ -41,7 +41,6 @@ PAYLOADS = {
     "common/files/JamesDSP/liveprog/stft-filter.eel": 0o100644,
     "common/files/JamesDSP/liveprog/stftCentreCut.eel": 0o100644,
     "common/files/JamesDSP/liveprog/stftPitchShifter.eel": 0o100644,
-    "common/files/JamesDSPManager.apk": 0o100644,
     "common/files/JamesDSPManagerThePBone.apk": 0o100644,
     "common/files/aidl/libjamesdsp.so": 0o100644,
     "common/files/arm/libjamesdsp.so": 0o100644,
@@ -58,12 +57,9 @@ PAYLOADS = {
     "audio-reload.sh": 0o100755,
 }
 ROOT_APKS = {
-    "common/files/JamesDSPManager.apk",
     "common/files/JamesDSPManagerThePBone.apk",
 }
 SIGNED_APK_HASHES = {
-    "common/files/JamesDSPManager.apk":
-        "ff123bf20047738666443f148e52135bbd398c61a4fa8fde2b53f37c6d8299ca",
     "common/files/JamesDSPManagerThePBone.apk":
         "840f98fa2136588d590d0819d88d5a92f991587e871c3a981c85416ac8ddc67a",
 }

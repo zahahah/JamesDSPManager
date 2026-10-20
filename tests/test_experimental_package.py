@@ -52,8 +52,12 @@ class ExperimentalPackageTests(unittest.TestCase):
                 self.assertIn("EXPERIMENTAL.md", archive.namelist())
                 self.assertIn("tools/libjamesdsp_pinwrap.so", archive.namelist())
                 self.assertNotIn("common/files/aidl/libjamesdsp_pinwrap.so", archive.namelist())
-                for name in ("common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"):
-                    self.assertEqual(archive.read(name), (ROOT / name).read_bytes())
+                self.assertEqual(
+                    {name for name in archive.namelist() if name.endswith(".apk")},
+                    {"common/files/JamesDSPManagerThePBone.apk"},
+                )
+                app_name = "common/files/JamesDSPManagerThePBone.apk"
+                self.assertEqual(archive.read(app_name), (ROOT / app_name).read_bytes())
                 self.assertFalse(any("rootless" in name.lower() for name in archive.namelist()))
             self.assertEqual(output.with_suffix(".zip.sha256").read_text().split()[0],
                              sha256(output.read_bytes()).hexdigest())

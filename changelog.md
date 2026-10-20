@@ -1,5 +1,14 @@
+### v6.9.10-beta-1
+
+* Ship only the updated, maintainer-signed ThePBone-based root app; remove the
+  classic-app installer choice.
+* Keep Samsung late-load and normal built-in AIDL config preparation covered by
+  the focused module tests. This prerelease does not claim new device validation.
+
 ### v6.5.9
 
+* Make the modified ThePBone root APK the sole app staged by the installer; the
+  classic APK selection and payload are removed from current module builds.
 * JamesDSP works through Android's default effect factory and does not require
   PIXAML. PIXAML remains an optional companion for setups that need AML-specific
   compatibility or other AML-based effects.

@@ -27,13 +27,14 @@ process instance. There is no restart loop, `killall`, native hook, or write to
 the physical system/vendor partitions. The built-in early-boot path stays
 separate.
 
-The module never removes an installed `james.dsp` app. The installer stages the
-selected APK during flash; the service stage installs it only when the exact
-`james.dsp` package is absent. Existing apps stay untouched, including app
-data. The Original and ThePBone APKs use the maintainer signing key, so Android
-will reject an in-place update from a different signer. If that happens, back
-up presets and app data first, then migrate manually. The ThePBone APK remains
-version 1.6.15, version code 55; only its signature changed.
+The module includes and stages only the modified ThePBone root APK. It never
+removes or replaces an installed `james.dsp` app: the service installs this APK
+only when that exact package is absent. Existing apps and app data stay
+untouched. If an installed app has a different signer, Android will reject an
+in-place update; back up presets and app data before any manual migration. The
+bundled app is the modified ThePBone-based root build, version 1.6.15, version
+code 58, signed with the maintainer certificate. The classic 9.5 APK is not
+offered or shipped.
 
 ## Build and test
 
@@ -41,7 +42,7 @@ Run the host tests and build the release ZIP with:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 tools/package_659_mustang_late_load.py
+python3 tools/package_6910_beta1.py
 ```
 
 For the previous release notes, see [changelog.md](changelog.md).

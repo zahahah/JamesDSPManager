@@ -90,23 +90,14 @@ cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib/soundfx
 
 ui_print " "
 ui_print "- UI installation -"
-ui_print "   Which UI you want to install?"
-ui_print "   Vol Up = Original 9.5, Vol Down = ThePBone 1.6.15"
-ui_print "   APKs use the current maintainer signing key"
+ui_print "   Installing ThePBone 1.6.15 root app"
+ui_print "   APK uses the current maintainer signing key"
 ui_print "   Existing james.dsp apps stay untouched"
 ui_print "   Different signers need manual migration"
 copy_profile_backup
-if chooseport; then
-	ui_print "   Original version was selected"
-	mv -f "$MODPATH/common/files/JamesDSPManager.apk" "$MODPATH/JamesDSPManager.apk"
-	touch "$MODPATH/.apkorig"
-	ui_print "   Keeping existing james.dsp under user control"
-else
-	ui_print "   ThePBone version was selected"
-	mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
-	touch "$MODPATH/.apkpbone"
-	ui_print "   Keeping existing james.dsp under user control"
-fi
+mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
+touch "$MODPATH/.apkpbone"
+ui_print "   Keeping existing james.dsp under user control"
 set -x
 # Audio effects patching 
 INSTALL_DEVICE=$(getprop ro.product.device 2>/dev/null)

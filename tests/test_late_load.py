@@ -247,6 +247,58 @@ class LateLoadTests(unittest.TestCase):
             self.assertFalse((module / ".late-load-reload-experimental").exists())
             self.assertFalse((module / "skip_mount").exists())
 
+    def test_builtin_aidl_prepares_factory_config_without_late_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = pathlib.Path(tmp)
+            (module / "system/vendor/lib64/soundfx").mkdir(parents=True)
+            (module / "system/etc").mkdir(parents=True)
+            (module / "logs").mkdir()
+            shutil.copy2(ROOT / "post-fs-data.sh", module / "post-fs-data.sh")
+            (module / ".AIDL").touch()
+            (module / "system/vendor/lib64/soundfx/libjamesdsp.so").touch()
+            (module / "aml.sh").write_text("")
+            (module / "patch.sh").write_text("")
+            legacy = module / "system_audio_effects.xml"
+            legacy.write_text(
+                f'''<audio_effects_conf>
+    <libraries>
+        <library name="bundle" path="libbundlewrapper.so"/>
+        <library name="pre_processing" path="libaudiopreprocessing.so"/>
+    </libraries>
+    <effects>
+        <effect name="equalizer" library="bundle" uuid="{XML_UUID}"/>
+        <effect name="aec" library="pre_processing" uuid="{PIXEL_UUID}"/>
+    </effects>
+</audio_effects_conf>
+'''
+            )
+            env = {
+                **os.environ,
+                "JDSP_COMPAT_PROFILE": "mustang",
+                "JDSP_SOURCE_VENDOR_CONFIG": str(module / "missing_vendor_config.xml"),
+                "JDSP_SOURCE_LEGACY_CONFIG": str(legacy),
+            }
+            result = subprocess.run(
+                ["sh", str(module / "post-fs-data.sh")],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            config = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
+            self.assertIn('path="libbundleaidl.so"', config)
+            self.assertIn(JDSP_UUID, config)
+            self.assertNotIn("libaudiopreprocessing.so", config)
+            self.assertEqual(
+                (module / "logs/builtin-aidl-config.status").read_text(),
+                "READY mode=builtin source=system_legacy "
+                f"config={module}/system/vendor/etc/audio_effects_config.xml "
+                "systemless=1 reload=not_requested\n",
+            )
+            self.assertFalse((module / ".late-load-reload-experimental").exists())
+            self.assertFalse((module / "skip_mount").exists())
+
     def test_legacy_late_load_entry_point_delegates_to_pre_mount_path(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
@@ -775,13 +827,18 @@ esac
                 self.assertIn("github.com/zahahah/JamesDSPManager/releases/download/v6.5.9", update)
                 self.assertEqual(
                     {name for name in names if name.endswith(".apk")},
-                    {"common/files/JamesDSPManager.apk", "common/files/JamesDSPManagerThePBone.apk"},
+                    {"common/files/JamesDSPManagerThePBone.apk"},
                 )
                 self.assertFalse(any("rootless" in name.lower() for name in names))
 
     def test_installer_does_not_remove_an_existing_app(self):
         installer = (ROOT / "common/install.sh").read_text()
         self.assertIn("Existing james.dsp apps stay untouched", installer)
+        self.assertIn("Installing ThePBone 1.6.15 root app", installer)
+        self.assertIn('mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk"', installer)
+        self.assertNotIn("Which UI you want to install?", installer)
+        self.assertNotIn("Original 9.5", installer)
+        self.assertNotIn(".apkorig", installer)
         self.assertNotIn("pm uninstall", installer)
         self.assertIn("Different signers need manual migration", installer)
 
