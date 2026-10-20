@@ -1,6 +1,13 @@
 #!/system/bin/sh
 MODPATH=${0%/*}
 MODDIR=$MODPATH
+mkdir -p "$MODPATH/logs"
+
+# Module overlays are now mounted. Refresh typed service labels in a bounded
+# background task before starting the app, including the late-load branch.
+if [ -f "$MODPATH/native-control.sh" ]; then
+	sh "$MODPATH/native-control.sh" activate "$MODPATH" >"$MODPATH/logs/native-control-activation.log" 2>&1 &
+fi
 
 start_jdsp_app_installer() {
 	[ -f "$MODPATH/jdsp_app.sh" ] || return 0

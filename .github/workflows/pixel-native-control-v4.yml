@@ -32,4 +32,4 @@ jobs:
         with:
           name: JamesDSPManager-native-control-v4-${{ github.sha }}
           if-no-files-found: error
-          path: dist/JamesDSPManager-v6.9.10-beta-1.zip*
+          path: dist/JamesDSPManager-v6.6-beta-1.zip*

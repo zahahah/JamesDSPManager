@@ -22,20 +22,20 @@
     },
     "app": {
       "path": "common/files/JamesDSPManagerThePBone.apk",
-      "sha256": "d696cea84d589310f2b3bde79553e13cbb16940c8906c31b5dd798ba1552ca9a",
+      "sha256": "74051c0176bd8ffb8630d1a46b0defac74468ad1fa36f727d73078dd6521c70d",
       "sizeBytes": 33181042,
       "packageId": "james.dsp",
-      "versionName": "1.6.15",
-      "versionCode": 58,
+      "versionName": "1.6.17",
+      "versionCode": 60,
       "signatureVerified": true,
       "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
-      "sourceCommit": "46e89fa192cda27e3aab85f7929421dba941e0ba"
+      "sourceCommit": "fc26d341833138086c45b4332e82d88bd331fb73"
     }
   },
   "notes": [
-    "Native driver and jdspctl were imported from the private builds repository after ELF, dependency, provenance, package and signer checks.",
-    "The native service and effect controls have passed host tests, but Android ServiceManager/SELinux and physical device behavior are not established.",
-    "The driver dynamically depends on Audio Effect AIDL V4; devices exposing another ABI may not load it.",
-    "No Pixel or Samsung device validation has been performed with these exact native artifacts."
+    "The native v4 driver and jdspctl hashes are unchanged from the compiler artifact and the earlier successful Pixel global-control probe.",
+    "The root app uses the matching vendor-native helper for enable, post-gain and FIR controls, retaining framework attachment and legacy fallback.",
+    "Global readiness requires a real protocol-3 probe with one writable context; an AudioFlinger effect alone is not native-control evidence.",
+    "The driver dynamically depends on Audio Effect AIDL V4; devices exposing another ABI may not load it."
   ]
 }

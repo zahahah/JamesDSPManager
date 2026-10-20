@@ -65,6 +65,58 @@ prepare)
     printf 'STAGED helper=%s policy=%s label_cache=unverified late_load=%s restart=not_requested processing=unverified\n' \
         "$helper" "$policy" "${KSU_LATE_LOAD:-0}" >"$STATUS"
     ;;
+activate)
+    [ -f "$MODPATH/.AIDL" ] || exit 0
+    if [ -f "$MODPATH/disable" ] || [ -f "$MODPATH/skip_mount" ]; then
+        printf 'BLOCKED reason=module_not_mounted restart=not_requested\n' >"$STATUS"
+        exit 0
+    fi
+    helper=${JDSP_CONTROL_HELPER:-/vendor/bin/jdspctl}
+    attempts=${JDSP_ACTIVATION_ATTEMPTS:-20}
+    case "$attempts" in ''|*[!0-9]*) attempts=20 ;; esac
+    [ "$attempts" -ge 1 ] && [ "$attempts" -le 20 ] || attempts=20
+    count=0
+    mounted=false
+    while [ "$count" -lt "$attempts" ]; do
+        contexts=${JDSP_MANAGER_CONTEXTS:-}
+        if [ -z "$contexts" ]; then
+            manager=$(pidof servicemanager 2>/dev/null | cut -d ' ' -f 1)
+            contexts="/proc/${manager:-0}/root/vendor/etc/selinux/vendor_service_contexts"
+        fi
+        if awk '$1 == "jdsp.control" && $2 == "u:object_r:jdsp_control_service:s0" { found=1 }
+                END { exit !found }' "$contexts" 2>/dev/null && [ -x "$helper" ]; then
+            mounted=true
+            break
+        fi
+        count=$((count + 1))
+        [ "$count" -ge "$attempts" ] || sleep 1
+    done
+    if [ "$mounted" != true ]; then
+        printf 'BLOCKED reason=service_label_not_mounted helper_or_manager_unavailable=1 restart=not_requested\n' >"$STATUS"
+        exit 0
+    fi
+    # AOSP Access::getSehandle() reopens service_contexts when the SELinux
+    # policy status changes. Refresh only our typed policy AFTER the mapping is
+    # visible in ServiceManager's mount namespace, not just in post-fs-data.
+    # Do not grant generic default_android_service permissions or restart it.
+    if ! apply_policy "$MODPATH/native-control/global-service.rule" >>"$LOGDIR/native-control-policy.log" 2>&1; then
+        printf 'BLOCKED reason=typed_policy_refresh_failed restart=not_requested\n' >"$STATUS"
+        exit 0
+    fi
+    printf 'WAITING control=jdsp.control policy=typed_rules_refreshed publication=unverified restart=not_requested processing=unverified\n' >"$STATUS"
+    count=0
+    while [ "$count" -lt "$attempts" ]; do
+        reply=$("$helper" probe 2>&1)
+        result=$?
+        printf '%s\n' "$reply" >"$LOGDIR/native-control-probe.log"
+        if [ "$result" -eq 0 ] && printf '%s\n' "$reply" | grep -qx 'JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3'; then
+            printf 'READY control=jdsp.control policy=typed_rules_refreshed protocol=3 contexts=1 writable=1 publication=3 restart=not_requested processing=unverified\n' >"$STATUS"
+            exit 0
+        fi
+        count=$((count + 1))
+        [ "$count" -ge "$attempts" ] || sleep 1
+    done
+    ;;
 diagnose)
     printf '=== jdsp.control ===\n'
     service list 2>/dev/null | grep -F 'jdsp.control' || true

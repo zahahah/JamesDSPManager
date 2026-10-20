@@ -93,7 +93,7 @@ fi
 
 ui_print " "
 ui_print "- UI installation -"
-ui_print "   Installing ThePBone 1.6.15 root app"
+ui_print "   Installing ThePBone 1.6.17 root app"
 ui_print "   APK uses the current maintainer signing key"
 ui_print "   Same-signature apps are updated in place"
 ui_print "   Different signatures require explicit volume-key confirmation"

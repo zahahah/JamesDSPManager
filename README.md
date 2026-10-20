@@ -1,8 +1,27 @@
-# Global native-control v4 development branch
+# JamesDSP Manager v6.6-beta-1
 
-This is a source candidate, not an installable v4 release. The effect-bound
-experiment is retired. See [NATIVE-CONTROL.md](NATIVE-CONTROL.md) for the global
-`jdsp.control` architecture, compilation gate, policy limits and verification.
+Current branch: `pixel-test-new-aidl`. Global `jdsp.control` is the primary
+backend for the library's native enable, post-gain and FIR controls; legacy
+controls remain available for fallback and features outside that contract.
+The root app is v1.6.17, versionCode 60. The v4 native library and `jdspctl`
+are unchanged; no new native compilation is required.
+
+The boot service waits for the service-label overlay to be visible to
+ServiceManager, then reapplies only the dedicated typed rules. AOSP refreshes
+its label handle after a SELinux policy-status update; merely staging the
+file before mounting it is insufficient. This does not restart audio or
+ServiceManager, disable SELinux, or enable generic default-service grants.
+The status log records `READY` only after the real native helper reports a
+published, protocol-3 service with one writable context. It does not infer
+native readiness from a legacy AudioFlinger effect.
+
+The existing library bounds publication retries per HAL process. A process that
+has already exhausted its retries may require a normal user-initiated reboot
+after installing the fixed module; this module never restarts audio for it.
+
+Reference: [AOSP ServiceManager label-handle refresh](https://android.googlesource.com/platform/frameworks/native/+/refs/heads/main/cmds/servicemanager/Access.cpp).
+See [NATIVE-CONTROL.md](NATIVE-CONTROL.md) for the native contract and policy
+boundaries. The sections below describe historical builds.
 
 ---
 

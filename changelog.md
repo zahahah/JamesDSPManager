@@ -1,3 +1,12 @@
+### v6.6-beta-1
+
+* Keep global jdsp.control primary and legacy control as fallback.
+* Refresh dedicated service-label policy after the overlay is mounted, without
+  generic service grants, SELinux permissive mode or audio restarts.
+* Queue native app controls off the UI thread and preserve fallback on failure.
+* Require a published protocol-3 service and one writable context for readiness.
+* Bundle root app v1.6.17 code 60; retain the existing v4 library and jdspctl.
+
 ### native-control-v4 source candidate (not released)
 
 * Retire the effect-bound parameter transport and v6.5.14 package.

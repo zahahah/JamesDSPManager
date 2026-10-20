@@ -62,3 +62,66 @@ class GlobalControlPrepareTests(unittest.TestCase):
         script = (ROOT / 'native-control.sh').read_text()
         self.assertNotIn('setenforce', script)
         self.assertNotIn('stop servicemanager', script)
+
+
+class GlobalControlActivationTests(unittest.TestCase):
+    def activate(self, root, label=True, policy_ok=True, ready=True):
+        module = root / 'module'
+        (module / 'native-control').mkdir(parents=True)
+        (module / '.AIDL').touch()
+        shutil_source = ROOT / 'native-control/global-service.rule'
+        (module / 'native-control/global-service.rule').write_bytes(shutil_source.read_bytes())
+        contexts = root / 'mounted_contexts'
+        contexts.write_text('jdsp.control u:object_r:jdsp_control_service:s0\n' if label else '')
+        fakebin = root / 'bin'
+        fakebin.mkdir()
+        calls = root / 'calls'
+        tool = fakebin / 'ksud'
+        tool.write_text('#!/bin/sh\necho policy >> "$POLICY_CALLS"\nexit ' + ('0' if policy_ok else '1') + '\n')
+        tool.chmod(0o755)
+        helper = fakebin / 'jdspctl'
+        reply = ('JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3'
+                 if ready else 'JDSPCTL:ERR:service-unavailable-or-find-denied')
+        helper.write_text('#!/bin/sh\necho probe >> "$POLICY_CALLS"\necho "' + reply + '"\n')
+        helper.chmod(0o755)
+        result = subprocess.run(['sh', str(ROOT / 'native-control.sh'), 'activate', str(module)],
+            env={**os.environ, 'JDSP_MANAGER_CONTEXTS': str(contexts),
+                 'JDSP_CONTROL_HELPER': str(helper), 'JDSP_ACTIVATION_ATTEMPTS': '1',
+                 'PATH': str(fakebin) + ':' + os.environ['PATH'], 'POLICY_CALLS': str(calls)},
+            capture_output=True, text=True)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        status = (module / 'logs/native-control.status').read_text()
+        return status, calls.read_text().splitlines() if calls.exists() else []
+
+    def test_policy_is_refreshed_after_mounted_mapping_then_actual_binder_is_probed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status, calls = self.activate(Path(tmp))
+            self.assertEqual(calls, ['policy', 'probe'])
+            self.assertIn('READY', status)
+            self.assertIn('control=jdsp.control', status)
+            self.assertIn('processing=unverified', status)
+
+    def test_unmounted_label_cannot_trigger_policy_or_claim_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status, calls = self.activate(Path(tmp), label=False)
+            self.assertEqual(calls, [])
+            self.assertIn('service_label_not_mounted', status)
+            self.assertNotIn('READY', status)
+
+    def test_failed_typed_policy_does_not_fall_back_to_generic_permissions(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status, calls = self.activate(Path(tmp), policy_ok=False)
+            self.assertEqual(calls, ['policy'])
+            self.assertIn('typed_policy_refresh_failed', status)
+            self.assertNotIn('READY', status)
+
+    def test_service_unavailable_is_not_reported_as_native_ready(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            status, calls = self.activate(Path(tmp), ready=False)
+            self.assertEqual(calls, ['policy', 'probe'])
+            self.assertIn('WAITING', status)
+            self.assertNotIn('READY', status)
+
+    def test_late_service_starts_activation_before_early_return(self):
+        service = (ROOT / 'service.sh').read_text()
+        self.assertLess(service.index('native-control.sh" activate'), service.index('if [ "${KSU_LATE_LOAD:-0}"'))
