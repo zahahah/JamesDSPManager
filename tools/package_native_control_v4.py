@@ -90,11 +90,11 @@ def verify_artifacts(root=ROOT):
 def build(output, root=ROOT):
     value = verify_artifacts(root)
     branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch != 'pixel-test-native-control-v4':
-        raise ValueError('V4 distribution requires the v4 branch')
+    if branch != 'pixel-test-new-aidl':
+        raise ValueError('V4 distribution requires pixel-test-new-aidl')
     props = (root / 'module.prop').read_text()
-    if 'version=v6.5.15-native-control-v4-test\n' not in props or 'versionCode=119\n' not in props:
-        raise ValueError('Source-only metadata must be promoted explicitly after artifact validation')
+    if 'version=v6.9.10-beta-1\n' not in props or 'versionCode=133\n' not in props:
+        raise ValueError('Expected the promoted v6.9.10-beta-1 prerelease metadata')
     payloads = dict(previous.PAYLOADS)
     payloads.pop('native-control/provenance.json', None)
     # This candidate exposes only the ThePBone root app. Retire the prior
@@ -141,7 +141,7 @@ def main():
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write('ready=' + str(ready).lower() + '\n')
         return
-    output = ROOT / 'dist/JamesDSPManager-v6.5.15-native-control-v4-test.zip'
+    output = ROOT / 'dist/JamesDSPManager-v6.9.10-beta-1.zip'
     print(build(output))
 
 if __name__ == '__main__':

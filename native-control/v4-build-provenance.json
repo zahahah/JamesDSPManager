@@ -1,0 +1,40 @@
+{
+  "source": {
+    "commit": "9aaaeea63f7470f462df4035a76f441a2e8d4768"
+  },
+  "artifacts": {
+    "driver": {
+      "sha256": "05b034cda6cf4b17d89d00efd612d01da3897b07f544d7e266ddca570ea1ae5a",
+      "direct_dt_needed": [
+        "android.hardware.audio.effect-V4-ndk.so",
+        "android.media.audio.common.types-V5-ndk.so",
+        "libaudio_aidl_conversion_common_ndk.so",
+        "libaudioaidlcommon.so",
+        "libaudioutils.so",
+        "libbase.so",
+        "libbinder_ndk.so",
+        "libcutils.so",
+        "libfmq.so",
+        "liblog.so",
+        "libutils.so",
+        "android.hardware.common-V2-ndk.so",
+        "android.hardware.common.fmq-V1-ndk.so",
+        "libc++.so",
+        "libc.so",
+        "libm.so",
+        "libdl.so"
+      ]
+    },
+    "helper": {
+      "sha256": "0de5f5ea94bc0d1b114d9c5ee3c68a89ba077cd12534f69af864343e63a95ecb",
+      "direct_dt_needed": [
+        "libbinder_ndk.so",
+        "liblog.so",
+        "libc++.so",
+        "libc.so",
+        "libm.so",
+        "libdl.so"
+      ]
+    }
+  }
+}

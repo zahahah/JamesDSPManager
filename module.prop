@@ -1,8 +1,8 @@
 id=ainur_jamesdsp
-name=JamesDSP Manager (native-control-v4 source only)
-version=v6.5.15-native-control-v4-source
-versionCode=119
+name=JamesDSP Manager (native-control-v4 beta)
+version=v6.9.10-beta-1
+versionCode=133
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=SOURCE ONLY: awaiting v4 library and jdspctl build; not a flashable release
+description=Experimental jdsp.control v4; Android Audio Effect AIDL v4 devices only; device validation pending
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970
