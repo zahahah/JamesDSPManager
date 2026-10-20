@@ -107,6 +107,8 @@ def build(output, root=ROOT):
     ):
         payloads.pop(retired, None)
     payloads.update({
+        'TEMP-ROOT-RELOAD.md': 0o100644,
+        'manual-audio-reload.sh': 0o100755,
         'native-control.sh': 0o100755,
         MANIFEST: 0o100644,
         'native-control/v4-build-provenance.json': 0o100644,
