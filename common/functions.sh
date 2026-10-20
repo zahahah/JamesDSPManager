@@ -315,6 +315,9 @@ for i in $(find $MODPATH/system/vendor $MODPATH/vendor -type f -name *".apk" 2>/
 	chcon u:object_r:vendor_app_file:s0 $i
 done
 set_permissions
+# The recursive module permission pass normalizes files to 0644, but patch.sh
+# must execute this bundled ELF to validate its exact Android AIDL dependencies.
+[ ! -f "$MODPATH/tools/patchelf" ] || chmod 0755 "$MODPATH/tools/patchelf"
 set +x
 exec 2>&-
 mkdir "$MODPATH/logs"

@@ -86,27 +86,23 @@ else
   
 fi
 
-cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib/soundfx/libjamesdsp.so"
+# The AIDL candidate is ELF64. Do not duplicate it into the 32-bit library tree.
+if [ "$QARCH" != aidl ]; then
+    cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib/soundfx/libjamesdsp.so"
+fi
 
 ui_print " "
 ui_print "- UI installation -"
-ui_print "   Which UI you want to install?"
-ui_print "   Vol Up = Original 9.5, Vol Down = ThePBone 1.6.15"
-ui_print "   APKs use the current maintainer signing key"
-ui_print "   Existing james.dsp apps stay untouched"
-ui_print "   Different signers need manual migration"
+ui_print "   Installing ThePBone 1.6.17 root app"
+ui_print "   APK uses the current maintainer signing key"
+ui_print "   Same-signature apps are updated in place"
+ui_print "   Different signatures require explicit volume-key confirmation"
 copy_profile_backup
-if chooseport; then
-	ui_print "   Original version was selected"
-	mv -f "$MODPATH/common/files/JamesDSPManager.apk" "$MODPATH/JamesDSPManager.apk"
-	touch "$MODPATH/.apkorig"
-	ui_print "   Keeping existing james.dsp under user control"
-else
-	ui_print "   ThePBone version was selected"
-	mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
-	touch "$MODPATH/.apkpbone"
-	ui_print "   Keeping existing james.dsp under user control"
-fi
+mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
+touch "$MODPATH/.apkpbone"
+
+[ ! -f "$MODPATH/native-control.sh" ] || sh "$MODPATH/native-control.sh" prepare "$MODPATH"
+
 set -x
 # Audio effects patching 
 ui_print " "
@@ -159,7 +155,23 @@ fi
 
 sed -i "1a NVBASE=$NVBASE" "$MODPATH/service.sh"
 
-ui_print "   Staging APK to /sdcard; service installs only if james.dsp is absent"
+ui_print "   Staging the selected APK to /sdcard as a manual-install fallback"
 cp -rf "$MODPATH/common/files/JamesDSP" /storage/emulated/0/JamesDSP
 cp -f "$MODPATH/JamesDSPManager.apk" /storage/emulated/0/JamesDSPManager.apk
+# Handle upgrades while the installer UI can display the bounded confirmation.
+# On recovery or when Package Manager is unavailable, service.sh retries safely.
+chmod +x "$MODPATH/jdsp_app.sh"
+if command -v cmd >/dev/null 2>&1; then
+  APP_PACKAGE_LIST=$(cmd package list packages 2>/dev/null)
+  APP_PM="cmd package"
+else
+  APP_PACKAGE_LIST=$(pm list packages 2>/dev/null)
+  APP_PM="pm"
+fi
+if echo "$APP_PACKAGE_LIST" | grep -Fqx "package:james.dsp"; then
+  ui_print "   Checking whether the installed app can be safely updated..."
+  MODPATH="$MODPATH" JDSP_FLASH_INSTALL=1 JDSP_PM_CMD="$APP_PM" sh "$MODPATH/jdsp_app.sh"
+else
+  ui_print "   No installed app detected; first install will run after boot"
+fi
 [ "$API" -gt 29 ] && { ui_print "   Enabling hidden api policy"; settings put global hidden_api_policy 1 2>/dev/null; }

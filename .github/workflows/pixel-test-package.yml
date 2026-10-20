@@ -1,0 +1,58 @@
+name: Pixel test module ZIP
+
+on:
+  push:
+    branches: [pixel-test]
+    paths:
+      - '.github/workflows/pixel-test-package.yml'
+      - 'common/**'
+      - 'tools/**'
+      - 'tests/**'
+      - '*.sh'
+      - 'module.prop'
+      - 'PIXEL_TEST.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pixel-package-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    if: github.ref == 'refs/heads/pixel-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out Pixel branch with comparison history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Validate host tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Check shell syntax
+        run: |
+          for file in *.sh common/*.sh; do
+            sh -n "$file" || exit 1
+          done
+      - name: Package and verify exactly two replacement payloads
+        run: python3 tools/package_pixel_test.py
+      - name: Verify package checksum
+        working-directory: dist
+        run: sha256sum -c JamesDSPManager-v6.5.9-pixel-test-rebuilt-aidl.zip.sha256
+      - name: Upload experimental package and provenance
+        uses: actions/upload-artifact@v4
+        with:
+          name: JamesDSPManager-pixel-test-${{ github.sha }}
+          if-no-files-found: error
+          retention-days: 14
+          path: |
+            dist/JamesDSPManager-v6.5.9-pixel-test-rebuilt-aidl.zip
+            dist/JamesDSPManager-v6.5.9-pixel-test-rebuilt-aidl.zip.sha256
+            dist/JamesDSPManager-v6.5.9-pixel-test-rebuilt-aidl.json

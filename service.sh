@@ -1,6 +1,13 @@
 #!/system/bin/sh
 MODPATH=${0%/*}
 MODDIR=$MODPATH
+mkdir -p "$MODPATH/logs"
+
+# Module overlays are now mounted. Refresh typed service labels in a bounded
+# background task before starting the app, including the late-load branch.
+if [ -f "$MODPATH/native-control.sh" ]; then
+	sh "$MODPATH/native-control.sh" activate "$MODPATH" >"$MODPATH/logs/native-control-activation.log" 2>&1 &
+fi
 
 start_jdsp_app_installer() {
 	[ -f "$MODPATH/jdsp_app.sh" ] || return 0
@@ -10,14 +17,8 @@ start_jdsp_app_installer() {
 if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ -f "$MODPATH/.late-load-reload-experimental" ]; then
 	mkdir -p "$MODPATH/logs"
 	start_jdsp_app_installer
-	if [ -f "$MODPATH/audio-reload.sh" ]; then
-		sh "$MODPATH/audio-reload.sh"
-	else
-		printf 'BLOCKED reason=audio_reload_script_missing\n' \
-			>"$MODPATH/logs/service.status"
-	fi
-	[ -f "$MODPATH/logs/audio-reload.status" ] && \
-		cp -f "$MODPATH/logs/audio-reload.status" "$MODPATH/logs/service.status"
+	printf 'SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n' \
+		>"$MODPATH/logs/service.status"
 	exit 0
 fi
 if [ -f "$MODPATH/.late-load-no-effect" ] || [ -f "$MODPATH/.late-load-rootless" ]; then
@@ -132,7 +133,7 @@ if [ -f /vendor/lib/soundfx/libjamesdsp.so ] || [ -f /vendor/lib64/soundfx/libja
 		fi
 		done
 			if [ "$MOUNTED" = true ]; then
-				killall -q audioserver
+				printf "Audio config changed; automatic audio restart disabled\n"
 		fi
 	fi
 fi

@@ -1,3 +1,80 @@
+### v6.6-beta-1
+
+* Keep global jdsp.control primary and legacy control as fallback.
+* Refresh dedicated service-label policy after the overlay is mounted, without
+  generic service grants, SELinux permissive mode or audio restarts.
+* Queue native app controls off the UI thread and preserve fallback on failure.
+* Require a published protocol-3 service and one writable context for readiness.
+* Bundle root app v1.6.17 code 60; retain the existing v4 library and jdspctl.
+
+### native-control-v4 source candidate (not released)
+
+* Retire the effect-bound parameter transport and v6.5.14 package.
+* Restore global jdsp.control and add a root-only vendor-native client.
+* Prepare typed policy/helper overlays without automatic audio restarts.
+* Block ZIP creation pending newly compiled native artifacts and verified APK.
+
+### v6.5.15-native-control-v4-test (source candidate)
+
+* Carry the global-control-v4 source candidate forward on the Pixel AIDL branch.
+* Install only the ThePBone root app; remove the classic-versus-ThePBone choice.
+* Use Package Manager's actual update result to detect a signer mismatch, rather
+  than pre-comparing certificate metadata.
+* Require Volume Down to confirm signer migration; Volume Up or a 10-second
+  timeout preserves the installed app. Attempt a temporary data archive before
+  confirmed uninstall and restore it with updated ownership/SELinux labels.
+* The native-control-v4 binaries are not imported yet; packaging remains gated
+  until a matching build artifact and provenance are available.
+
+### v6.5.11-pixel-native-control-v3-test
+
+* Bundle the native-control-v3 library and a signed experimental RootJamesDSP
+  AIDL-client APK from branch `pixel-test-new-aidl` (1.6.15, versionCode 57).
+* Remove the module's SDK 36+ hard gate; try the systemless overlay on other
+  Android/AIDL versions while logging linker mismatches. No ABI rewriting or
+  compatibility claim is added; the binary still directly depends on AIDL V4.
+* Keep the app on the legacy `AudioEffect` path unless `jdsp.control` reports
+  direct app authorization; the provider remains root-authorized by default.
+* Test candidate only: no on-device proof of service discovery, app write
+  authorization, audio processing, or audible control changes.
+
+### v6.5.10-pixel-builtin-aidl-beta.3
+
+* Run APK update/migration during the module install instead of waiting until
+  the next boot.
+* For matching signers, install only when the bundled APK versionCode is newer;
+  equal or newer installed app versions are left untouched.
+* For different signers, ask in the installer. Volume Up confirms uninstall
+  and replacement; Volume Down or 30-second timeout keeps the existing app and
+  copies the selected APK to Downloads.
+* Keep the boot service as a fallback and avoid reinstalling an equal/newer
+  app version on subsequent boots.
+
+### v6.5.10-pixel-builtin-aidl-beta.2
+
+* Update an existing `james.dsp` installation in place when Android accepts
+  the module APK's signing certificate, preserving the app data.
+* If Android reports a signer mismatch, ask through a system notification and
+  wait 30 seconds for Volume Up (remove and replace) or Volume Down (keep).
+* Treat timeout as No by default; keep the existing app, copy the new APK to
+  `/sdcard/Download/JamesDSPManager.apk`, and avoid repeating the prompt for
+  the same module APK on every boot.
+* Host-test both choices, the timeout default, matching-signature update, and
+  the one-time decline behavior. Device validation is still pending.
+
+### v6.5.10-pixel-builtin-aidl-beta.1
+
+* Prepare the Android AIDL effect-factory config in the regular KernelSU boot
+  path without requiring `KSU_LATE_LOAD`.
+* Keep late-load preparation, locking, linker validation, and reload behavior
+  unchanged.
+* Stage the config and effect through systemless module overlays only.
+* Bundle the Zahah-signed JamesDSP 1.6.15 integration APK (version code 56).
+  The APK is built from the local 1.6.14 source snapshot with the Volume
+  Manager integration, not from upstream 1.6.15 source.
+* Host tests pass; this specific regular-boot package has not yet been flashed
+  on a device.
+
 ### v6.5.9
 
 * JamesDSP works through Android's default effect factory and does not require
@@ -494,4 +571,3 @@
 * Module [GitHub](https://github.com/therealahrion/JamesDSPManager)
 
 App [GitHub](https://github.com/james34602/JamesDSPManager)
-

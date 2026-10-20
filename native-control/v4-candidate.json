@@ -1,0 +1,41 @@
+{
+  "iteration": 4,
+  "state": "ready-for-device-test",
+  "wireProtocol": 3,
+  "service": "jdsp.control",
+  "descriptor": "lightning.dsp.IJamesDspControl",
+  "nativeSource": {
+    "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
+    "branch": "native/control-completion-v4",
+    "commit": "9aaaeea63f7470f462df4035a76f441a2e8d4768"
+  },
+  "artifacts": {
+    "driver": {
+      "path": "common/files/aidl/libjamesdsp.so",
+      "sha256": "05b034cda6cf4b17d89d00efd612d01da3897b07f544d7e266ddca570ea1ae5a",
+      "sizeBytes": 2323856
+    },
+    "helper": {
+      "path": "common/files/control/arm64-v8a/jdspctl",
+      "sha256": "0de5f5ea94bc0d1b114d9c5ee3c68a89ba077cd12534f69af864343e63a95ecb",
+      "sizeBytes": 69680
+    },
+    "app": {
+      "path": "common/files/JamesDSPManagerThePBone.apk",
+      "sha256": "74051c0176bd8ffb8630d1a46b0defac74468ad1fa36f727d73078dd6521c70d",
+      "sizeBytes": 33181042,
+      "packageId": "james.dsp",
+      "versionName": "1.6.17",
+      "versionCode": 60,
+      "signatureVerified": true,
+      "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
+      "sourceCommit": "fc26d341833138086c45b4332e82d88bd331fb73"
+    }
+  },
+  "notes": [
+    "The native v4 driver and jdspctl hashes are unchanged from the compiler artifact and the earlier successful Pixel global-control probe.",
+    "The root app uses the matching vendor-native helper for enable, post-gain and FIR controls, retaining framework attachment and legacy fallback.",
+    "Global readiness requires a real protocol-3 probe with one writable context; an AudioFlinger effect alone is not native-control evidence.",
+    "The driver dynamically depends on Audio Effect AIDL V4; devices exposing another ABI may not load it."
+  ]
+}

@@ -1,0 +1,4 @@
+# Explicit opt-in only: ServiceManager may have cached labels before late-load.
+# SELinux cannot restrict this fallback by service name. It broadens only the
+# HAL producer's add/find permission; no untrusted_app access is granted.
+allow hal_audio_default default_android_service service_manager { add find }

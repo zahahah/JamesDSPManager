@@ -1,0 +1,35 @@
+name: Global native-control-v4 source and package
+on:
+  push:
+    branches: [pixel-test-new-aidl]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: native-control-v4-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Host regression tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Shell syntax
+        run: for file in *.sh common/*.sh; do sh -n "$file"; done
+      - name: Check compiled candidate readiness (source-only is not a release)
+        id: native
+        run: python3 tools/package_native_control_v4.py --check-source
+      - name: Package only a fully imported and verified candidate
+        if: steps.native.outputs.ready == 'true'
+        run: python3 tools/package_native_control_v4.py
+      - uses: actions/upload-artifact@v4
+        if: steps.native.outputs.ready == 'true'
+        with:
+          name: JamesDSPManager-native-control-v4-${{ github.sha }}
+          if-no-files-found: error
+          path: dist/JamesDSPManager-v6.6-beta-1.zip*

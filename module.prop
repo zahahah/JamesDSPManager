@@ -1,8 +1,8 @@
 id=ainur_jamesdsp
-name=JamesDSP Manager
-version=v6.5.9
-versionCode=111
+name=JamesDSP Manager (native-control-v4 beta)
+version=v6.6-beta-1
+versionCode=134
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=Root-only JamesDSP module for built-in and KernelSU late-load, with a guarded audio refresh
+description=Global jdsp.control with root-native client and legacy fallback; Audio Effect AIDL V4 build
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970
