@@ -1,155 +1,127 @@
-# JamesDSP Manager v6.6-beta-1
+# JamesDSP Manager
 
-Current branch: `pixel-test-new-aidl`. Global `jdsp.control` is the primary
-backend for the library's native enable, post-gain and FIR controls; legacy
-controls remain available for fallback and features outside that contract.
-The root app is v1.6.17, versionCode 60. The v4 native library and `jdspctl`
-are unchanged; no new native compilation is required.
+**Your music, with a little more say in how it sounds.**
 
-The boot service waits for the service-label overlay to be visible to
-ServiceManager, then reapplies only the dedicated typed rules. AOSP refreshes
-its label handle after a SELinux policy-status update; merely staging the
-file before mounting it is insufficient. This does not restart audio or
-ServiceManager, disable SELinux, or enable generic default-service grants.
-The status log records `READY` only after the real native helper reports a
-published, protocol-3 service with one writable context. It does not infer
-native readiness from a legacy AudioFlinger effect.
+This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-The existing library bounds publication retries per HAL process. A process that
-has already exhausted its retries may require a normal user-initiated reboot
-after installing the fixed module; this module never restarts audio for it.
+The current release is **v6.6-beta-1**, with the **JamesDSP root app 1.6.17 (versionCode 60)**. Development lives on `master`; `pixel-test-new-aidl` remains the integration branch.
 
-Reference: [AOSP ServiceManager label-handle refresh](https://android.googlesource.com/platform/frameworks/native/+/refs/heads/main/cmds/servicemanager/Access.cpp).
-See [NATIVE-CONTROL.md](NATIVE-CONTROL.md) for the native contract and policy
-boundaries. The sections below describe historical builds.
+[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-1) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source](https://github.com/zahahah/LibLightningDSP-OSS)
 
----
+## What can it do?
 
-# JamesDSPManager
+JamesDSP gives you more than a few bass and treble sliders:
 
-Root-only module for JamesDSPManager for Android 16 and 17, works on Traditional and Temp root. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).
+- **FIR and IIR equalization** to shape the frequency response.
+- **Convolution** to apply impulse responses, including headphone or speaker correction profiles.
+- **DDC/VDC correction** for compatible headphone profiles.
+- **Dynamics processing and output controls**, including a compander, limiter and post-gain.
+- **Crossfeed, stereo enhancement, bass boost, reverb and tube-style effects** for more specific adjustments.
+- **Live programmable processing** if you enjoy going beyond the built-in controls.
 
-## AIDL native-control-v3 test build: v6.5.11-pixel-native-control-v3-test
+It's a collection of tools, not a preset that automatically makes everything sound better. Start with a small adjustment, listen, then decide what actually helps. Turning every switch on is a valid experiment, but not necessarily a good listening strategy.
 
-This is a device-test candidate that replaces the AIDL driver with the
-Android-built `libjamesdspaidl.so` from LightningDSP native control v3. The
-module installs it under Android's expected filename, `libjamesdsp.so`, and
-keeps the existing effect UUID/type and XML factory path. The driver SHA-256 is
-`266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce`.
+## What's different in this fork?
 
-The new library contains a versioned `jdsp.control` Binder endpoint
-(`lightning.dsp.IJamesDspControl`) for protocol/status and a limited initial
-set of same-context controls (enable, post-gain, FIR EQ). The bundled root APK
-is built from RootJamesDSP branch `pixel-test-new-aidl` (source commit
-`53134a2`), with versionName 1.6.15 and versionCode 57. It includes an
-experimental AIDL client that probes protocol/capabilities and only attempts
-writes when the provider explicitly authorizes direct app access. The provider
-currently authorizes UID 0 by default, so this app build is expected to retain
-the legacy `AudioEffect` path; this package does not establish app-UID write
-access or map the UI EQ controls to the new service. Service registration,
-Pixel ABI compatibility, descriptor discovery, effect creation, audio
-processing, and audible native-control changes remain unverified.
+We're keeping the familiar ThePBone-based interface while changing how the app talks to the audio engine. The main control path is now **`jdsp.control`**, a global **Binder service** provided by our native JamesDSP library.
 
-The binary was built against Android audio-effect AIDL V4, media common types
-V5, hardware common V2, and common FMQ V1. There is no Android SDK or device-
-model gate in this test module. An experimental cross-ABI probe logs missing
-AIDL dependencies or a failed linker preflight without blocking the systemless
-overlay, allowing lower-API/AIDL V3 devices to be tested. The ELF dependency
-names are never rewritten. Removing the gate does not make the artifact
-compatible: a device may fail to load the library or reject the effect, and
-no AIDL V3 processing is claimed.
+There are three parts to the setup:
 
-Late-load does not restart Audio HAL or audioserver. A ready mount/config status
-is not evidence that `jdsp.control` registered or that audio is processed. See
-[`NATIVE-CONTROL.md`](NATIVE-CONTROL.md) for limitations and manual evidence
-needed before making a functional claim. The exact binary provenance and the
-LightningDSP GPL-2.0 license text are included in `native-control/`.
+1. **The module** makes the native library and audio configuration available through a systemless mount overlay. It doesn't permanently rewrite your physical `/system` or `/vendor` partitions.
+2. **Android's audio HAL** loads JamesDSP as an audio effect. This is where the native engine processes audio, rather than inside the settings screen.
+3. **The app** changes the engine's settings. For supported native controls, it uses the root helper `jdspctl` to communicate with `jdsp.control`.
 
-The module offers only the ThePBone root APK (package `james.dsp`, versionName
-1.6.15, versionCode 58) with the experimental global-control client. The
-installer no longer offers the classic UI APK. It first asks Package Manager to
-update an existing app in place; only an explicit signer-mismatch response
-starts a replacement prompt.
+The short version:
 
-## Prior Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
+```text
+App settings → jdspctl (root) → jdsp.control → JamesDSP in the audio HAL
+                                                        ↓
+                                                  Processed audio
+```
 
-This test build prepares the AIDL effect-factory config during the regular
-KernelSU boot path, even when `KSU_LATE_LOAD` is unset. The existing late-load
-preparation and reload path remains separate and unchanged. Config files are
-staged through the module overlay, not written to system partitions.
+That diagram describes the control path. Audio samples aren't being sent through the root helper. Android's `AudioEffect` mechanism still handles effect attachment and lifecycle.
 
-The ZIP includes the Zahah-signed JamesDSP root app v1.6.15 (version code 56)
-with the Volume Manager integration. Its version metadata is aligned with the
-bundled 1.6.15 app, but the source snapshot is based on local 1.6.14 code. The
-Rootless APK is retained as a repository release artifact only and is not part
-of this root-only module ZIP.
+### Native first, legacy when needed
 
-The regular-boot AIDL config path and APK migration flow have host-test
-coverage, but this beta has not yet been flashed or validated on a device.
+The app checks the native control path first. **Power, post-gain and FIR EQ** can use `jdsp.control`; features outside that contract still use the existing Android effect-parameter path. If native control isn't available or a supported operation fails, the legacy path remains a fallback.
 
-During module installation, the installer checks the selected APK against the
-installed `james.dsp` app. If the signing certificate matches, it installs only
-when the bundled APK's `versionCode` is newer, updating in place and preserving
-app data. If the certificates differ, the installer asks for a volume-key
-choice:
+So this isn't “we removed everything old and hoped for the best.” We're moving the controls we support to the new path while keeping the rest of JamesDSP usable.
 
-- **Volume Up:** remove `james.dsp` for all users, then install the module APK.
-  Removing the old app also removes its app data. Back it up first if you need
-  its presets or settings.
-- **Volume Down or no response within 30 seconds:** keep the installed app and
-  copy the new APK to `/sdcard/Download/JamesDSPManager.apk`. No response is
-  treated as **No**.
+The native service currently accepts writes from **root only**. Installing the module isn't enough: you also need to grant the **JamesDSP app** root access in your root manager. Granting root to Termux or ADB doesn't grant it to JamesDSP.
 
-For a signer mismatch, **Volume Down** confirms uninstall/replacement, while
-**Volume Up** or no response within 10 seconds keeps the installed app and its
-data. Before an explicitly confirmed uninstall, the installer attempts a
-private temporary archive of app-private and package-specific external data;
-it restores the archive after installation and reapplies ownership/SELinux
-labels. If backup fails, it warns and proceeds only because the user already
-confirmed. Android Keystore-protected secrets may not survive a signer change.
-If Package Manager is unavailable during flashing, first install is deferred
-to the boot service; that service will not prompt for or uninstall an existing
-app.
+## Compatibility: what we've actually checked
 
-## Stable release: v6.5.9
+The current global-control setup has been checked on a **Pixel 10 Pro XL (`mustang`) running Android 17, KernelSU and Magic Mount**. On that device, `jdsp.control` was published, the helper reported a writable DSP context, accepted control generations were applied, and processed-frame counters increased during playback.
 
-I've tested this release on a Pixel 10 Pro XL (`mustang`) running Android 17,
-KernelSU Next, and Magic Mount-rs 4.0.11. The late-load setup stayed working
-through several soft reboots. It is stable in this setup, but audio behavior
-can vary with firmware and root stage. Please report defects with device/build
-details, root mode, logs, and steps to reproduce.
+That's evidence for this setup, not a universal Android compatibility badge.
 
-JamesDSP does not depend on PIXAML. Its module provides `libjamesdsp.so` and
-adds the effect to the XML used by Android's `IFactory/default`. On my Pixel,
-that is enough for the JamesDSP app to load and use the effect on its own.
-PIXAML provides a separate AML service (`IFactory/aml`); Android does not
-automatically route JamesDSP through it. Some devices or setups may still need
-PIXAML for AML-specific compatibility or other AML-based effects, but that is
-separate from JamesDSP's basic effect path. Installing PIXAML alone does not
-make JamesDSP available.
+- The bundled native library is **ARM64** and links against **Audio Effect AIDL V4** libraries. Compatible dependencies and an audio factory that can load the effect are required.
+- **Samsung and Audio Effect AIDL V3 compatibility remain unresolved.** There isn't a blanket device-model or V3-version rejection, but letting a device attempt installation doesn't make missing native dependencies disappear.
+- The control protocol reports **version 3**. That's the version of our control interface, not the Android Audio Effect AIDL version. They're separate numbers describing different things.
+- Root-manager mount behavior, firmware, output routing and other audio mods can affect whether audio reaches the effect. A visible module or a working settings screen isn't proof of processing.
 
-During KernelSU late-load, repeated preparation callbacks are serialized with a
-lock, and the generated XML is replaced atomically before Magic Mount-rs applies
-the overlay. The single late-load audio refresh is guarded by the default
-factory, the expected stock descriptors, and a marker scoped to the current HAL
-process instance. There is no restart loop, `killall`, native hook, or write to
-the physical system/vendor partitions. The built-in early-boot path stays
-separate.
+**PIXAML isn't required for JamesDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make JamesDSP work.
 
-Removing the module never removes the installed `james.dsp` app. A module
-signer migration is opt-in: Volume Down confirms replacement, and Volume Up or
-timeout keeps the installed app. A temporary data backup is attempted only
-after explicit confirmation; it is not a guarantee that Keystore-bound secrets
-can be transferred between signing identities.
+Late-load support doesn't automatically restart the audio HAL or `audioserver`. The normal boot path and late-load preparation are handled separately, and SELinux stays enforcing.
 
-## Build and test
+## Installation
 
-Run the host tests and build the release ZIP with:
+1. Download the module ZIP from [Releases](https://github.com/zahahah/JamesDSPManager/releases).
+2. Install it through your compatible root manager, then reboot normally.
+3. Open JamesDSP and **grant it root access**.
+4. Enable processing, play some music and try an obvious EQ adjustment at a comfortable volume.
+
+The module includes only our modified **ThePBone-based root app**, package `james.dsp`. There is no classic-app selection or Rootless APK in the ZIP. The signed APK is also attached to the release if you want to download it separately.
+
+### If JamesDSP is already installed
+
+The installer handles the existing app according to its signing certificate:
+
+- **Same signature:** update in place, preserving app data.
+- **Different signature:** ask before replacing the installed app. **Volume Down confirms replacement. Volume Up or a 10-second timeout keeps the existing app.**
+
+After you confirm replacement, the installer attempts to back up the old app's data, installs our APK and restores what it can. If the backup fails, it warns and continues with the replacement you confirmed. **Back up important presets yourself.** Android Keystore-backed data may not survive a signing-key change.
+
+The boot service won't silently uninstall an existing app. Removing the module also leaves the installed JamesDSP app alone.
+
+## Checking the native path
+
+With music playing and JamesDSP enabled, run these commands in a root-capable terminal:
+
+```sh
+su -c '/vendor/bin/jdspctl probe'
+su -c '/vendor/bin/jdspctl status'
+```
+
+A ready native path reports `ready=1`, `protocol=3`, `publication=3` and a writable context. In the status output, accepted and applied generations tell you whether a control update reached the DSP. Increasing processed-frame counters show that the context is processing audio.
+
+Those checks are more useful than simply finding the app in your launcher. They still don't replace listening to a specific adjustment, and the absence of the native service doesn't, by itself, tell you why it failed.
+
+If something goes wrong, include your device model, Android build, root manager, module/app versions and the helper output. Mention whether you're using normal boot or temp-root/late-load, plus any other audio modules. That gives us something to investigate instead of asking the audio stack to confess.
+
+For the deeper contract, authorization and mounting details, see [NATIVE-CONTROL.md](NATIVE-CONTROL.md).
+
+## Building the module ZIP
+
+This repository packages the app and native artifacts. It doesn't compile the native audio library as part of ZIP generation.
+
+With Python 3 and Android SDK build tools available through `ANDROID_HOME`, `ANDROID_SDK_ROOT` or `PATH`:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 tools/package_6511_pixel_native_control_v3.py  # build this Pixel prerelease
-python3 tools/package_659_mustang_late_load.py  # rebuild stable v6.5.9
+python3 tools/package_native_control_v4.py
 ```
 
-For the previous release notes, see [changelog.md](changelog.md).
+The packager verifies the native hashes, provenance, APK package/version and authorized signing certificate before producing the ZIP in `dist/`. It supports `master` and `pixel-test-new-aidl`. GitHub Actions runs the same verification and packaging flow.
+
+Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS); app development belongs in [RootJamesDSP](https://github.com/zahahah/RootJamesDSP). For historical release notes, see [changelog.md](changelog.md).
+
+## Credits and licensing
+
+This work builds on JamesDSP and the people who made it possible:
+
+- [JamesDSP by james34602](https://github.com/james34602/JamesDSPManager), the audio processing project behind it all.
+- [ThePBone's RootlessJamesDSP](https://github.com/ThePBone/RootlessJamesDSP), the basis of our modified root app.
+- [The original JamesDSPManager module](https://github.com/therealahrion/JamesDSPManager) and [ShadoV90's fork](https://github.com/ShadoV90/JamesDSPManager), along with the contributors credited in the project.
+
+The native library's GPL-2.0 license is included in [native-control/LightningDSP-Main-LICENSE.txt](native-control/LightningDSP-Main-LICENSE.txt). See the linked source repositories for their respective licenses and attribution. Our changes don't replace those credits or terms.

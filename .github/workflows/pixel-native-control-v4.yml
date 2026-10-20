@@ -1,7 +1,7 @@
 name: Global native-control-v4 source and package
 on:
   push:
-    branches: [pixel-test-new-aidl]
+    branches: [pixel-test-new-aidl, master]
   workflow_dispatch:
 permissions:
   contents: read

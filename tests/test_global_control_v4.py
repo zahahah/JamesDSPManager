@@ -7,6 +7,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -30,6 +31,24 @@ class PixelNativeControlPackageTests(unittest.TestCase):
             }))
             with self.assertRaisesRegex(ValueError, "V4 native build not imported"):
                 package.build(root / "candidate.zip", root=root)
+
+    def test_principal_and_integration_branches_package_identical_payloads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            payloads = []
+            for branch in ('master', 'pixel-test-new-aidl'):
+                output = Path(tmp) / (branch + '.zip')
+                with patch.object(package, 'verify_artifacts', return_value={}), \
+                     patch.object(package.subprocess, 'check_output', return_value=branch):
+                    package.build(output)
+                payloads.append(output.read_bytes())
+            self.assertEqual(payloads[0], payloads[1])
+
+    def test_unrelated_branch_cannot_package_distribution(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(package, 'verify_artifacts', return_value={}), \
+                 patch.object(package.subprocess, 'check_output', return_value='unrelated'):
+                with self.assertRaisesRegex(ValueError, 'requires master or pixel-test-new-aidl'):
+                    package.build(Path(tmp) / 'candidate.zip')
 
     def test_retired_native_payloads_cannot_be_relabelled_as_v4(self):
         self.assertIn("cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a", package.RETIRED_DRIVERS)

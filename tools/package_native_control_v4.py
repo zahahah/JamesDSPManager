@@ -90,8 +90,8 @@ def verify_artifacts(root=ROOT):
 def build(output, root=ROOT):
     value = verify_artifacts(root)
     branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch != 'pixel-test-new-aidl':
-        raise ValueError('V4 distribution requires pixel-test-new-aidl')
+    if branch not in ('master', 'pixel-test-new-aidl'):
+        raise ValueError('V4 distribution requires master or pixel-test-new-aidl')
     props = (root / 'module.prop').read_text()
     if 'version=v6.6-beta-1\n' not in props or 'versionCode=134\n' not in props:
         raise ValueError('Expected the promoted v6.6-beta-1 prerelease metadata')
