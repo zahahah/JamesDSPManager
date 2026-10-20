@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the effect-bound-control-v1 Pixel test ZIP reproducibly."""
+"""Build the guarded native-control-v3 test ZIP reproducibly."""
 
 from hashlib import sha256
 import json
@@ -12,17 +12,16 @@ import package_6510_pixel_aidl as previous
 
 ROOT = Path(__file__).resolve().parents[1]
 BASELINE = "3ea15a5bae87bdbe17f39d5a161c002b655fe3d8"
-VERSION = "v6.5.14-effect-bound-control-v1-test"
-VERSION_CODE = 118
+VERSION = "v6.5.11-pixel-native-control-v3-test"
+VERSION_CODE = 117
 DRIVER = "common/files/aidl/libjamesdsp.so"
-DRIVER_SHA256 = "cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a"
+DRIVER_SHA256 = "266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce"
 OUTPUT = Path(os.environ.get(
     "JDSP_PACKAGE_OUTPUT",
     ROOT / f"dist/JamesDSPManager-{VERSION}.zip",
 ))
 NEW_FILES = {
     "NATIVE-CONTROL.md": 0o100644,
-    "native-control/BUILD_NOTES.md": 0o100644,
     "native-control/provenance.json": 0o100644,
     "native-control/LightningDSP-Main-LICENSE.txt": 0o100644,
 }
@@ -30,7 +29,6 @@ CHANGED_FILES = {
     ".github/workflows/pixel-test-native-control-v3.yml",
     "NATIVE-CONTROL.md",
     "README.md",
-    "PIXEL_TEST.md",
     "changelog.md",
     "common/functions.sh",
     "common/app_migration.sh",
@@ -39,7 +37,6 @@ CHANGED_FILES = {
     DRIVER,
     "module.prop",
     "native-control/LightningDSP-Main-LICENSE.txt",
-    "native-control/BUILD_NOTES.md",
     "native-control/provenance.json",
     "patch.sh",
     "post-fs-data.sh",
@@ -97,23 +94,20 @@ def verify_payloads() -> None:
 
     driver = (ROOT / DRIVER).read_bytes()
     if sha256(driver).hexdigest() != DRIVER_SHA256:
-        raise ValueError("AIDL driver does not match the pinned effect-bound-control-v1 artifact")
+        raise ValueError("AIDL driver does not match the pinned native-control-v3 artifact")
     if not driver.startswith(b"\x7fELF") or driver[4] != 2 or driver[5] != 1:
         raise ValueError("AIDL driver must be a little-endian ELF64 shared object")
     provenance = json.loads((ROOT / "native-control/provenance.json").read_text(encoding="utf-8"))
     artifact = provenance["artifact"]
     if artifact["sha256"] != DRIVER_SHA256 or artifact["size_bytes"] != len(driver):
         raise ValueError("Artifact provenance does not match the packaged AIDL driver")
-    if provenance["source"]["commit"] != "bbc9bcee2f402c4ced87c10e64dfdf29a5fc5cfb":
-        raise ValueError("AIDL driver provenance does not match the expected LightningDSP source commit")
     required_deps = {
         "android.hardware.audio.effect-V4-ndk.so",
         "android.media.audio.common.types-V5-ndk.so",
         "android.hardware.common-V2-ndk.so",
         "android.hardware.common.fmq-V1-ndk.so",
     }
-    direct_deps = provenance.get("direct_dt_needed", provenance.get("effect_aidl_dependencies", []))
-    if not required_deps.issubset(set(direct_deps)):
+    if not required_deps.issubset(set(provenance["direct_dt_needed"])):
         raise ValueError("Provenance is missing one or more pinned AIDL dependencies")
     if not (ROOT / "native-control/LightningDSP-Main-LICENSE.txt").read_text(encoding="utf-8").strip():
         raise ValueError("Missing upstream license text")
@@ -190,7 +184,7 @@ def build(output: Path = OUTPUT) -> str:
         "appVersionName": "1.6.15",
         "appVersionCode": 57,
         "branch": "pixel-test-new-aidl",
-        "deviceScope": "Experimental ARM64 driver; direct AIDL V4 dependencies; strict dependency preflight; not device-validated; bundled app not wired to effect-bound transport",
+        "deviceScope": "No SDK/model gate; experimental AIDL cross-ABI probe; binary direct AIDL V4 dependencies remain; not device-validated",
         "audioServiceRestart": "disabled",
     }
     output.with_suffix(output.suffix + ".json").write_text(

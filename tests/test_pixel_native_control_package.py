@@ -38,7 +38,6 @@ class PixelNativeControlPackageTests(unittest.TestCase):
                     b"versionCode=57\n",
                 )
                 self.assertIn("native-control/provenance.json", names)
-                self.assertIn("native-control/BUILD_NOTES.md", names)
                 self.assertIn("native-control/LightningDSP-Main-LICENSE.txt", names)
                 self.assertIn("NATIVE-CONTROL.md", names)
                 self.assertEqual(

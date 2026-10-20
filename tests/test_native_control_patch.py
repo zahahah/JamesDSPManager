@@ -75,12 +75,13 @@ class NativeControlPatchTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("device lacks exact AIDL dependency", result.stderr)
 
-    def test_mismatched_abi_is_blocked_even_if_experimental_override_is_set(self):
+    def test_experimental_mode_logs_missing_v4_abi_without_rewriting_binary(self):
         before = (self.libdir / "libjamesdsp.so").read_bytes()
         needed = [name.replace("-V4-", "-V3-") for name in EXPECTED]
         result = self.run_patch(needed=needed, add_available=False, allow_mismatch=True)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("required dependency missing", result.stderr)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("EXPERIMENTAL WARNING", result.stdout)
+        self.assertIn("EXPERIMENTAL AIDL ABI probe enabled", result.stdout)
         self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
 
 

@@ -28,6 +28,10 @@ for REQUIRED in \
 	android.hardware.common-V2-ndk.so \
 	android.hardware.common.fmq-V1-ndk.so; do
 	if ! printf '%s\n' "$NEEDED_LIST" | grep -Fxq "$REQUIRED"; then
+		if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ]; then
+			echo "EXPERIMENTAL WARNING: driver lacks expected dependency: $REQUIRED"
+			continue
+		fi
 		echo "unexpected AIDL driver ABI: required dependency missing: $REQUIRED" >&2
 		return 1
 	fi
@@ -39,10 +43,18 @@ for REQUIRED in \
 		fi
 	done
 	if [ "$discovered" != true ]; then
+		if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ]; then
+			echo "EXPERIMENTAL WARNING: device lacks dependency: $REQUIRED"
+			continue
+		fi
 		echo "device lacks exact AIDL dependency: $REQUIRED" >&2
 		return 1
 	fi
 done
 
-echo "AIDL dependency versions validated without rewriting DT_NEEDED"
+if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ]; then
+	echo "EXPERIMENTAL AIDL ABI probe enabled; DT_NEEDED was not rewritten"
+else
+	echo "AIDL dependency versions validated without rewriting DT_NEEDED"
+fi
 return 0

@@ -3,7 +3,7 @@ MODPATH=${0%/*}
 MODDIR="$MODPATH"
 LOGDIR="$MODPATH/logs"
 STATUS="$LOGDIR/late-load.status"
-BUILT_EFFECT_BOUND_V1="$MODPATH/native-control/provenance.json"
+BUILT_CONTROL_V3="$MODPATH/native-control/provenance.json"
 JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
 JDSP_TYPE=f98765f4-c321-5de6-9a45-123459495ab2
 XML_LIB_ANCHOR=libbundleaidl.so
@@ -30,6 +30,7 @@ fi
 # the experimental linker preflight report incompatibility without rewriting
 # ELF dependencies; successful load and processing still require device tests.
 
+JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH=1
 ABI_STATUS=validated
 
 late_block() {
@@ -40,10 +41,12 @@ late_block() {
 
 # The normal boot path uses the same strict ABI validation as late-load.
 # Validate before preparing the config that makes the replacement discoverable.
-if [ "${KSU_LATE_LOAD:-0}" != 1 ] && [ -f "$BUILT_EFFECT_BOUND_V1" ]; then
+if [ "${KSU_LATE_LOAD:-0}" != 1 ] && [ -f "$BUILT_CONTROL_V3" ]; then
 	AIDL=true
 	. "$MODPATH/patch.sh" >"$LOGDIR/native-control-dependency-check.log" 2>&1 || \
 		late_block native_control_dependency_mismatch
+	grep -q '^EXPERIMENTAL WARNING:' "$LOGDIR/native-control-dependency-check.log" && \
+		ABI_STATUS=experimental_abi_mismatch
 fi
 
 late_ready() {
@@ -221,16 +224,24 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 
 	AIDL=true
 	if [ -f "$MODPATH/patch.sh" ]; then
-		# Require the exact AIDL dependencies recorded for this binary. Do not
-		# mount a V4-linked driver when the target cannot resolve those deps.
+		# Log exact dependencies without rewriting. This candidate explicitly
+		# permits a non-blocking cross-ABI probe for AIDL V3 devices.
 		. "$MODPATH/patch.sh" >"$LOGDIR/late-load-patch.log" 2>&1 || \
 			late_block patchelf_failed
+		grep -q '^EXPERIMENTAL WARNING:' "$LOGDIR/late-load-patch.log" && \
+			ABI_STATUS=experimental_abi_mismatch
 	fi
 
 	if ! "$LINKER_BIN" --list \
 		"$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" \
 		>"$LOGDIR/late-load-linker.txt" 2>&1; then
-		late_block linker_dependency_resolution_failed
+		if [ "${JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH:-0}" = 1 ] && [ -f "$BUILT_CONTROL_V3" ]; then
+			printf 'EXPERIMENTAL WARNING: linker preflight failed; continuing for ABI probe\n' \
+				>>"$LOGDIR/late-load-linker.txt"
+			ABI_STATUS=experimental_link_check_bypassed
+		else
+			late_block linker_dependency_resolution_failed
+		fi
 	fi
 
 	late_ready "$vendor_config_source"
@@ -259,6 +270,6 @@ else
 	AIDL=false
 fi
 . "$MODPATH/aml.sh"
-if [ ! -f "$BUILT_EFFECT_BOUND_V1" ]; then
+if [ ! -f "$BUILT_CONTROL_V3" ]; then
 	. "$MODPATH/patch.sh"
 fi

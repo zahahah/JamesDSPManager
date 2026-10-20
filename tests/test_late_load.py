@@ -230,7 +230,7 @@ class LateLoadTests(unittest.TestCase):
                 "BLOCKED reason=linker_dependency_resolution_failed\n",
             )
 
-    def test_native_control_candidate_blocks_unresolvable_driver_dependencies(self):
+    def test_native_control_candidate_allows_other_models_on_api36(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             (module / "native-control").mkdir()
@@ -241,12 +241,10 @@ class LateLoadTests(unittest.TestCase):
             env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((module / "skip_mount").exists())
+            self.assertFalse((module / "skip_mount").exists())
             self.assertTrue((module / "linker-called").exists())
-            self.assertEqual(
-                (module / "logs/late-load.status").read_text(),
-                "BLOCKED reason=linker_dependency_resolution_failed\n",
-            )
+            self.assertIn("lib=experimental_link_check_bypassed", (module / "logs/late-load.status").read_text())
+            self.assertIn("EXPERIMENTAL WARNING: linker preflight failed", (module / "logs/late-load-linker.txt").read_text())
 
     def test_native_control_candidate_does_not_gate_on_malformed_sdk(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -820,7 +818,7 @@ exit 0
             self.assertTrue(zip_path.exists())
             with zipfile.ZipFile(zip_path) as archive:
                 self.assertIn(
-                    "version=v6.5.14-effect-bound-control-v1-test",
+                    "version=v6.5.11-pixel-native-control-v3-test",
                     archive.read("module.prop").decode("utf-8"),
                 )
 

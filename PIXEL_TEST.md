@@ -1,43 +1,51 @@
-# Pixel effect-bound-control-v1 module test — experimental
+# Pixel rebuilt AIDL comparison — experimental
 
-Candidate: `v6.5.14-effect-bound-control-v1-test`, module versionCode 118.
-Target branch: `pixel-test-new-aidl`.
+Base: stable module master d60a800161ed6fcb6c01aa3026069dffff54bf7a (v6.5.9 / 111).
+This branch is NOT based on the Samsung experiments.
 
-The ZIP replaces only the AIDL driver payload relative to the immediately
-preceding test candidate; the existing root APK payload is retained unchanged
-(JamesDSP 1.6.15, versionCode 57). The driver is ARM64, built from LightningDSP
-`native/effect-bound-control-v1` commit
-`bbc9bcee2f402c4ced87c10e64dfdf29a5fc5cfb`, and its SHA-256 is
-`cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a`.
+The packaged ZIP differs from that base in exactly two entries:
 
-The library directly depends on Audio Effect AIDL V4, media common types V5,
-hardware common V2 and common FMQ V1. The pre-mount dependency validation is
-strict: if its exact dependencies cannot be resolved, the module marks
-`skip_mount` and does not mount the candidate. This is not a V3 compatibility
-build. Even if dependency files exist, that alone does not prove the HAL factory
-implements a compatible interface.
+- `common/files/aidl/libjamesdsp.so`: user-supplied ARM64 rebuild, unchanged bytes.
+  SHA-256: 8a774733621c4b5f34b3dafef27ab3f5b02fdf7c6cf97bbef9af3535cea66955.
+  Native source revision/build manifest has not been supplied; no provenance or
+  runtime-equivalence claim is made.
+- `common/files/JamesDSPManagerThePBone.apk`: ROOT flavor (`james.dsp`) from
+  RootJamesDSP pixel-test 1529b67b90acd786a0368fa4f8c01f04cbb904ba,
+  published pixel-test pre-release, root universal release asset 652150602
+  (published 2026-10-18 UTC). Already signed with the authorized owner certificate;
+  included byte-for-byte without re-signing or source edits.
+  SHA-256: b69214755c723988d9456ef6381ee2fd9fd956e67f26960f2ab0b45bd7de5f55.
+  Version 1.6.14 / 51, NOT upstream ThePBone 1.6.15. The legacy payload filename
+  is retained solely to preserve installer behavior. Select ThePBone to stage it.
 
-## Test status and limits
+The other Original APK remains unchanged. No Rootless APK is included.
+No script, XML, SELinux rule, module version, or update metadata changes are
+included. Existing stable installer/late-load behavior (including guarded audio
+refresh and dependency-name patching) is inherited, not newly introduced.
+Do not mistake an unchanged versionCode for the old driver: verify hashes.
 
-This exact artifact has NOT been installed or runtime-tested. Previous Pixel
-results were for another library build and do not validate this one. The
-bundled APK has not been updated to encode/send the effect-bound protocol, so
-this ZIP cannot verify new protocol control writes. It is an experimental
-library A/B package only; no audible-processing or Samsung compatibility claim
-is made.
+## Reproduce locally
+
+Run `python3 tools/package_pixel_test.py`. It compares every module payload
+against the fixed base commit and rejects any changes outside the two pinned
+replacements. The old stable packager deliberately retains its old APK hash
+pin; use the Pixel packager, not the stable one, on this branch.
+The ZIP, SHA-256 and provenance JSON are written to dist/. Documentation,
+packaging tools and tests are not device payloads.
+
+## Device test boundaries
+
+This package has NOT been installed or runtime-tested by the agent. Preliminary
+read-only checks on the connected Pixel 10 Pro XL (Android 17 / SDK 37) found
+Audio Effect V4, Common Types V5 and libaudio_aidl_conversion_common_ndk.so
+under /system/lib64. Presence is not proof of HAL namespace/ABI/SELinux access.
 
 Keep the known-good module ZIP and a tested temp-root recovery path available.
-Do not install this candidate on Samsung AIDL V3 based on the current evidence.
-No Android service restart is performed by the module. Never uninstall or clear
-app data to resolve signature/version issues. Device installation or restarting
-services must be separately authorized.
-
-## Reproduce
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-for f in *.sh common/*.sh; do sh -n "$f" || exit 1; done
-python3 tools/package_6511_pixel_native_control_v3.py
-```
-
-The reproducible ZIP and sidecars are written under `dist/`.
+Do not deploy to Samsung based on a Pixel result. Existing james.dsp apps are
+not automatically replaced by the module service; selecting the app at module
+install does not prove the running APK changed. Never uninstall or clear app
+data to resolve a signature/version mismatch. Any app/device install and
+service restart must be separately authorized. For a driver-only A/B test,
+keep the running APK unchanged for the first comparison, then test the supplied
+Pixel APK separately. Audible FIR/EQ response is required; Binder registration
+or an enabled UI alone is insufficient evidence of processing.

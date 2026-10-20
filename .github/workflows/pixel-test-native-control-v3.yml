@@ -1,4 +1,4 @@
-name: Pixel effect-bound-control-v1 test module ZIP
+name: Pixel native-control-v3 test module ZIP
 
 on:
   push:
@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: pixel-effect-bound-control-v1-${{ github.ref }}
+  group: pixel-native-control-v3-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -45,18 +45,18 @@ jobs:
           for file in *.sh common/*.sh; do
             sh -n "$file" || exit 1
           done
-      - name: Build and verify the pinned effect-bound test ZIP
+      - name: Build and verify the pinned test ZIP
         run: python3 tools/package_6511_pixel_native_control_v3.py
       - name: Verify ZIP checksum
         working-directory: dist
-        run: sha256sum -c JamesDSPManager-v6.5.14-effect-bound-control-v1-test.zip.sha256
+        run: sha256sum -c JamesDSPManager-v6.5.11-pixel-native-control-v3-test.zip.sha256
       - name: Upload test ZIP and provenance as an Actions artifact
         uses: actions/upload-artifact@v4
         with:
-          name: JamesDSPManager-pixel-effect-bound-control-v1-${{ github.sha }}
+          name: JamesDSPManager-pixel-native-control-v3-${{ github.sha }}
           if-no-files-found: error
           retention-days: 14
           path: |
-            dist/JamesDSPManager-v6.5.14-effect-bound-control-v1-test.zip
-            dist/JamesDSPManager-v6.5.14-effect-bound-control-v1-test.zip.sha256
-            dist/JamesDSPManager-v6.5.14-effect-bound-control-v1-test.zip.json
+            dist/JamesDSPManager-v6.5.11-pixel-native-control-v3-test.zip
+            dist/JamesDSPManager-v6.5.11-pixel-native-control-v3-test.zip.sha256
+            dist/JamesDSPManager-v6.5.11-pixel-native-control-v3-test.zip.json
