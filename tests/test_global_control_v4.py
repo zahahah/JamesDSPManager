@@ -77,12 +77,15 @@ class PixelNativeControlPackageTests(unittest.TestCase):
             self.assertTrue((root / 'skip_mount').exists())
             self.assertIn('native_control_dependency_mismatch', (root / 'logs/late-load.status').read_text())
 
-    def test_candidate_service_does_not_restart_audio_in_late_load(self):
+    def test_candidate_service_only_schedules_guarded_hal_recovery_for_late_load(self):
         service = (ROOT / "service.sh").read_text(encoding="utf-8")
         late_branch = service.split('if [ "${KSU_LATE_LOAD:-0}"', 1)[1].split("fi", 1)[0]
         self.assertNotIn("audio-reload.sh", late_branch)
         self.assertNotIn("killall", late_branch)
-        self.assertIn("restart=not_requested", late_branch)
+        self.assertIn(':-/system/bin/sleep}" 10', late_branch)
+        self.assertIn('audio-hal-recovery.sh" --auto-once', late_branch)
+        self.assertIn('restart=one_shot', late_branch)
+        self.assertNotIn('audioserver', late_branch)
 
     def test_installer_restores_patchelf_executable_mode_after_permission_reset(self):
         installer = (ROOT / "common/functions.sh").read_text(encoding="utf-8")

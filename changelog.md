@@ -1,3 +1,13 @@
+### v6.6-beta-4
+
+* Schedule one validated audio-HAL recovery 10 seconds after KernelSU
+  late-load, after typed policy activation is ready.
+* Allow one additional user-triggered recovery from the app's Retry screen.
+* Keep normal boot unchanged, never restart `audioserver`, and fail closed on
+  devices without a verified HAL service/process mapping.
+* Bundle the updated root app as versionCode 62. The new automatic recovery
+  path requires device validation; Samsung remains unverified.
+
 ### v6.6-beta-1
 
 * Keep global jdsp.control primary and legacy control as fallback.

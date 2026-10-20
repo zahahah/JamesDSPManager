@@ -1,18 +1,23 @@
 #!/system/bin/sh
-# Manual, single-attempt recovery for a late-mounted AIDL effect. Never call
-# this from a boot hook: restarting an audio HAL can interrupt or destabilize
-# audio, especially on temp-root devices.
+# Guarded recovery for a late-mounted AIDL effect. Auto mode is scheduled only
+# by the KSU late-load service hook; retry mode is explicitly user initiated.
 
-[ "${1:-}" = --manual-once ] || {
-    echo 'Usage: manual-audio-reload.sh --manual-once (requires explicit HAL service and process)' >&2
+MODE=${1:-}
+case "$MODE" in
+    --manual-once) MODE=retry ;;
+    --auto-once) MODE=auto ;;
+    --retry-once) MODE=retry ;;
+    *)
+    echo 'Usage: manual-audio-reload.sh --auto-once|--retry-once (requires explicit HAL service and process)' >&2
     exit 2
-}
+    ;;
+esac
 
 MODPATH=${0%/*}
 LOGDIR="$MODPATH/logs"
 mkdir -p "$LOGDIR" || exit 1
 STATUS="$LOGDIR/manual-audio-reload.status"
-GUARD="$LOGDIR/manual-audio-reload.boot-id"
+GUARD="$LOGDIR/audio-hal-reload-$MODE.boot-id"
 FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
 ID_BIN=${JDSP_ID_BIN:-/system/bin/id}
 PIDOF_BIN=${JDSP_PIDOF_BIN:-/system/bin/pidof}
@@ -63,8 +68,12 @@ exec 0>"$LOGDIR/manual-audio-reload.lock" || finish 'BLOCKED reason=lock_open_fa
 
 boot_id=$(cat "$BOOT_ID_FILE" 2>/dev/null)
 [ -n "$boot_id" ] || finish 'BLOCKED reason=boot_id_unavailable'
+if grep -q '^READY late_load=1 boot_id=' "$LOGDIR/late-load.status" 2>/dev/null; then
+	grep -q "^READY late_load=1 boot_id=$boot_id " "$LOGDIR/late-load.status" || \
+		finish 'BLOCKED reason=late_load_status_from_another_boot'
+fi
 if [ -f "$GUARD" ] && [ "$(cat "$GUARD")" = "$boot_id" ]; then
-    finish 'BLOCKED reason=reload_already_attempted_this_boot'
+    finish "BLOCKED reason=${MODE}_reload_already_attempted_this_boot"
 fi
 [ "$("$GETPROP_BIN" "init.svc.$HAL_SERVICE" 2>/dev/null)" = running ] || \
     finish 'BLOCKED reason=selected_init_service_not_running'
@@ -93,8 +102,8 @@ if printf '%s\n' "$before_dump" | grep -qi "$JDSP_UUID"; then
     finish 'READY reason=effect_already_discovered restart=not_needed' 0
 fi
 
-# The guard is durable before ctl.restart so a failed or unstable restart never
-# enters a retry loop during this boot. Do not restart audioserver here.
+# Persist the per-mode guard before ctl.restart. At most one automatic restart
+# and one explicit user retry are possible per boot. Never restart audioserver.
 printf '%s\n' "$boot_id" >"$GUARD" || finish 'BLOCKED reason=guard_write_failed'
 "$SETPROP_BIN" ctl.restart "$HAL_SERVICE" || \
     finish 'BLOCKED reason=init_restart_request_failed'

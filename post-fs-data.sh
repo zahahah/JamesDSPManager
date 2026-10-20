@@ -50,7 +50,9 @@ if [ "${KSU_LATE_LOAD:-0}" != 1 ] && [ -f "$NATIVE_CONTROL_PROVENANCE" ]; then
 fi
 
 late_ready() {
-	printf 'READY late_load=1 vendor_config=%s lib=%s restart=not_requested processing=unverified\n' "$1" "$ABI_STATUS" \
+	boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+	printf 'READY late_load=1 boot_id=%s vendor_config=%s lib=%s restart=not_requested processing=unverified\n' \
+		"${boot_id:-unknown}" "$1" "$ABI_STATUS" \
 		>"$STATUS"
 	exit 0
 }

@@ -1,40 +1,31 @@
-# Manual late-load audio recovery (experimental)
+# Late-load audio recovery
 
 The AIDL effect factory reads its effect configuration when its process starts.
-After temp-root mounts the module late, a visible XML and library do not mean
-the already-running factory has registered JamesDSP. The `service.sh` boot hook
-intentionally **does not** restart audio automatically.
+After temp-root mounts the module, the library and XML can be visible while the
+already-running factory still has not registered JamesDSP.
 
-`manual-audio-reload.sh` is an opt-in, one-attempt-per-boot recovery tool. It
-does not mount files, change SELinux policy, restart `audioserver`, or retry a
-failed restart. It checks root, the module and late-load state, typed policy,
+In the KernelSU late-load path, `service.sh` waits 10 seconds and schedules one
+guarded recovery. It can restart only the verified audio HAL init service, never
+`audioserver`. Device identity is allowlisted; unknown devices are left alone
+until their exact HAL service and factory-host process are validated. At this
+time the allowlist covers Pixel 10 Pro XL (`mustang`). The previously observed
+Samsung process names are not sufficient evidence to restart its HAL safely.
+
+The recovery validates root, module/late-load state, refreshed typed policy,
 the library and XML visible through the selected HAL process, linker
-dependencies, and the existing factory before requesting an init-service
-restart. It requires **both** an explicit init service name and the process
-name that hosts the default AIDL effect factory. Do not guess these names or
-reuse names from another device.
+dependencies, and the existing factory before requesting a restart. It records
+its result in `logs/manual-audio-reload.status` with bounded before/after
+factory dumps. `DISCOVERED` means the factory lists the effect, not that a
+context was created or audio was processed.
 
-For a device with a confirmed, recoverable audio-stack restart procedure, the
-manual invocation is:
+The app's Retry action checks again and can request one additional guarded
+recovery if needed:
 
 ```sh
-su -c 'JDSP_AUDIO_HAL_INIT_SERVICE=CONFIRMED_INIT_SERVICE JDSP_AUDIO_HAL_PROCESS=CONFIRMED_HAL_PROCESS /data/adb/modules/ainur_jamesdsp/manual-audio-reload.sh --manual-once'
+su -c '/data/adb/modules/ainur_jamesdsp/audio-hal-recovery.sh --retry'
 ```
 
-Only run this after specific authorization for that device. Audio may stop,
-calls may be interrupted, and a temp-root environment may enter safe mode or
-lose root. Keep a recovery path available. The script writes its result to
-`logs/manual-audio-reload.status`, plus bounded before/after factory dumps.
-`DISCOVERED` means the factory lists the effect after a single restart. It does
-**not** prove context creation, an applied command, processed frames, or an
-audible change; those remain separate device checks.
-
-After `DISCOVERED`, return to the JamesDSP app and tap **Retry** if its error
-screen is visible. The app checks factory discovery again and, in Global mode,
-requests session 0 if it is missing. Do not toggle Global mode merely to force
-attachment. Check a live `jdspctl probe`, applied generation and processed
-frames separately before claiming that audio is being modified.
-
-If any preflight check fails, the script does not request a restart. If a
-restart was requested but did not yield the effect, the boot guard prevents a
-second attempt in the same boot. Do not remove the guard to force retries.
+The automatic attempt and explicit retry each have separate per-boot guards,
+so they cannot form a loop. A HAL restart can briefly interrupt audio or calls;
+temp-root may be destabilized. Neither path restarts `audioserver`. Check live
+probe, applied generation, processed frames, and audible output separately.

@@ -19,7 +19,7 @@ class ManualAudioReloadTests(unittest.TestCase):
         module = root / "module"
         (module / "logs").mkdir(parents=True)
         (module / ".AIDL").touch()
-        (module / "logs/late-load.status").write_text("READY late_load=1 lib=validated\n")
+        (module / "logs/late-load.status").write_text("READY late_load=1 boot_id=boot-1 lib=validated\n")
         (module / "logs/native-control.status").write_text("WAITING policy=typed_rules_refreshed\n")
         (module / "system/vendor/lib64/soundfx").mkdir(parents=True)
         library = module / "system/vendor/lib64/soundfx/libjamesdsp.so"
@@ -75,15 +75,18 @@ class ManualAudioReloadTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertFalse(marker.exists())
 
-    def test_packaged_but_not_auto_invoked(self):
+    def test_packaged_recovery_dispatcher_and_auto_schedule(self):
         source = (ROOT / "tools/package_native_control_v4.py").read_text()
         self.assertIn("'manual-audio-reload.sh': 0o100755", source)
-        self.assertNotIn("manual-audio-reload.sh", (ROOT / "service.sh").read_text())
+        self.assertIn("'audio-hal-recovery.sh': 0o100755", source)
+        self.assertIn("audio-hal-recovery.sh" , (ROOT / "service.sh").read_text())
         self.assertIn('set_perm "$MODPATH/manual-audio-reload.sh" 0 0 0755',
+                      (ROOT / "customize.sh").read_text())
+        self.assertIn('set_perm "$MODPATH/audio-hal-recovery.sh" 0 0 0755',
                       (ROOT / "customize.sh").read_text())
         script = (ROOT / "manual-audio-reload.sh").read_text()
         self.assertNotIn("killall", script)
-        self.assertNotIn("audioserver", script.split("# The guard is durable", 1)[0])
+        self.assertNotIn("audioserver", script.split("# Persist the per-mode guard", 1)[0])
         self.assertNotIn("setenforce", script)
         self.assertNotIn("default_android_service", script)
 
@@ -106,8 +109,34 @@ class ManualAudioReloadTests(unittest.TestCase):
             self.assertEqual(marker.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
             second = subprocess.run(["sh", str(script), "--manual-once"], env=env, capture_output=True, text=True)
             self.assertNotEqual(second.returncode, 0)
-            self.assertIn("reload_already_attempted_this_boot", second.stdout)
+            self.assertIn("retry_reload_already_attempted_this_boot", second.stdout)
             self.assertEqual(marker.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
+
+    def test_recovery_dispatcher_uses_only_verified_target_and_fails_closed(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module = root / "module"
+            module.mkdir()
+            (module / "logs").mkdir()
+            (module / "logs/native-control.status").write_text("WAITING policy=typed_rules_refreshed\n")
+            script = module / "audio-hal-recovery.sh"
+            script.write_bytes((ROOT / "audio-hal-recovery.sh").read_bytes())
+            invoked = root / "manual-called"
+            manual = module / "manual-audio-reload.sh"
+            manual.write_text(f'#!/bin/sh\nprintf "%s|%s|%s" "$JDSP_AUDIO_HAL_INIT_SERVICE" "$JDSP_AUDIO_HAL_PROCESS" "$1" >"{invoked}"\n')
+            manual.chmod(0o755)
+            getprop = root / "getprop"
+            self.executable(getprop, "echo \"${DEVICE:-unknown}\"\n")
+            env = {**os.environ, "JDSP_GETPROP_BIN": str(getprop), "DEVICE": "mustang"}
+            result = subprocess.run(["sh", str(script), "--retry"], env=env, capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(invoked.read_text(), "vendor.audio-hal-aidl|android.hardware.audio.service-aidl.aoc|--retry-once")
+            invoked.unlink()
+            env["DEVICE"] = "unverified_samsung"
+            result = subprocess.run(["sh", str(script), "--auto-once"], env=env, capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("unverified_audio_hal_target", result.stdout)
+            self.assertFalse(invoked.exists())
 
     def test_invisible_overlay_blocks_before_restart(self):
         with tempfile.TemporaryDirectory() as tmp:

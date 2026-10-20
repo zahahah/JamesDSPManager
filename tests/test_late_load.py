@@ -116,10 +116,9 @@ class LateLoadTests(unittest.TestCase):
             patched = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
             self.assertIn(JDSP_UUID, patched)
             self.assertIn(XML_UUID, patched)
-            self.assertEqual(
-                (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=patched_from_live_vendor lib=validated restart=not_requested processing=unverified\n",
-            )
+            status = (module / "logs/late-load.status").read_text()
+            self.assertTrue(status.startswith("READY late_load=1 boot_id="))
+            self.assertIn(" vendor_config=patched_from_live_vendor lib=validated ", status)
 
     def test_post_fs_data_prepares_late_load_without_pixaml(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -128,10 +127,9 @@ class LateLoadTests(unittest.TestCase):
             result = self.run_post_fs(module, linker)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((module / "skip_mount").exists())
-            self.assertEqual(
-                (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=patched_from_live_vendor lib=validated restart=not_requested processing=unverified\n",
-            )
+            status = (module / "logs/late-load.status").read_text()
+            self.assertTrue(status.startswith("READY late_load=1 boot_id="))
+            self.assertIn(" vendor_config=patched_from_live_vendor lib=validated ", status)
 
     def test_parallel_late_load_preparation_is_serialized(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -213,10 +211,9 @@ class LateLoadTests(unittest.TestCase):
             self.assertIn('path="libvisualizeraidl.so"', patched)
             self.assertNotIn('path="libaudiopreprocessing.so"', patched)
             self.assertIn(JDSP_UUID, patched)
-            self.assertEqual(
-                (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=generated_from_system_legacy lib=validated restart=not_requested processing=unverified\n",
-            )
+            status = (module / "logs/late-load.status").read_text()
+            self.assertTrue(status.startswith("READY late_load=1 boot_id="))
+            self.assertIn(" vendor_config=generated_from_system_legacy lib=validated ", status)
 
     def test_post_fs_data_fails_closed_when_late_load_lib_cannot_link(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -379,37 +376,44 @@ class LateLoadTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(
-                (module / "logs/late-load.status").read_text(),
-                "READY late_load=1 vendor_config=patched_from_live_vendor lib=validated restart=not_requested processing=unverified\n",
-            )
+            status = (module / "logs/late-load.status").read_text()
+            self.assertTrue(status.startswith("READY late_load=1 boot_id="))
+            self.assertIn(" vendor_config=patched_from_live_vendor lib=validated ", status)
 
-    def test_late_load_service_never_restarts_audio_or_runs_reload(self):
+    def test_late_load_service_schedules_one_delayed_recovery(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = pathlib.Path(tmp)
             (module / "logs").mkdir()
             shutil.copy2(ROOT / "service.sh", module / "service.sh")
-            (module / ".late-load-reload-experimental").touch()
-            reload_calls = module / "logs/audio-reload.calls"
-            (module / "audio-reload.sh").write_text(
-                f'#!/system/bin/sh\necho called >>"{reload_calls}"\n'
+            mocks = module / "bin"
+            mocks.mkdir()
+            mock_executable(mocks / "sleep", "echo \"$*\" >>\"$SLEEP_LOG\"\nexit 0\n")
+            recovery_calls = module / "logs/recovery.calls"
+            (module / "audio-hal-recovery.sh").write_text(
+                f'#!/system/bin/sh\necho "$*" >>"{recovery_calls}"\n'
             )
+            (module / "audio-hal-recovery.sh").chmod(0o755)
             (module / "jdsp_app.sh").write_text("#!/system/bin/sh\nexit 0\n")
             result = subprocess.run(
                 ["sh", str(module / "service.sh")],
-                env={**os.environ, "KSU_LATE_LOAD": "1"},
+                env={**os.environ, "KSU_LATE_LOAD": "1", "JDSP_SLEEP_BIN": str(mocks / "sleep"), "SLEEP_LOG": str(module / "logs/sleep.calls")},
                 capture_output=True,
                 text=True,
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertFalse(reload_calls.exists())
+            for _ in range(20):
+                if recovery_calls.exists():
+                    break
+                subprocess.run(["sleep", "0.05"], check=False)
+            self.assertEqual(recovery_calls.read_text(), "--auto-once\n")
+            self.assertEqual((module / "logs/sleep.calls").read_text(), "10\n")
             self.assertEqual(
                 (module / "logs/service.status").read_text(),
-                "SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n",
+                "SCHEDULED reason=late_load_recovery delay_seconds=10 restart=one_shot processing=unverified\n",
             )
 
-    def test_late_load_service_starts_app_helper_and_reports_restart_disabled(self):
+    def test_experimental_marker_without_late_load_does_not_restart_hal(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = pathlib.Path(tmp)
             (module / "logs").mkdir()
@@ -420,7 +424,7 @@ class LateLoadTests(unittest.TestCase):
             )
             result = subprocess.run(
                 ["sh", str(module / "service.sh")],
-                env={**os.environ, "KSU_LATE_LOAD": "1"},
+                env={**os.environ, "KSU_LATE_LOAD": "0"},
                 capture_output=True,
                 text=True,
                 check=False,
@@ -435,7 +439,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertEqual(calls.read_text(), "app\n")
             self.assertEqual(
                 (module / "logs/service.status").read_text(),
-                "SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n",
+                "SKIPPED reason=not_kernel_su_late_load restart=not_requested processing=unverified\n",
             )
 
     def run_jdsp_app(

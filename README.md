@@ -4,9 +4,9 @@
 
 This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-The current prerelease is **v6.6-beta-3**, with the **JamesDSP root app 1.6.17 (versionCode 61)**. It adds an app recovery path after late audio-factory registration and fixes the lock used by the opt-in manual late-load recovery tool. The beta-3 package has not yet been validated on a device, and Samsung compatibility remains unverified. Development is on `pixel-test-new-aidl`; `master` has not received these changes.
+The current prerelease is **v6.6-beta-4**, with the **JamesDSP root app 1.6.17 (versionCode 62)**. In KernelSU temp-root/late-load, the module waits 10 seconds, then makes one guarded audio-HAL recovery attempt on devices with a verified target. The app's Retry action can request one additional attempt. No path restarts `audioserver`; unknown HAL targets fail closed. The new beta-4 recovery flow still needs device validation, and Samsung compatibility remains unverified. Development is on `pixel-test-new-aidl`; `master` has not received these changes.
 
-[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-3) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
+[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
 ## What can it do?
 
@@ -62,7 +62,7 @@ That's evidence for this setup, not a universal Android compatibility badge.
 
 **PIXAML isn't required for JamesDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make JamesDSP work.
 
-Late-load support doesn't automatically restart the audio HAL or `audioserver`. The normal boot path and late-load preparation are handled separately, and SELinux stays enforcing.
+Late-load support can restart the verified audio HAL once after a delay. It never restarts `audioserver`. The normal boot path and late-load preparation are handled separately, and SELinux stays enforcing.
 
 ## Installation
 
