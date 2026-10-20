@@ -86,7 +86,10 @@ else
   
 fi
 
-cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib/soundfx/libjamesdsp.so"
+# The AIDL candidate is ELF64. Do not duplicate it into the 32-bit library tree.
+if [ "$QARCH" != aidl ]; then
+    cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib/soundfx/libjamesdsp.so"
+fi
 
 ui_print " "
 ui_print "- UI installation -"
@@ -112,6 +115,9 @@ fi
 # The boot service remains a fallback if Package Manager is unavailable here.
 . "$MODPATH/common/app_migration.sh"
 jdsp_install_selected_apk "$MODPATH/JamesDSPManager.apk" "$SELECTED_APK_META" "$MODPATH"
+
+# Stage the native helper and typed global-service mapping, if available.
+[ ! -f "$MODPATH/native-control.sh" ] || sh "$MODPATH/native-control.sh" prepare "$MODPATH"
 
 set -x
 # Audio effects patching 

@@ -45,7 +45,9 @@ REPLACE="
 ##########################################################################################
 
 set_permissions() {
+  [ ! -f "$MODPATH/system/vendor/bin/jdspctl" ] || set_perm "$MODPATH/system/vendor/bin/jdspctl" 0 0 0755
   [ -f "$MODPATH/post-fs-data.sh" ] && set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
+  [ -f "$MODPATH/native-control.sh" ] && set_perm "$MODPATH/native-control.sh" 0 0 0755
   [ -f "$MODPATH/service.sh" ] && set_perm "$MODPATH/service.sh" 0 0 0755
   [ -f "$MODPATH/late-load.sh" ] && set_perm "$MODPATH/late-load.sh" 0 0 0755
   [ -f "$MODPATH/audio-reload.sh" ] && set_perm "$MODPATH/audio-reload.sh" 0 0 0755

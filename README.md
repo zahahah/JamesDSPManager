@@ -1,3 +1,11 @@
+# Global native-control v4 development branch
+
+This is a source candidate, not an installable v4 release. The effect-bound
+experiment is retired. See [NATIVE-CONTROL.md](NATIVE-CONTROL.md) for the global
+`jdsp.control` architecture, compilation gate, policy limits and verification.
+
+---
+
 # JamesDSPManager
 
 Root-only module for JamesDSPManager. Upstream project: [JamesDSPManager](https://github.com/therealahrion/JamesDSPManager). App source: [James34602/JamesDSPManager](https://github.com/james34602/JamesDSPManager).

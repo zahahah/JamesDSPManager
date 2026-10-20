@@ -62,12 +62,12 @@ class NativeControlPatchTests(unittest.TestCase):
         self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
         self.assertEqual(self.calls.read_text().splitlines(), [f"--print-needed {self.libdir}/libjamesdsp.so"])
 
-    def test_wrong_interface_version_is_rejected(self):
+    def test_unavailable_compiled_interface_version_is_rejected(self):
         needed = list(EXPECTED)
         needed[0] = "android.hardware.audio.effect-V3-ndk.so"
         result = self.run_patch(needed)
         self.assertNotEqual(result.returncode, 0)
-        self.assertIn("required dependency missing", result.stderr)
+        self.assertIn("device lacks exact AIDL dependency", result.stderr)
         self.assertEqual(self.calls.read_text().splitlines(), [f"--print-needed {self.libdir}/libjamesdsp.so"])
 
     def test_missing_platform_dependency_is_rejected(self):
@@ -75,15 +75,28 @@ class NativeControlPatchTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("device lacks exact AIDL dependency", result.stderr)
 
-    def test_experimental_mode_logs_missing_v4_abi_without_rewriting_binary(self):
+    def test_real_v3_variant_is_accepted_when_its_own_dependencies_exist(self):
+        needed = [name.replace("effect-V4-", "effect-V3-") for name in EXPECTED]
+        for name in needed:
+            (self.deps / name).touch()
+        result = self.run_patch(needed=needed, add_available=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("validated without rewriting", result.stdout)
+
+    def test_legacy_bypass_flag_cannot_hide_missing_dependencies(self):
         before = (self.libdir / "libjamesdsp.so").read_bytes()
         needed = [name.replace("-V4-", "-V3-") for name in EXPECTED]
         result = self.run_patch(needed=needed, add_available=False, allow_mismatch=True)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("EXPERIMENTAL WARNING", result.stdout)
-        self.assertIn("EXPERIMENTAL AIDL ABI probe enabled", result.stdout)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("device lacks exact AIDL dependency", result.stderr)
         self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
 
 
 if __name__ == "__main__":
     unittest.main()
+
+class NativeControlVersionVariants(unittest.TestCase):
+    def test_validator_does_not_pin_effect_hal_to_v4(self):
+        source = (ROOT / "patch.sh").read_text()
+        self.assertNotIn("android.hardware.audio.effect-V4-ndk.so", source)
+        self.assertNotIn("--replace-needed", source)

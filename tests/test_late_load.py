@@ -230,7 +230,7 @@ class LateLoadTests(unittest.TestCase):
                 "BLOCKED reason=linker_dependency_resolution_failed\n",
             )
 
-    def test_native_control_candidate_allows_other_models_on_api36(self):
+    def test_native_control_candidate_checks_other_models_but_blocks_a_linker_failure(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             (module / "native-control").mkdir()
@@ -241,10 +241,10 @@ class LateLoadTests(unittest.TestCase):
             env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertFalse((module / "skip_mount").exists())
+            self.assertTrue((module / "skip_mount").exists())
             self.assertTrue((module / "linker-called").exists())
-            self.assertIn("lib=experimental_link_check_bypassed", (module / "logs/late-load.status").read_text())
-            self.assertIn("EXPERIMENTAL WARNING: linker preflight failed", (module / "logs/late-load-linker.txt").read_text())
+            self.assertIn("linker_dependency_resolution_failed", (module / "logs/late-load.status").read_text())
+            self.assertNotIn("EXPERIMENTAL WARNING", (module / "logs/late-load-linker.txt").read_text())
 
     def test_native_control_candidate_does_not_gate_on_malformed_sdk(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -802,7 +802,7 @@ exit 0
         self.assertIn("pixaml_factory_lost_after_audio_restart", combined)
         self.assertIn("audioserver_pid_missing_after_restart", combined)
 
-    def test_previous_pixel_builder_refuses_candidate_version(self):
+    def test_previous_pixel_builder_refuses_new_root_app_before_packaging(self):
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = pathlib.Path(tmp) / "old-candidate.zip"
             env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
@@ -814,13 +814,8 @@ exit 0
                 check=False,
             )
             self.assertNotEqual(result.returncode, 0)
-            self.assertIn("Unexpected module version", result.stderr)
-            self.assertTrue(zip_path.exists())
-            with zipfile.ZipFile(zip_path) as archive:
-                self.assertIn(
-                    "version=v6.5.11-pixel-native-control-v3-test",
-                    archive.read("module.prop").decode("utf-8"),
-                )
+            self.assertIn("Unexpected APK payload", result.stderr)
+            self.assertFalse(zip_path.exists())
 
     def test_installer_does_not_remove_an_existing_app(self):
         app_helper = (ROOT / "jdsp_app.sh").read_text()

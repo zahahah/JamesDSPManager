@@ -126,7 +126,7 @@ if [ -f /vendor/lib/soundfx/libjamesdsp.so ] || [ -f /vendor/lib64/soundfx/libja
 		fi
 		done
 			if [ "$MOUNTED" = true ]; then
-				killall -q audioserver
+				printf "Audio config changed; automatic audio restart disabled\n"
 		fi
 	fi
 fi

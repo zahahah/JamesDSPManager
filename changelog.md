@@ -1,3 +1,10 @@
+### native-control-v4 source candidate (not released)
+
+* Retire the effect-bound parameter transport and v6.5.14 package.
+* Restore global jdsp.control and add a root-only vendor-native client.
+* Prepare typed policy/helper overlays without automatic audio restarts.
+* Block ZIP creation pending newly compiled native artifacts and verified APK.
+
 ### v6.5.11-pixel-native-control-v3-test
 
 * Bundle the native-control-v3 library and a signed experimental RootJamesDSP

@@ -1,0 +1,33 @@
+{
+  "iteration": 4,
+  "state": "awaiting-native-build",
+  "wireProtocol": 3,
+  "service": "jdsp.control",
+  "descriptor": "lightning.dsp.IJamesDspControl",
+  "nativeSource": {
+    "repository": "https://github.com/zahahah/LightningDSP",
+    "branch": "native/control-completion-v4",
+    "commit": "9aaaeea63f7470f462df4035a76f441a2e8d4768"
+  },
+  "artifacts": {
+    "driver": null,
+    "helper": null,
+    "app": {
+      "path": "common/files/JamesDSPManagerThePBone.apk",
+      "sha256": "454979a9b1b44042951194d6964d3564d723707451269fc1a18b5f27a9531212",
+      "sizeBytes": 33181042,
+      "packageId": "james.dsp",
+      "versionName": "1.6.15",
+      "versionCode": 58,
+      "signatureVerified": true,
+      "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
+      "sourceCommit": "6b0559a7e078ceed334318c4432f4569c22a386b"
+    }
+  },
+  "notes": [
+    "The tracked native-v3 .so is a historical baseline, not a v4 build.",
+    "Require a new libjamesdspaidl.so and vendor-native jdspctl from the same source commit.",
+    "No v4 distributable ZIP until artifact provenance, app signature and hashes are verified.",
+    "Effect HAL dependency versions must match each device; branch v4 is not an ABI compatibility claim."
+  ]
+}
