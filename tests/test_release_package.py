@@ -11,11 +11,11 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class ReleasePackageTests(unittest.TestCase):
-    def test_beta_archive_contains_only_updated_signed_root_apk(self):
+    def test_beta2_archive_contains_only_updated_signed_root_apk(self):
         with tempfile.TemporaryDirectory() as tmp:
-            output = Path(tmp) / "JamesDSPManager-v6.9.10-beta-1.zip"
+            output = Path(tmp) / "JamesDSPManager-v6.9.10-beta-2.zip"
             result = subprocess.run(
-                ["python3", str(ROOT / "tools/package_6910_beta1.py")],
+                ["python3", str(ROOT / "tools/package_6910_beta2.py")],
                 env={
                     **os.environ,
                     "PYTHONDONTWRITEBYTECODE": "1",
@@ -39,11 +39,11 @@ class ReleasePackageTests(unittest.TestCase):
                     (ROOT / "common/files/release/JamesDSPManagerThePBone.apk").read_bytes(),
                 )
                 props = archive.read("module.prop").decode()
-                self.assertIn("version=v6.9.10-beta-1", props)
-                self.assertIn("versionCode=132", props)
+                self.assertIn("version=v6.9.10-beta-2", props)
+                self.assertIn("versionCode=133", props)
                 update = json.loads(archive.read("update.json"))
-                self.assertEqual(update["version"], "v6.9.10-beta-1")
-                self.assertEqual(update["versionCode"], 132)
-                self.assertIn("releases/download/v6.9.10-beta-1/", update["zipUrl"])
-                self.assertIn("/v6.9.10-beta-1/changelog.md", update["changelog"])
+                self.assertEqual(update["version"], "v6.9.10-beta-2")
+                self.assertEqual(update["versionCode"], 133)
+                self.assertIn("releases/download/v6.9.10-beta-2/", update["zipUrl"])
+                self.assertIn("/v6.9.10-beta-2/changelog.md", update["changelog"])
             self.assertEqual(output.with_suffix(".zip.sha256").read_text().split()[0], digest)

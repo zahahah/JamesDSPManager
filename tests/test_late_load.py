@@ -698,6 +698,19 @@ fi
             check=False,
         )
 
+    def make_host_tar_wrapper(self, path: pathlib.Path) -> pathlib.Path:
+        host_tar = shutil.which("tar")
+        if not host_tar:
+            self.skipTest("host tar is unavailable")
+        return mock_executable(
+            path,
+            "python3 -c 'import os,sys; a=[x for x in sys.argv[1:] if x not in (\"--numeric-owner\",\"--selinux\")]; os.execv(\""
+            + host_tar
+            + "\", [\""
+            + host_tar
+            + "\"]+a)' \"$@\"\n",
+        )
+
     def test_jdsp_app_installer_exits_when_exact_package_is_installed(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
@@ -795,6 +808,142 @@ exit 0
                 else:
                     self.assertNotIn("uninstall", pm_log)
                     self.assertIn("Replacement declined or timed out", (module / "logs/jamesdsp_app_install.log").read_text())
+
+    def test_jdsp_app_backs_up_and_restores_data_only_after_volume_down_confirmation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks, data = root / "module", root / "mocks", root / "data"
+            module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+            (data / "user/0/james.dsp/shared_prefs").mkdir(parents=True)
+            (data / "user_de/0/james.dsp").mkdir(parents=True)
+            (data / "media/0/Android/data/james.dsp/files").mkdir(parents=True)
+            (data / "user/0/james.dsp/shared_prefs/settings.xml").write_text("<settings>preserve</settings>")
+            (data / "user_de/0/james.dsp/device-protected.txt").write_text("device data")
+            (data / "media/0/Android/data/james.dsp/files/export.txt").write_text("external data")
+            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+            (module / "JamesDSPManager.apk").write_text("apk")
+            backup = module / ".jdsp-appdata-migration"
+            state = root / "install-count"
+            pm_body = f'''if [ "$1 $2" = "list packages" ]; then
+  if [ "$3" = "-U" ]; then echo "package:james.dsp uid:10042"; else echo package:james.dsp; fi
+  exit 0
+fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{{0:Owner:13}}'; exit 0; fi
+echo "$@" >>"$MOCK_PM_LOG"
+if [ "$1" = install ]; then
+  n=0; [ -f "{state}" ] && n=$(cat "{state}"); n=$((n+1)); echo "$n" >"{state}"
+  if [ "$n" -eq 1 ]; then echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 0; fi
+fi
+if [ "$1" = uninstall ]; then
+  if [ ! -s "{backup / 'data.tar'}" ]; then echo 'ERROR: no pre-uninstall backup'; exit 1; fi
+  rm -rf "{data}/user/0/james.dsp" "{data}/user_de/0/james.dsp" "{data}/media/0/Android/data/james.dsp"
+fi
+echo Success
+exit 0
+'''
+            mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
+            mock_executable(mocks / "getevent", 'echo "KEY_VOLUMEDOWN DOWN"\n')
+            self.make_host_tar_wrapper(mocks / "tar")
+            mock_executable(mocks / "chown", 'echo "$@" >>"$MOCK_CHOWN_LOG"\nexit 0\n')
+            mock_executable(mocks / "restorecon", 'echo "$@" >>"$MOCK_RESTORECON_LOG"\nexit 0\n')
+            result = self.run_jdsp_app(
+                module, mocks, pm_body,
+                {
+                    "JDSP_FLASH_INSTALL": "1",
+                    "JDSP_GETEVENT_BIN": str(mocks / "getevent"),
+                    "JDSP_DATA_ROOT": str(data),
+                    "JDSP_DATA_BACKUP_DIR": str(backup),
+                    "JDSP_TAR_BIN": str(mocks / "tar"),
+                    "JDSP_CHOWN_BIN": str(mocks / "chown"),
+                    "JDSP_RESTORECON_BIN": str(mocks / "restorecon"),
+                    "MOCK_CHOWN_LOG": str(root / "chown.log"),
+                    "MOCK_RESTORECON_LOG": str(root / "restorecon.log"),
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("uninstall james.dsp", (root / "pm.log").read_text())
+            self.assertEqual((data / "user/0/james.dsp/shared_prefs/settings.xml").read_text(), "<settings>preserve</settings>")
+            self.assertEqual((data / "user_de/0/james.dsp/device-protected.txt").read_text(), "device data")
+            self.assertEqual((data / "media/0/Android/data/james.dsp/files/export.txt").read_text(), "external data")
+            self.assertFalse(backup.exists(), "successful restore should remove the temporary archive")
+            self.assertIn("10042:10042", (root / "chown.log").read_text())
+            self.assertTrue((root / "restorecon.log").exists())
+            log = (module / "logs/jamesdsp_app_install.log").read_text()
+            self.assertIn("App-data backup created before uninstall", log)
+            self.assertIn("App-data restore completed", log)
+            self.assertNotIn("preserve</settings>", log)
+
+    def test_jdsp_app_keeps_original_if_confirmed_migration_backup_fails(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks, data = root / "module", root / "mocks", root / "data"
+            module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+            (data / "user/0/james.dsp").mkdir(parents=True)
+            (data / "user/0/james.dsp/settings").write_text("keep")
+            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+            (module / "JamesDSPManager.apk").write_text("apk")
+            pm_body = '''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{0:Owner:13}'; exit 0; fi
+echo "$@" >>"$MOCK_PM_LOG"
+if [ "$1" = install ]; then echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 0; fi
+echo Success
+'''
+            mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
+            mock_executable(mocks / "getevent", 'echo "KEY_VOLUMEDOWN DOWN"\n')
+            mock_executable(mocks / "tar", 'exit 1\n')
+            result = self.run_jdsp_app(
+                module, mocks, pm_body,
+                {
+                    "JDSP_FLASH_INSTALL": "1",
+                    "JDSP_GETEVENT_BIN": str(mocks / "getevent"),
+                    "JDSP_DATA_ROOT": str(data),
+                    "JDSP_TAR_BIN": str(mocks / "tar"),
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn("uninstall", (root / "pm.log").read_text())
+            self.assertIn("app-data backup failed", (module / "logs/jamesdsp_app_install.log").read_text())
+            self.assertEqual((data / "user/0/james.dsp/settings").read_text(), "keep")
+
+    def test_jdsp_app_retries_pending_restore_from_boot_service(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks, data = root / "module", root / "mocks", root / "data"
+            module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+            (data / "user/0/james.dsp").mkdir(parents=True)
+            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+            (module / "JamesDSPManager.apk").write_text("apk")
+            backup = module / ".jdsp-appdata-migration"
+            backup.mkdir()
+            (backup / "restore-pending").touch()
+            (backup / "users.list").write_text("0\n")
+            source = root / "source/user/0/james.dsp"
+            source.mkdir(parents=True)
+            (source / "settings").write_text("restored on retry")
+            self.make_host_tar_wrapper(mocks / "tar")
+            subprocess.run([str(mocks / "tar"), "-c", "-f", str(backup / "data.tar"), "-C", str(root / "source"), "user"], check=True)
+            pm_body = '''if [ "$1 $2" = "list packages" ]; then
+  if [ "$3" = "-U" ]; then echo "package:james.dsp uid:10042"; else echo package:james.dsp; fi
+  exit 0
+fi
+echo "$@" >>"$MOCK_PM_LOG"
+exit 0
+'''
+            mock_executable(mocks / "chown", 'exit 0\n')
+            mock_executable(mocks / "restorecon", 'exit 0\n')
+            result = self.run_jdsp_app(
+                module, mocks, pm_body,
+                {
+                    "JDSP_DATA_ROOT": str(data),
+                    "JDSP_DATA_BACKUP_DIR": str(backup),
+                    "JDSP_TAR_BIN": str(mocks / "tar"),
+                    "JDSP_CHOWN_BIN": str(mocks / "chown"),
+                    "JDSP_RESTORECON_BIN": str(mocks / "restorecon"),
+                },
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((data / "user/0/james.dsp/settings").read_text(), "restored on retry")
+            self.assertFalse(backup.exists())
 
     def test_jdsp_app_installer_installs_when_only_lookalike_package_exists(self):
         with tempfile.TemporaryDirectory() as tmp:

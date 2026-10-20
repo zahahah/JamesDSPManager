@@ -1,3 +1,20 @@
+### v6.9.10-beta-2
+
+* Before uninstalling an installed `james.dsp` with a different signing
+  certificate, make a private, temporary backup of its credential-encrypted and
+  device-encrypted app data plus app-specific external data. This happens only
+  after the user confirms with volume down; backup failure keeps the existing
+  app installed.
+* Restore the backup after installing the ThePBone APK, reapply app ownership
+  and SELinux contexts, and retain the protected backup for a boot-time retry
+  if installation or restoration is interrupted. Remove the temporary backup
+  only after a successful restore.
+* Android Keystore keys and other app-bound secrets may be invalidated by
+  uninstalling; restoring files cannot guarantee that all app state or
+  encrypted data remains usable across different signing identities.
+* Preserve the beta-1 policy: volume up or no key within 10 seconds keeps the
+  existing app, and same-signature installs update in place.
+
 ### v6.9.10-beta-1
 
 * Ship only the updated, maintainer-signed ThePBone-based root app; remove the

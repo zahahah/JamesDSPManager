@@ -45,7 +45,7 @@ Run the host tests and build the release ZIP with:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 tools/package_6910_beta1.py
+python3 tools/package_6910_beta2.py
 ```
 
 For the previous release notes, see [changelog.md](changelog.md).

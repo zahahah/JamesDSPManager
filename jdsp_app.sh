@@ -7,6 +7,11 @@ INTERNAL_PATH="/storage/emulated/0/JamesDSPManager.apk"
 TEMP_INSTALL_PATH=${JDSP_TEMP_INSTALL_PATH:-/cache/JamesDSPManager.apk}
 KEY_TIMEOUT=${JDSP_KEY_TIMEOUT_SECONDS:-10}
 GETEVENT_BIN=${JDSP_GETEVENT_BIN:-/system/bin/getevent}
+DATA_ROOT=${JDSP_DATA_ROOT:-/data}
+DATA_BACKUP_DIR=${JDSP_DATA_BACKUP_DIR:-"$MODPATH/.jdsp-appdata-migration"}
+TAR_BIN=${JDSP_TAR_BIN:-tar}
+CHOWN_BIN=${JDSP_CHOWN_BIN:-chown}
+RESTORECON_BIN=${JDSP_RESTORECON_BIN:-restorecon}
 
 if [ -n "${JDSP_PM_CMD:-}" ]; then
 	PM_CMD="$JDSP_PM_CMD"
@@ -70,6 +75,144 @@ install_for_users() {
 	[ "$SUCCESS_COUNT" -gt 0 ]
 }
 
+backup_app_data() {
+	# The backup is deliberately inside the module tree so it survives a
+	# reboot/module update, but is removed immediately after a successful restore.
+	# Never overwrite a previous incomplete migration backup.
+	if [ -e "$DATA_BACKUP_DIR/restore-pending" ] || [ -e "$DATA_BACKUP_DIR/data.tar" ]; then
+		log "ERROR: a previous app-data migration backup already exists at $DATA_BACKUP_DIR."
+		ui_print "   ERROR: previous app-data backup is pending; refusing to overwrite it"
+		return 1
+	fi
+
+	USERS=$(get_users)
+	[ -n "$USERS" ] || USERS="0"
+	set --
+	for USER_ID in $USERS; do
+		for RELATIVE_PATH in \
+			"user/$USER_ID/$PKG" \
+			"user_de/$USER_ID/$PKG" \
+			"media/$USER_ID/Android/data/$PKG" \
+			"media/$USER_ID/Android/obb/$PKG"; do
+			if [ -e "$DATA_ROOT/$RELATIVE_PATH" ] || [ -L "$DATA_ROOT/$RELATIVE_PATH" ]; then
+				set -- "$@" "$RELATIVE_PATH"
+			fi
+		done
+	done
+
+	if [ "$#" -eq 0 ]; then
+		log "No app-private or package-specific external data directories found; continuing without a data archive."
+		ui_print "   No app-data directories found to back up"
+		return 0
+	fi
+
+	umask 077
+	mkdir -p "$DATA_BACKUP_DIR" || {
+		log "ERROR: could not create private app-data backup directory."
+		return 1
+	}
+	chmod 700 "$DATA_BACKUP_DIR" 2>/dev/null || {
+		log "ERROR: could not secure app-data backup directory."
+		rm -rf "$DATA_BACKUP_DIR"
+		return 1
+	}
+	printf '%s\n' "$USERS" > "$DATA_BACKUP_DIR/users.list" || return 1
+	TMP_ARCHIVE="$DATA_BACKUP_DIR/data.tar.tmp"
+	rm -f "$TMP_ARCHIVE"
+	if ! "$TAR_BIN" -c -p -f "$TMP_ARCHIVE" -C "$DATA_ROOT" "$@" >>"$LOGFILE" 2>&1 ||
+	   [ ! -s "$TMP_ARCHIVE" ] || ! "$TAR_BIN" -t -f "$TMP_ARCHIVE" >/dev/null 2>&1; then
+		rm -f "$TMP_ARCHIVE"
+		log "ERROR: app-data backup failed; existing app was not uninstalled."
+		ui_print "   ERROR: app-data backup failed; existing app was kept"
+		return 1
+	fi
+	mv -f "$TMP_ARCHIVE" "$DATA_BACKUP_DIR/data.tar" || return 1
+	chmod 600 "$DATA_BACKUP_DIR/data.tar" "$DATA_BACKUP_DIR/users.list" 2>/dev/null
+	log "App-data backup created before uninstall: $DATA_BACKUP_DIR/data.tar"
+	ui_print "   App data backed up before uninstall"
+	ui_print "   Some Android Keystore-protected secrets may not survive a signing-key migration"
+	return 0
+}
+
+app_uid_for_user() {
+	USER_ID="$1"
+	UID_OUTPUT=$($PM_CMD list packages -U --user "$USER_ID" "$PKG" 2>/dev/null)
+	printf '%s\n' "$UID_OUTPUT" | sed -n 's/.*uid:\([0-9][0-9]*\).*/\1/p' | head -n 1
+}
+
+restore_app_data() {
+	ARCHIVE="$DATA_BACKUP_DIR/data.tar"
+	if [ ! -s "$ARCHIVE" ]; then
+		if [ -e "$DATA_BACKUP_DIR/restore-pending" ]; then
+			rm -rf "$DATA_BACKUP_DIR"
+			log "No app-data archive was needed; signer migration completed."
+		fi
+		return 0
+	fi
+	if ! package_installed; then
+		log "App-data restore deferred because $PKG is not installed yet."
+		return 1
+	fi
+	log "Restoring app data from $ARCHIVE"
+	if ! "$TAR_BIN" -x -p -f "$ARCHIVE" -C "$DATA_ROOT" >>"$LOGFILE" 2>&1; then
+		log "ERROR: app-data archive extraction failed; backup retained."
+		ui_print "   WARNING: app data could not be restored; backup retained at $DATA_BACKUP_DIR"
+		return 1
+	fi
+
+	RESTORE_FAILED=0
+	if [ -f "$DATA_BACKUP_DIR/users.list" ]; then
+		RESTORE_USERS=$(cat "$DATA_BACKUP_DIR/users.list")
+	else
+		RESTORE_USERS=$(get_users)
+	fi
+	[ -n "$RESTORE_USERS" ] || RESTORE_USERS="0"
+	for USER_ID in $RESTORE_USERS; do
+		APP_UID=$(app_uid_for_user "$USER_ID")
+		for DOMAIN in user user_de; do
+			RESTORE_PATH="$DATA_ROOT/$DOMAIN/$USER_ID/$PKG"
+			[ -e "$RESTORE_PATH" ] || continue
+			if [ -z "$APP_UID" ]; then
+				log "ERROR: could not resolve installed package UID for user $USER_ID; backup retained."
+				RESTORE_FAILED=1
+				continue
+			fi
+			if ! "$CHOWN_BIN" -R "$APP_UID:$APP_UID" "$RESTORE_PATH" >>"$LOGFILE" 2>&1; then
+				log "ERROR: could not set app ownership on $RESTORE_PATH; backup retained."
+				RESTORE_FAILED=1
+				continue
+			fi
+			if ! command -v "$RESTORECON_BIN" >/dev/null 2>&1; then
+				log "ERROR: restorecon is unavailable for $RESTORE_PATH; backup retained."
+				RESTORE_FAILED=1
+			elif ! "$RESTORECON_BIN" -RF "$RESTORE_PATH" >>"$LOGFILE" 2>&1; then
+				log "ERROR: restorecon failed for $RESTORE_PATH; backup retained."
+				RESTORE_FAILED=1
+			fi
+		done
+		for DOMAIN in data obb; do
+			RESTORE_PATH="$DATA_ROOT/media/$USER_ID/Android/$DOMAIN/$PKG"
+			if [ -e "$RESTORE_PATH" ]; then
+				if ! command -v "$RESTORECON_BIN" >/dev/null 2>&1; then
+					log "ERROR: restorecon is unavailable for $RESTORE_PATH; backup retained."
+					RESTORE_FAILED=1
+				elif ! "$RESTORECON_BIN" -RF "$RESTORE_PATH" >>"$LOGFILE" 2>&1; then
+					log "ERROR: restorecon failed for $RESTORE_PATH; backup retained."
+					RESTORE_FAILED=1
+				fi
+			fi
+		done
+	done
+	if [ "$RESTORE_FAILED" -ne 0 ]; then
+		ui_print "   WARNING: app-data restore needs attention; backup retained at $DATA_BACKUP_DIR"
+		return 1
+	fi
+	rm -rf "$DATA_BACKUP_DIR"
+	log "App-data restore completed; temporary backup removed."
+	ui_print "   App data restored after installing ThePBone app"
+	return 0
+}
+
 wait_for_replacement_choice() {
 	[ -x "$GETEVENT_BIN" ] || return 2
 	command -v timeout >/dev/null 2>&1 || return 2
@@ -107,6 +250,10 @@ fi
 
 if package_installed; then
 	if [ "${JDSP_FLASH_INSTALL:-0}" != 1 ]; then
+		if [ -e "$DATA_BACKUP_DIR/restore-pending" ]; then
+			restore_app_data || log "Pending app-data restore remains available for retry."
+			exit 0
+		fi
 		log "App already installed; boot service will not prompt or uninstall it."
 		exit 0
 	fi
@@ -122,21 +269,31 @@ if package_installed; then
 		if wait_for_replacement_choice; then
 			ui_print "   Confirmed: removing existing james.dsp before installing ThePBone app"
 			log "User confirmed uninstall with volume down."
-			OUTPUT=$($PM_CMD uninstall "$PKG" 2>&1)
-			RESULT=$?
-			log "Uninstall result: $OUTPUT (Code: $RESULT)"
-			if [ "$RESULT" -eq 0 ]; then
-				install_for_users "$APK_SOURCE" "$(get_users)"
+			if backup_app_data; then
+				OUTPUT=$($PM_CMD uninstall "$PKG" 2>&1)
 				RESULT=$?
+				log "Uninstall result: $OUTPUT (Code: $RESULT)"
 				if [ "$RESULT" -eq 0 ]; then
-					ui_print "   ThePBone app installed"
-					log "Fresh install completed after explicit user confirmation."
+					mkdir -p "$DATA_BACKUP_DIR" 2>/dev/null
+					touch "$DATA_BACKUP_DIR/restore-pending"
+					chmod 600 "$DATA_BACKUP_DIR/restore-pending" 2>/dev/null
+					install_for_users "$APK_SOURCE" "$(get_users)"
+					RESULT=$?
+					if [ "$RESULT" -eq 0 ]; then
+						restore_app_data || log "App installed; data backup retained for a boot-time restore retry."
+						ui_print "   ThePBone app installed"
+						log "Fresh install completed after explicit user confirmation."
+					else
+						ui_print "   ERROR: app install failed after uninstall; backup retained for retry"
+						log "ERROR: Fresh install failed after confirmed uninstall (result=$RESULT); migration backup retained."
+					fi
 				else
-					ui_print "   ERROR: app install failed after uninstall; see module logs"
-					log "ERROR: Fresh install failed after confirmed uninstall (result=$RESULT)."
+					ui_print "   ERROR: could not remove existing app; it was not replaced"
+					[ -d "$DATA_BACKUP_DIR" ] && rm -rf "$DATA_BACKUP_DIR"
+					log "Uninstall failed; pre-uninstall data backup removed because the original app remains installed."
 				fi
 			else
-				ui_print "   ERROR: could not remove existing app; it was not replaced"
+				ui_print "   Existing app was kept because its data could not be backed up safely"
 			fi
 		else
 			ui_print "   Keeping existing app; ThePBone APK was not installed"
@@ -158,6 +315,9 @@ fi
 
 log "App is missing; installing bundled APK."
 if install_for_users "$APK_SOURCE" "$(get_users)"; then
+	if [ -e "$DATA_BACKUP_DIR/restore-pending" ]; then
+		restore_app_data || log "App installed, but pending app-data restore was not completed."
+	fi
 	log "Installation completed. Refreshing package state."
 	for USER_ID in $(get_users); do
 		$PM_CMD disable --user "$USER_ID" "$PKG" >/dev/null 2>&1
