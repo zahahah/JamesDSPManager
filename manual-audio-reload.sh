@@ -55,8 +55,11 @@ grep -q '^READY late_load=1 ' "$LOGDIR/late-load.status" 2>/dev/null || \
 grep -q 'policy=typed_rules_refreshed' "$LOGDIR/native-control.status" 2>/dev/null || \
     finish 'BLOCKED reason=typed_policy_not_refreshed'
 [ -x "$FLOCK_BIN" ] || finish 'BLOCKED reason=lock_unavailable'
-exec 9>"$LOGDIR/manual-audio-reload.lock" || finish 'BLOCKED reason=lock_open_failed'
-"$FLOCK_BIN" -x 9 || finish 'BLOCKED reason=lock_failed'
+# Android's /system/bin/sh can mark descriptors above 2 close-on-exec, so
+# toybox flock cannot inherit fd 9. This script never reads stdin; keep the
+# lock on fd 0 for the lifetime of the shell and its flock child instead.
+exec 0>"$LOGDIR/manual-audio-reload.lock" || finish 'BLOCKED reason=lock_open_failed'
+"$FLOCK_BIN" -x 0 || finish 'BLOCKED reason=lock_failed'
 
 boot_id=$(cat "$BOOT_ID_FILE" 2>/dev/null)
 [ -n "$boot_id" ] || finish 'BLOCKED reason=boot_id_unavailable'

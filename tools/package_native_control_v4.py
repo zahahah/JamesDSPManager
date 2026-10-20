@@ -42,7 +42,7 @@ def verify_apk(path):
         raise ValueError('APK does not have the sole authorized signer')
     badging = subprocess.check_output([android_tool('aapt'), 'dump', 'badging', str(path)], text=True)
     match = re.search(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging)
-    if not match or match.groups() != ('james.dsp', '60', '1.6.17'):
+    if not match or match.groups() != ('james.dsp', '61', '1.6.17'):
         raise ValueError('APK package/version is not the v4 root integration client')
 
 def candidate(root=ROOT):
@@ -78,12 +78,12 @@ def verify_artifacts(root=ROOT):
             if native.get('sha256') != digest or not native.get('direct_dt_needed'):
                 raise ValueError('Missing matching native ELF/dependency report: ' + kind)
         else:
-            if artifact.get('packageId') != 'james.dsp' or artifact.get('versionCode') != 60:
+            if artifact.get('packageId') != 'james.dsp' or artifact.get('versionCode') != 61:
                 raise ValueError('Incorrect root integration APK metadata')
             if artifact.get('signatureVerified') is not True or artifact.get('signerSha256') != TRUSTED_APK_SIGNER:
                 raise ValueError('APK signer verification must be recorded before packaging')
             verify_apk(root / expected_path)
-    if (root / 'common/files/JamesDSPManagerThePBone.apk.meta').read_text() != 'versionCode=60\n':
+    if (root / 'common/files/JamesDSPManagerThePBone.apk.meta').read_text() != 'versionCode=61\n':
         raise ValueError('Installer APK version metadata mismatch')
     return value
 
@@ -93,8 +93,8 @@ def build(output, root=ROOT):
     if branch not in ('master', 'pixel-test-new-aidl'):
         raise ValueError('V4 distribution requires master or pixel-test-new-aidl')
     props = (root / 'module.prop').read_text()
-    if 'version=v6.6-beta-2\n' not in props or 'versionCode=135\n' not in props:
-        raise ValueError('Expected the v6.6-beta-2 prerelease metadata')
+    if 'version=v6.6-beta-3\n' not in props or 'versionCode=136\n' not in props:
+        raise ValueError('Expected the v6.6-beta-3 prerelease metadata')
     payloads = dict(previous.PAYLOADS)
     payloads.pop('native-control/provenance.json', None)
     # This candidate exposes only the ThePBone root app. Retire the prior
@@ -143,7 +143,7 @@ def main():
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write('ready=' + str(ready).lower() + '\n')
         return
-    output = ROOT / 'dist/JamesDSPManager-v6.6-beta-2.zip'
+    output = ROOT / 'dist/JamesDSPManager-v6.6-beta-3.zip'
     print(build(output))
 
 if __name__ == '__main__':

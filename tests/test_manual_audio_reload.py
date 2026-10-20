@@ -38,7 +38,7 @@ class ManualAudioReloadTests(unittest.TestCase):
         bin_dir.mkdir()
         marker = root / "restart-called"
         self.executable(bin_dir / "id", "echo 0\n")
-        self.executable(bin_dir / "flock", "exit 0\n")
+        self.executable(bin_dir / "flock", "test \"$1\" = -x && test \"$2\" = 0 && test -e /dev/fd/0\n")
         self.executable(bin_dir / "getprop", "echo running\n")
         self.executable(bin_dir / "linker", "exit 0\n")
         self.executable(bin_dir / "service", "echo 'Service default: found'\n")

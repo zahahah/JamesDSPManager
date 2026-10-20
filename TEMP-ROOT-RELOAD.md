@@ -29,6 +29,12 @@ lose root. Keep a recovery path available. The script writes its result to
 **not** prove context creation, an applied command, processed frames, or an
 audible change; those remain separate device checks.
 
+After `DISCOVERED`, return to the JamesDSP app and tap **Retry** if its error
+screen is visible. The app checks factory discovery again and, in Global mode,
+requests session 0 if it is missing. Do not toggle Global mode merely to force
+attachment. Check a live `jdspctl probe`, applied generation and processed
+frames separately before claiming that audio is being modified.
+
 If any preflight check fails, the script does not request a restart. If a
 restart was requested but did not yield the effect, the boot guard prevents a
 second attempt in the same boot. Do not remove the guard to force retries.
