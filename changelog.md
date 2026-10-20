@@ -3,8 +3,8 @@
 * Before uninstalling an installed `james.dsp` with a different signing
   certificate, make a private, temporary backup of its credential-encrypted and
   device-encrypted app data plus app-specific external data. This happens only
-  after the user confirms with volume down; backup failure keeps the existing
-  app installed.
+  after the user confirms with volume down. If backup fails, warn that data may
+  be lost and continue with the explicitly confirmed replacement.
 * Restore the backup after installing the ThePBone APK, reapply app ownership
   and SELinux contexts, and retain the protected backup for a boot-time retry
   if installation or restoration is interrupted. Remove the temporary backup

@@ -740,7 +740,7 @@ echo "$@" >>"$MOCK_PM_LOG"
             shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
             (module / "JamesDSPManager.apk").write_text("apk")
             pm_body = '''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
-if [ "$1 $2" = "list users" ]; then echo 'UserInfo{0:Owner:13}'; exit 0; fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{{0:Owner:13}}'; exit 0; fi
 echo "$@" >>"$MOCK_PM_LOG"
 echo Success
 exit 0
@@ -813,7 +813,10 @@ exit 0
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             module, mocks, data = root / "module", root / "mocks", root / "data"
-            module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+            # The module flash helper can run from modules_update, where logs/
+            # has not been created yet. It must bootstrap the directory before
+            # logfile redirection, including tar's stdout/stderr redirection.
+            module.mkdir(); mocks.mkdir()
             (data / "user/0/james.dsp/shared_prefs").mkdir(parents=True)
             (data / "user_de/0/james.dsp").mkdir(parents=True)
             (data / "media/0/Android/data/james.dsp/files").mkdir(parents=True)
@@ -861,6 +864,7 @@ exit 0
                 },
             )
             self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertTrue((module / "logs").is_dir(), "installer should create logs in a fresh staging tree")
             self.assertIn("uninstall james.dsp", (root / "pm.log").read_text())
             self.assertEqual((data / "user/0/james.dsp/shared_prefs/settings.xml").read_text(), "<settings>preserve</settings>")
             self.assertEqual((data / "user_de/0/james.dsp/device-protected.txt").read_text(), "device data")
@@ -873,7 +877,7 @@ exit 0
             self.assertIn("App-data restore completed", log)
             self.assertNotIn("preserve</settings>", log)
 
-    def test_jdsp_app_keeps_original_if_confirmed_migration_backup_fails(self):
+    def test_jdsp_app_continues_after_confirmed_migration_backup_fails(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             module, mocks, data = root / "module", root / "mocks", root / "data"
@@ -882,10 +886,15 @@ exit 0
             (data / "user/0/james.dsp/settings").write_text("keep")
             shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
             (module / "JamesDSPManager.apk").write_text("apk")
-            pm_body = '''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
-if [ "$1 $2" = "list users" ]; then echo 'UserInfo{0:Owner:13}'; exit 0; fi
+            state = root / "install-count"
+            pm_body = f'''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{{0:Owner:13}}'; exit 0; fi
 echo "$@" >>"$MOCK_PM_LOG"
-if [ "$1" = install ]; then echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 0; fi
+if [ "$1" = install ]; then
+  n=0; [ -f "{state}" ] && n=$(cat "{state}"); n=$((n+1)); echo "$n" >"{state}"
+  if [ "$n" -eq 1 ]; then echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 0; fi
+fi
+if [ "$1" = uninstall ]; then rm -rf "{data}/user/0/james.dsp"; fi
 echo Success
 '''
             mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
@@ -901,9 +910,13 @@ echo Success
                 },
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertNotIn("uninstall", (root / "pm.log").read_text())
+            pm_log = (root / "pm.log").read_text()
+            self.assertIn("uninstall james.dsp", pm_log)
+            self.assertGreaterEqual(pm_log.count("install --user 0 -r -g"), 2)
             self.assertIn("app-data backup failed", (module / "logs/jamesdsp_app_install.log").read_text())
-            self.assertEqual((data / "user/0/james.dsp/settings").read_text(), "keep")
+            self.assertIn("continuing with user-confirmed uninstall", (module / "logs/jamesdsp_app_install.log").read_text())
+            self.assertIn("app data may be lost", result.stdout)
+            self.assertFalse((data / "user/0/james.dsp/settings").exists())
 
     def test_jdsp_app_retries_pending_restore_from_boot_service(self):
         with tempfile.TemporaryDirectory() as tmp:

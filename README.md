@@ -33,9 +33,13 @@ installation, it attempts a normal Package Manager update of an installed
 updates in place without uninstalling or clearing data. If signatures differ,
 the installer asks for a volume-key decision for 10 seconds: volume down
 confirms uninstall-and-reinstall, volume up declines, and no response keeps the
-existing app. Confirmed uninstall may erase private app data, so back up
-presets/data first. If Package Manager is unavailable during flashing, a
-missing app is installed after boot. The bundled app is the modified
+existing app. After confirmation, the installer attempts a protected temporary
+backup of app data and restores it after installation; if backup fails, it
+warns and continues with the confirmed replacement, so data may be lost.
+Android Keystore keys or app-bound encrypted secrets may not survive an
+uninstall across signing identities; keep a separate backup of anything
+critical. If Package Manager is unavailable during flashing, a missing app is
+installed after boot. The bundled app is the modified
 ThePBone-based root build, version 1.6.15, version code 58, signed with the
 maintainer certificate. The classic 9.5 APK is not offered or shipped.
 

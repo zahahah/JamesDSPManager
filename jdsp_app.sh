@@ -13,6 +13,14 @@ TAR_BIN=${JDSP_TAR_BIN:-tar}
 CHOWN_BIN=${JDSP_CHOWN_BIN:-chown}
 RESTORECON_BIN=${JDSP_RESTORECON_BIN:-restorecon}
 
+# The flash installer invokes this helper from modules_update before the
+# staged module is activated, and that tree may not contain a logs/ directory.
+# Create it before any logfile redirection; otherwise the tar redirection also
+# fails before tar runs, making every app-data backup fail.
+if ! mkdir -p "${LOGFILE%/*}" 2>/dev/null; then
+	LOGFILE=/dev/null
+fi
+
 if [ -n "${JDSP_PM_CMD:-}" ]; then
 	PM_CMD="$JDSP_PM_CMD"
 	METHOD_LOG="configured package command"
@@ -269,31 +277,44 @@ if package_installed; then
 		if wait_for_replacement_choice; then
 			ui_print "   Confirmed: removing existing james.dsp before installing ThePBone app"
 			log "User confirmed uninstall with volume down."
+			BACKUP_READY=0
 			if backup_app_data; then
-				OUTPUT=$($PM_CMD uninstall "$PKG" 2>&1)
-				RESULT=$?
-				log "Uninstall result: $OUTPUT (Code: $RESULT)"
-				if [ "$RESULT" -eq 0 ]; then
+				BACKUP_READY=1
+			else
+				ui_print "   WARNING: data backup failed; continuing as confirmed (app data may be lost)"
+				log "WARNING: data backup failed; continuing with user-confirmed uninstall."
+			fi
+			OUTPUT=$($PM_CMD uninstall "$PKG" 2>&1)
+			RESULT=$?
+			log "Uninstall result: $OUTPUT (Code: $RESULT)"
+			if [ "$RESULT" -eq 0 ]; then
+				if [ "$BACKUP_READY" -eq 1 ]; then
 					mkdir -p "$DATA_BACKUP_DIR" 2>/dev/null
 					touch "$DATA_BACKUP_DIR/restore-pending"
 					chmod 600 "$DATA_BACKUP_DIR/restore-pending" 2>/dev/null
-					install_for_users "$APK_SOURCE" "$(get_users)"
-					RESULT=$?
-					if [ "$RESULT" -eq 0 ]; then
+				fi
+				install_for_users "$APK_SOURCE" "$(get_users)"
+				RESULT=$?
+				if [ "$RESULT" -eq 0 ]; then
+					if [ "$BACKUP_READY" -eq 1 ]; then
 						restore_app_data || log "App installed; data backup retained for a boot-time restore retry."
-						ui_print "   ThePBone app installed"
-						log "Fresh install completed after explicit user confirmation."
 					else
-						ui_print "   ERROR: app install failed after uninstall; backup retained for retry"
-						log "ERROR: Fresh install failed after confirmed uninstall (result=$RESULT); migration backup retained."
+						ui_print "   App installed without restored data"
 					fi
+					ui_print "   ThePBone app installed"
+					log "Fresh install completed after explicit user confirmation."
 				else
-					ui_print "   ERROR: could not remove existing app; it was not replaced"
-					[ -d "$DATA_BACKUP_DIR" ] && rm -rf "$DATA_BACKUP_DIR"
-					log "Uninstall failed; pre-uninstall data backup removed because the original app remains installed."
+					ui_print "   ERROR: app install failed after uninstall; see module logs"
+					if [ "$BACKUP_READY" -eq 1 ]; then
+						log "ERROR: Fresh install failed after confirmed uninstall (result=$RESULT); migration backup retained."
+					else
+						log "ERROR: Fresh install failed after confirmed uninstall (result=$RESULT); no backup was available."
+					fi
 				fi
 			else
-				ui_print "   Existing app was kept because its data could not be backed up safely"
+				ui_print "   ERROR: could not remove existing app; it was not replaced"
+				[ "$BACKUP_READY" -eq 1 ] && [ -d "$DATA_BACKUP_DIR" ] && rm -rf "$DATA_BACKUP_DIR"
+				log "Uninstall failed; existing app remains installed."
 			fi
 		else
 			ui_print "   Keeping existing app; ThePBone APK was not installed"
