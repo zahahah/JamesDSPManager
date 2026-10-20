@@ -4,9 +4,9 @@
 
 This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-The latest published integration test is **v6.6-beta-2**, with the **JamesDSP root app 1.6.17 (versionCode 60)**. The `pixel-test-new-aidl` branch now stages **v6.6-beta-3** with an app recovery path and a fix for the manual late-load tool; this candidate has not yet been validated as a ZIP on a device. `master` remains the principal branch and has not received these changes.
+The current prerelease is **v6.6-beta-3**, with the **JamesDSP root app 1.6.17 (versionCode 61)**. It adds an app recovery path after late audio-factory registration and fixes the lock used by the opt-in manual late-load recovery tool. The beta-3 package has not yet been validated on a device, and Samsung compatibility remains unverified. Development is on `pixel-test-new-aidl`; `master` has not received these changes.
 
-[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-2) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
+[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-3) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
 ## What can it do?
 
