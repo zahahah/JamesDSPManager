@@ -1,0 +1,4 @@
+# Global Binder service; actual writes still require UID 0 in the native code.
+type jdsp_control_service service_manager_type
+allow hal_audio_default jdsp_control_service service_manager { add find }
+allow hal_audio_default servicemanager binder { call transfer }

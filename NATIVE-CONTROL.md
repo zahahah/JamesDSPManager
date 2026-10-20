@@ -1,92 +1,109 @@
-# Native control v3 module candidate
+# Global native control v4 — source candidate, not a release
 
-This ZIP replaces the AIDL implementation library only. The Android module
-loader still sees the expected path `libjamesdsp.so`; the packaged ELF's SONAME
-is `libjamesdspaidl.so`. The existing implementation UUID and effect type stay
-unchanged, so the intended effect path remains Android `IFactory/default` ->
-`IEffect`/FMQ -> the library's existing DSP context.
+Branches:
+- Module / RootJamesDSP: `pixel-test-native-control-v4`.
+- LightningDSP: `native/control-completion-v4`, based on global-control v3.
 
-## What the new binary adds
+The effect-bound experiment and its v6.5.14 package are retired. This branch
+uses the named global `jdsp.control` / `lightning.dsp.IJamesDspControl` service,
+matching the ViPER AIDL architecture (whose corresponding service is
+`viper.control`). The native contract is still frozen protocol V3: iteration v4
+must not be confused with Android Effect AIDL V4 or a claim of Samsung V3 ABI
+compatibility.
 
-The library adds a versioned Binder control/status interface:
+## Flow and supported controls
 
-- Binder service: `jdsp.control`
-- Descriptor: `lightning.dsp.IJamesDspControl`
-- Protocol: versioned native control v1
-- Initial control surface: context/status queries, enable, post-gain, and FIR EQ
-- Controls target actual live effect contexts; stale/invalid targets are
-  rejected by the native implementation.
-- Writes are authorized to UID 0 by default. The app UID has not been granted
-  write access.
-- RootJamesDSP branch `pixel-test-new-aidl` includes an experimental client and
-  the matching root APK is bundled in this ZIP. It discovers the service,
-  negotiates protocol/capabilities, and attempts writes only if the provider
-  explicitly reports direct app authorization and a single live context.
+RootJamesDSP -> libsu -> /vendor/bin/jdspctl (UID 0, vendor NDK) -> global Binder
+service -> selected live DSP context -> bounded audio-boundary update.
 
-This does not grant app-UID write access, and the app UI's EQ controls are not
-yet mapped to the new endpoint. With the current root-only provider policy, the
-client should preserve the legacy `AudioEffect` path. It does not replace that
-path with a parallel DSP engine.
+Enable, post-gain and prepared FIR use the global service when it is available;
+other controls and failures use the legacy fallback. The helper refuses zero or
+multiple contexts rather than writing to an arbitrary instance. The app keeps
+Android AudioEffect.enabled independent from native DSP enable. Accepted
+requests, applied generations, processed frames and audible changes are separate
+proofs. No direct app-UID write authorization is promised.
 
-## ABI and device scope
+## Module and policy
 
-The pinned library was built for Android 16 ARM64 and directly needs:
+`native-control.sh prepare` stages a vendor-service-context overlay and the
+native helper. Only the module tree is modified. `sepolicy.rule` and
+`native-control/global-service.rule` permit the typed service producer. No
+ordinary app is granted default-service discovery or HAL writes. Root helper
+access still depends on the root manager's policy and must be tested.
 
-- `android.hardware.audio.effect-V4-ndk.so`
-- `android.media.audio.common.types-V5-ndk.so`
-- `android.hardware.common-V2-ndk.so`
-- `android.hardware.common.fmq-V1-ndk.so`
+Late-load warning: replacing vendor_service_contexts after ServiceManager has
+cached its labels does NOT reload that cache. The default typed path may remain
+unavailable in a temp-root session. The ViPER release also grants its HAL domain
+add permission to default_android_service as a compatibility fallback. That
+fallback cannot be restricted to just one service name by SELinux.
 
-There is no SDK or device-model gate in the test module. An experimental
-cross-ABI probe allows the systemless overlay attempt to proceed when expected
-AIDL V4 dependencies are missing or linker preflight fails. The binary still
-has those direct dependencies; removing the gate does not make it compatible
-with an AIDL V3 factory. The module logs mismatch and never changes `DT_NEEDED`
-or SONAMEs. A `lib=experimental_link_check_bypassed` status means the library
-was not resolved by preflight and must not be treated as loaded.
+For an explicitly authorized test ONLY, marker
+`.jdsp-control-default-label-opt-in` makes the preparation script apply
+`native-control/default-label-opt-in.rule`. This broadens add/find for
+hal_audio_default, not app authorization; the native service still rejects
+non-root writes. It is OFF by default. Do not enable it silently, disable
+SELinux, restart ServiceManager, or assume a new file means a live label changed.
+The real producer/root SELinux domains must also be verified on each device.
 
-## Do not over-interpret status
+There are no automatic Audio HAL/audioserver restarts, including late-load.
+Dependency checks use the actual compiled interface versions, never SONAME
+rewrites or linker-failure bypasses. A real Effect V3 build can be packaged for a
+V3 device; a V4 build cannot become compatible by renaming a dependency.
 
-An installed/mounted library, `service check jdsp.control`, or a visible effect
-descriptor is not proof of a working Binder descriptor, authorization,
-successful effect creation, audio frames traversing the DSP, or audible EQ
-changes. This candidate has not been tested on a device. It does not alter
-SELinux policy and late-load does not restart Audio HAL or audioserver.
+## Compilation and distribution gate
 
-For a future manual test, collect evidence in separate steps:
+The tracked native-v3 driver is a HISTORICAL BASELINE, not the v4 artifact.
+`native-control/v4-candidate.json` remains `awaiting-native-build` until BOTH
+new libjamesdspaidl.so and jdspctl are compiled from the exact v4 commit. Import
+provenance with matching hashes, sizes and DT_NEEDED reports for both. A new
+owner-signed `james.dsp` 1.6.15 / versionCode 58 app must also be verified.
 
-1. Confirm the module's driver SHA-256 equals the hash recorded in
-   `native-control/provenance.json`.
-2. Check whether `jdsp.control` is visible after an app/audio session causes the
-   HAL to query or create the effect. A service lookup alone is only discovery
-   evidence.
-3. Query the interface descriptor and protocol/capabilities with a client
-   generated from the matching AIDL contract. Do not use guessed raw Binder
-   transaction numbers.
-4. Verify authorized versus unauthorized writes. The production default only
-   authorizes UID 0; don't grant broader access or add SELinux rules for this
-   candidate.
-5. Verify live-context telemetry and measured/audible gain or FIR changes while
-   checking that the legacy `AudioEffect` path and app behavior remain intact.
+`python3 tools/package_native_control_v4.py` refuses to create a ZIP without
+these prerequisites, and explicitly rejects the former v3/effect-bound hashes.
+The Actions workflow can validate source while waiting; it must not advertise
+a nonexistent module release. See LightningDSP/GLOBAL-CONTROL-V4-BUILD.md for
+compiler instructions and mandatory host/kernel Binder tests.
 
-Do not restart audio services from a module script. If the existing HAL has
-already cached its effect factory, stop and report that limitation instead of
-adding an automatic restart or an ABI rename.
+## Import the compiler output and create the test ZIP
 
-## Provenance and license
+The signed root APK 1.6.15 / code 58 is already included. Keep `update.json`
+pointing at the existing release until a new prerelease actually exists.
+Check out `pixel-test-native-control-v4`; use the exact native commit pinned in
+`native-control/v4-candidate.json` (currently `9aaaeea63f7470f462df4035a76f441a2e8d4768`).
+The compiler must return BOTH the driver and `jdspctl`, plus the provenance shape
+documented in `LightningDSP/GLOBAL-CONTROL-V4-BUILD.md`.
 
-The binary SHA-256 is
-`266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce`. Its
-original build record is included in `native-control/provenance.json`; that
-record identifies the LightningDSP source commit used at build time and an
-Android 16 `mini_arm64-userdebug` Soong build. LightningDSP history was later
-rewritten to correct the GitHub author identity without changing source trees;
-the corresponding current source branch is
-[`native/control-completion-v3`](https://github.com/zahahah/LightningDSP/tree/native/control-completion-v3).
-The original `Main/LICENSE` GPL-2.0 text is included at
-`native-control/LightningDSP-Main-LICENSE.txt`.
+```sh
+export ANDROID_HOME="$HOME/Documents/Android/SDK" # use your actual SDK path
+export JDSP_READELF="/path/to/android-ndk/toolchains/llvm/prebuilt/host/bin/llvm-readelf"
+python3 tools/import_native_control_v4.py --driver /path/libjamesdspaidl.so --helper /path/jdspctl --provenance /path/provenance.json
+python3 -m unittest discover -s tests -v
+for file in *.sh common/*.sh; do sh -n "$file" || exit 1; done
+python3 tools/package_native_control_v4.py
+```
 
-The recorded native host tests do not establish Android ServiceManager/SELinux
-access, AIDL factory discovery, Pixel hardware compatibility, or real-device
-audio processing. No device install or restart is performed by the package
-builder.
+The importer never executes the supplied binaries. It verifies the pinned
+source, SHA-256, ELF64 AArch64, actual dependencies, library SONAME/NODELETE,
+factory exports and the existing APK signer/package/version before changing the
+candidate. Only allowlisted provenance is copied publicly; private host paths
+and full build logs stay outside this repository. A rejected import leaves the
+tracked candidate unchanged. Success promotes `module.prop` to the test version
+and enables Actions packaging; it does NOT install, publish or validate audio.
+The ZIP will be `dist/JamesDSPManager-v6.5.15-native-control-v4-test.zip`, with
+matching checksum and manifest. Review the diff, commit as lightning zahah and
+then publish a clearly experimental prerelease. Device tests below remain
+mandatory; never advertise host test success as Samsung compatibility.
+
+## Device verification after the new artifacts exist
+
+1. Verify exact library/helper/APK hashes and signer; update in place only.
+2. Confirm library mapped in the audio HAL, then jdsp.control registered.
+3. As root run `/vendor/bin/jdspctl probe` and `/vendor/bin/jdspctl status`.
+4. With playback running, verify app logs native accepted/applied generations,
+   increasing processed frames, and AudioFlinger Enabled=y.
+5. Make a safe, obvious gain/EQ cut and confirm audible change in real time.
+6. Verify fallback, app reopen and non-root rejection. Samsung factory discovery
+   and ABI compatibility remain independent prerequisites.
+
+No Pixel/Samsung device or audio-service change has been performed for this
+source branch. A successful host test/build alone is not device validation.
