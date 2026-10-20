@@ -27,14 +27,17 @@ process instance. There is no restart loop, `killall`, native hook, or write to
 the physical system/vendor partitions. The built-in early-boot path stays
 separate.
 
-The module includes and stages only the modified ThePBone root APK. It never
-removes or replaces an installed `james.dsp` app: the service installs this APK
-only when that exact package is absent. Existing apps and app data stay
-untouched. If an installed app has a different signer, Android will reject an
-in-place update; back up presets and app data before any manual migration. The
-bundled app is the modified ThePBone-based root build, version 1.6.15, version
-code 58, signed with the maintainer certificate. The classic 9.5 APK is not
-offered or shipped.
+The module includes and stages only the modified ThePBone root APK. At module
+installation, it attempts a normal Package Manager update of an installed
+`james.dsp`; Android validates the signing identity, and a compatible signature
+updates in place without uninstalling or clearing data. If signatures differ,
+the installer asks for a volume-key decision for 10 seconds: volume down
+confirms uninstall-and-reinstall, volume up declines, and no response keeps the
+existing app. Confirmed uninstall may erase private app data, so back up
+presets/data first. If Package Manager is unavailable during flashing, a
+missing app is installed after boot. The bundled app is the modified
+ThePBone-based root build, version 1.6.15, version code 58, signed with the
+maintainer certificate. The classic 9.5 APK is not offered or shipped.
 
 ## Build and test
 

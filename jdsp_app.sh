@@ -1,14 +1,17 @@
 #!/system/bin/sh
 [ -z "$MODPATH" ] && MODPATH="${0%/*}"
 
-# Package and staging paths
 PKG="james.dsp"
 LOGFILE="$MODPATH/logs/jamesdsp_app_install.log"
 INTERNAL_PATH="/storage/emulated/0/JamesDSPManager.apk"
 TEMP_INSTALL_PATH=${JDSP_TEMP_INSTALL_PATH:-/cache/JamesDSPManager.apk}
+KEY_TIMEOUT=${JDSP_KEY_TIMEOUT_SECONDS:-10}
+GETEVENT_BIN=${JDSP_GETEVENT_BIN:-/system/bin/getevent}
 
-# Prefer cmd package when Android exposes it
-if [ -x "/system/bin/cmd" ]; then
+if [ -n "${JDSP_PM_CMD:-}" ]; then
+	PM_CMD="$JDSP_PM_CMD"
+	METHOD_LOG="configured package command"
+elif [ -x "/system/bin/cmd" ]; then
 	PM_CMD="cmd package"
 	METHOD_LOG="cmd package (Android 7+)"
 else
@@ -16,92 +19,147 @@ else
 	METHOD_LOG="pm (Android <7)"
 fi
 
-echo "--- JamesDSP Installer through $METHOD_LOG ---" > "$LOGFILE"
+ui_print() {
+	# During a flash this is visible in the module installer. At boot it is
+	# intentionally reduced to stdout, which service.sh redirects to /dev/null.
+	echo "$1"
+}
 
-# Wait until package manager is ready
-until [ "$(getprop sys.boot_completed)" = "1" ]; do
-	sleep 1
-done
+log() { echo "$1" >> "$LOGFILE"; }
 
-# Never replace an existing james.dsp package
-if $PM_CMD list packages | grep -Fqx "package:$PKG"; then
-	echo " -- App is already installed. Exiting. -- " >> "$LOGFILE"
+package_installed() {
+	$PM_CMD list packages 2>/dev/null | grep -Fqx "package:$PKG"
+}
+
+get_users() {
+	$PM_CMD list users 2>/dev/null | grep -o '{[0-9]*' | grep -o '[0-9]*'
+}
+
+install_for_users() {
+	APK_SOURCE="$1"
+	INSTALL_USERS="$2"
+	[ -n "$INSTALL_USERS" ] || INSTALL_USERS="0"
+	SUCCESS_COUNT=0
+
+	log "--- Installing JDSP app from: $APK_SOURCE ---"
+	cp "$APK_SOURCE" "$TEMP_INSTALL_PATH" || {
+		log "ERROR: Failed to copy APK to cache."
+		return 1
+	}
+	chmod 644 "$TEMP_INSTALL_PATH"
+	chcon u:object_r:apk_data_file:s0 "$TEMP_INSTALL_PATH" 2>/dev/null
+	[ -f "$TEMP_INSTALL_PATH" ] || return 1
+
+	for USER_ID in $INSTALL_USERS; do
+		OUTPUT=$($PM_CMD install --user "$USER_ID" -r -g "$TEMP_INSTALL_PATH" 2>&1)
+		RESULT=$?
+		log "Install result (User $USER_ID): $OUTPUT (Code: $RESULT)"
+		if [ "$RESULT" -eq 0 ]; then
+			SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+		elif echo "$OUTPUT" | grep -qiE 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match|signature.*match'; then
+			log "SIGNATURE_MISMATCH user=$USER_ID"
+			rm -f "$TEMP_INSTALL_PATH"
+			return 2
+		fi
+	done
+	rm -f "$TEMP_INSTALL_PATH"
+	[ "$SUCCESS_COUNT" -gt 0 ]
+}
+
+wait_for_replacement_choice() {
+	[ -x "$GETEVENT_BIN" ] || return 2
+	command -v timeout >/dev/null 2>&1 || return 2
+	ui_print "   Volume DOWN: uninstall the differently signed app and install ours"
+	ui_print "   Volume UP: keep the existing app; no response in 10 seconds also keeps it"
+	ui_print "   Warning: confirmed uninstall can erase private app data"
+	log "Waiting up to ${KEY_TIMEOUT}s for volume-down confirmation; volume-up/no input keeps existing app."
+
+	# Stop on the first volume-key DOWN event; unrelated input events are ignored.
+	KEY_EVENT=$(timeout "$KEY_TIMEOUT" "$GETEVENT_BIN" -lq 2>&1 | grep -m 1 -E 'KEY_VOLUMEDOWN[[:space:]]+DOWN|KEY_VOLUMEUP[[:space:]]+DOWN')
+	case "$KEY_EVENT" in
+		*KEY_VOLUMEDOWN*DOWN*) return 0 ;;
+		*KEY_VOLUMEUP*DOWN*) return 1 ;;
+		*) return 2 ;;
+	esac
+}
+
+echo "--- JamesDSP app installer through $METHOD_LOG ---" > "$LOGFILE"
+
+# Wait until package manager is ready (service.sh path only; flash path is
+# already running inside the live Android installer).
+if [ "${JDSP_FLASH_INSTALL:-0}" != 1 ]; then
+	until [ "$(getprop sys.boot_completed)" = "1" ]; do sleep 1; done
+fi
+
+if [ -f "$MODPATH/JamesDSPManager.apk" ]; then
+	APK_SOURCE="$MODPATH/JamesDSPManager.apk"
+elif [ -f "$INTERNAL_PATH" ]; then
+	APK_SOURCE="$INTERNAL_PATH"
+	log "No APK in module; using staged internal-storage copy."
+else
+	log "No APK was found."
+	exit 1
+fi
+
+if package_installed; then
+	if [ "${JDSP_FLASH_INSTALL:-0}" != 1 ]; then
+		log "App already installed; boot service will not prompt or uninstall it."
+		exit 0
+	fi
+
+	USERS=$(get_users)
+	install_for_users "$APK_SOURCE" "$USERS"
+	INSTALL_RESULT=$?
+	if [ "$INSTALL_RESULT" -eq 0 ]; then
+		log "Updated installed app in place (Package Manager accepted the existing signing identity)."
+		ui_print "   Existing james.dsp app updated in place"
+	elif [ "$INSTALL_RESULT" -eq 2 ]; then
+		ui_print "   Installed app has a different signing certificate."
+		if wait_for_replacement_choice; then
+			ui_print "   Confirmed: removing existing james.dsp before installing ThePBone app"
+			log "User confirmed uninstall with volume down."
+			OUTPUT=$($PM_CMD uninstall "$PKG" 2>&1)
+			RESULT=$?
+			log "Uninstall result: $OUTPUT (Code: $RESULT)"
+			if [ "$RESULT" -eq 0 ]; then
+				install_for_users "$APK_SOURCE" "$(get_users)"
+				RESULT=$?
+				if [ "$RESULT" -eq 0 ]; then
+					ui_print "   ThePBone app installed"
+					log "Fresh install completed after explicit user confirmation."
+				else
+					ui_print "   ERROR: app install failed after uninstall; see module logs"
+					log "ERROR: Fresh install failed after confirmed uninstall (result=$RESULT)."
+				fi
+			else
+				ui_print "   ERROR: could not remove existing app; it was not replaced"
+			fi
+		else
+			ui_print "   Keeping existing app; ThePBone APK was not installed"
+			log "Replacement declined or timed out; existing app preserved."
+		fi
+	else
+		log "In-place update failed for a reason other than signing mismatch; existing app preserved."
+		ui_print "   App update failed; existing app was kept (see module logs)"
+	fi
 	exit 0
 fi
 
-# Install the staged APK for every Android user
-install_apk() {
-	local source_file="$1"
-	local success_count=0
-
-	echo "--- Installing JDSP app from: $source_file ---" >> "$LOGFILE"
-
-	echo " -- Copying $source_file to /cache -- " >> "$LOGFILE"
-	cp "$source_file" "$TEMP_INSTALL_PATH"
-	chmod 644 "$TEMP_INSTALL_PATH"
-	chcon u:object_r:apk_data_file:s0 "$TEMP_INSTALL_PATH" 2>/dev/null
-
-	if [ ! -f "$TEMP_INSTALL_PATH" ]; then
-		echo "ERROR: Failed to copy APK to cache!" >> "$LOGFILE"
-		return 1
-	fi
-
-	# Use the Android user list instead of assuming only user 0
-	USER_LIST=$($PM_CMD list users | grep -o '{[0-9]*' | grep -o '[0-9]*')
-
-	for USER_ID in $USER_LIST; do
-		echo "Installing for User ID: $USER_ID..." >> "$LOGFILE"
-
-		OUTPUT=$($PM_CMD install --user "$USER_ID" -r -g "$TEMP_INSTALL_PATH" 2>&1)
-		RESULT=$?
-
-		echo "Result (User $USER_ID): $OUTPUT (Code: $RESULT)" >> "$LOGFILE"
-
-		if [ $RESULT -eq 0 ]; then
-			success_count=$((success_count + 1))
-		fi
-	done
-	
-	# Remove only the temporary copy
-	rm -f "$TEMP_INSTALL_PATH"
-
-	if [ $success_count -gt 0 ]; then
-		return 0
-	else
-		return 1
-	fi
-}
-
-# Main flow
-INSTALL_STATUS=1
-
-echo "App is missing; installing the selected APK." >> "$LOGFILE"
-
-# Prefer the APK shipped inside the module
-if [ -f "$MODPATH/JamesDSPManager.apk" ]; then
-	install_apk "$MODPATH/JamesDSPManager.apk"
-	INSTALL_STATUS=$?
-
-# Fallback to the copy staged on internal storage
-elif [ -f "$INTERNAL_PATH" ]; then
-	echo "No APK in module; using the staged internal-storage copy." >> "$LOGFILE"
-	install_apk "$INTERNAL_PATH"
-	INSTALL_STATUS=$?
-
-else
-	echo " -- No APK was found. -- " >> "$LOGFILE"
+# New installations are deferred to boot because package manager may not be
+# available during recovery-based module installation.
+if [ "${JDSP_FLASH_INSTALL:-0}" = 1 ]; then
+	log "App is absent during module flash; first-install deferred until boot."
+	exit 0
 fi
 
-# Refresh package state after a successful install
-if [ $INSTALL_STATUS -eq 0 ]; then
-	echo "Installation is complete. Refreshing package..." >> "$LOGFILE"
-
-	USER_LIST=$($PM_CMD list users | grep -o '{[0-9]*' | grep -o '[0-9]*')
-	for USER_ID in $USER_LIST; do
+log "App is missing; installing bundled APK."
+if install_for_users "$APK_SOURCE" "$(get_users)"; then
+	log "Installation completed. Refreshing package state."
+	for USER_ID in $(get_users); do
 		$PM_CMD disable --user "$USER_ID" "$PKG" >/dev/null 2>&1
 		$PM_CMD enable --user "$USER_ID" "$PKG" >/dev/null 2>&1
 	done
-	echo " -- DONE! --" >> "$LOGFILE"
+	log "DONE"
 else
-	echo "Installation did not complete." >> "$LOGFILE"
+	log "Installation did not complete."
 fi

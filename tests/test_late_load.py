@@ -679,7 +679,7 @@ fi
             self.assertIn("default_factory_needs_device_specific_refresh", (logs / "audio-reload.status").read_text())
             self.assertFalse(controls.exists())
 
-    def run_jdsp_app(self, module: pathlib.Path, mocks: pathlib.Path, pm_body: str) -> subprocess.CompletedProcess[str]:
+    def run_jdsp_app(self, module: pathlib.Path, mocks: pathlib.Path, pm_body: str, extra_env: dict | None = None) -> subprocess.CompletedProcess[str]:
         temp_apk = module / "tmp-install.apk"
         mock_executable(mocks / "getprop", "echo 1\n")
         mock_executable(mocks / "chcon", "exit 0\n")
@@ -691,6 +691,7 @@ fi
                 "PATH": f"{mocks}:{os.environ['PATH']}",
                 "JDSP_TEMP_INSTALL_PATH": str(temp_apk),
                 "MOCK_PM_LOG": str(module.parent / "pm.log"),
+                **(extra_env or {}),
             },
             capture_output=True,
             text=True,
@@ -717,6 +718,62 @@ echo "$@" >>"$MOCK_PM_LOG"
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("already installed", (module / "logs/jamesdsp_app_install.log").read_text())
             self.assertFalse((root / "pm.log").exists())
+
+    def test_jdsp_app_installer_updates_existing_app_without_uninstall(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks = root / "module", root / "mocks"
+            module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+            (module / "JamesDSPManager.apk").write_text("apk")
+            pm_body = '''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{0:Owner:13}'; exit 0; fi
+echo "$@" >>"$MOCK_PM_LOG"
+echo Success
+exit 0
+'''
+            result = self.run_jdsp_app(module, mocks, pm_body, {"JDSP_FLASH_INSTALL": "1"})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            log = (root / "pm.log").read_text()
+            self.assertIn("install --user 0 -r -g", log)
+            self.assertNotIn("uninstall", log)
+            self.assertIn("Updated installed app", (module / "logs/jamesdsp_app_install.log").read_text())
+
+    def test_jdsp_app_different_signature_requires_volume_down_and_defaults_to_keep(self):
+        for key_event, should_uninstall in (("KEY_VOLUMEDOWN DOWN", True), ("KEY_VOLUMEUP DOWN", False), ("", False)):
+            with self.subTest(key_event=key_event), tempfile.TemporaryDirectory() as tmp:
+                root = pathlib.Path(tmp)
+                module, mocks = root / "module", root / "mocks"
+                module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+                shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+                (module / "JamesDSPManager.apk").write_text("apk")
+                state = root / "install-count"
+                pm_body = f'''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{{0:Owner:13}}'; exit 0; fi
+echo "$@" >>"$MOCK_PM_LOG"
+if [ "$1" = install ]; then
+  n=0; [ -f "{state}" ] && n=$(cat "{state}"); n=$((n+1)); echo "$n" >"{state}"
+  [ "$n" -eq 1 ] && {{ echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 1; }}
+fi
+echo Success
+exit 0
+'''
+                mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
+                mock_executable(mocks / "getevent", f'echo "{key_event}"\n')
+                result = self.run_jdsp_app(
+                    module,
+                    mocks,
+                    pm_body,
+                    {"JDSP_FLASH_INSTALL": "1", "JDSP_GETEVENT_BIN": str(mocks / "getevent")},
+                )
+                self.assertEqual(result.returncode, 0, result.stderr)
+                pm_log = (root / "pm.log").read_text()
+                if should_uninstall:
+                    self.assertIn("uninstall james.dsp", pm_log)
+                    self.assertGreaterEqual(pm_log.count("install --user 0 -r -g"), 2)
+                else:
+                    self.assertNotIn("uninstall", pm_log)
+                    self.assertIn("Replacement declined or timed out", (module / "logs/jamesdsp_app_install.log").read_text())
 
     def test_jdsp_app_installer_installs_when_only_lookalike_package_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -831,16 +888,21 @@ esac
                 )
                 self.assertFalse(any("rootless" in name.lower() for name in names))
 
-    def test_installer_does_not_remove_an_existing_app(self):
+    def test_installer_requires_confirmation_before_removing_an_existing_app(self):
         installer = (ROOT / "common/install.sh").read_text()
-        self.assertIn("Existing james.dsp apps stay untouched", installer)
         self.assertIn("Installing ThePBone 1.6.15 root app", installer)
+        self.assertIn("Same-signature apps are updated in place", installer)
+        self.assertIn("Different signatures require explicit volume-key confirmation", installer)
+        self.assertIn('JDSP_FLASH_INSTALL=1', installer)
         self.assertIn('mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk"', installer)
         self.assertNotIn("Which UI you want to install?", installer)
         self.assertNotIn("Original 9.5", installer)
         self.assertNotIn(".apkorig", installer)
-        self.assertNotIn("pm uninstall", installer)
-        self.assertIn("Different signers need manual migration", installer)
+        app_installer = (ROOT / "jdsp_app.sh").read_text()
+        self.assertIn('Volume DOWN:', app_installer)
+        self.assertIn('Volume UP:', app_installer)
+        self.assertIn('timeout "$KEY_TIMEOUT"', app_installer)
+        self.assertIn('$PM_CMD uninstall "$PKG"', app_installer)
 
 
 if __name__ == "__main__":

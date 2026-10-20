@@ -2,6 +2,11 @@
 
 * Ship only the updated, maintainer-signed ThePBone-based root app; remove the
   classic-app installer choice.
+* Automatically update an installed `james.dsp` when Android accepts the
+  bundled APK's signing identity. If signatures differ, ask for a volume-key
+  decision for 10 seconds: volume down confirms uninstall/reinstall, volume up
+  declines, and no response preserves the existing app. A confirmed uninstall
+  may erase private app data.
 * Keep Samsung late-load and normal built-in AIDL config preparation covered by
   the focused module tests. This prerelease does not claim new device validation.
 
