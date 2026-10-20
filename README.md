@@ -46,13 +46,11 @@ is not evidence that `jdsp.control` registered or that audio is processed. See
 needed before making a functional claim. The exact binary provenance and the
 LightningDSP GPL-2.0 license text are included in `native-control/`.
 
-The module replaces the previous root APK payload with the signed experimental
-client build (package `james.dsp`, versionName 1.6.15, versionCode 57). The APK
-uses the authorized maintainer certificate and is included at the module's
-legacy `JamesDSPManagerThePBone.apk` payload path so the existing installer can
-update versionCode 56 in place while preserving app data. The source branch and
-commit are recorded above; this is a test build, not a claim of verified DSP
-control.
+The module offers only the ThePBone root APK (package `james.dsp`, versionName
+1.6.15, versionCode 58) with the experimental global-control client. The
+installer no longer offers the classic UI APK. It first asks Package Manager to
+update an existing app in place; only an explicit signer-mismatch response
+starts a replacement prompt.
 
 ## Prior Pixel test build: v6.5.10-pixel-builtin-aidl-beta.3
 
@@ -83,10 +81,16 @@ choice:
   copy the new APK to `/sdcard/Download/JamesDSPManager.apk`. No response is
   treated as **No**.
 
-If package management is unavailable during installation, the boot service
-retries the same safe update/migration flow as a fallback. After a No choice,
-that same module APK won't ask again on every boot. A changed module APK can
-trigger a new prompt.
+For a signer mismatch, **Volume Down** confirms uninstall/replacement, while
+**Volume Up** or no response within 10 seconds keeps the installed app and its
+data. Before an explicitly confirmed uninstall, the installer attempts a
+private temporary archive of app-private and package-specific external data;
+it restores the archive after installation and reapplies ownership/SELinux
+labels. If backup fails, it warns and proceeds only because the user already
+confirmed. Android Keystore-protected secrets may not survive a signer change.
+If Package Manager is unavailable during flashing, first install is deferred
+to the boot service; that service will not prompt for or uninstall an existing
+app.
 
 ## Stable release: v6.5.9
 
@@ -113,11 +117,11 @@ process instance. There is no restart loop, `killall`, native hook, or write to
 the physical system/vendor partitions. The built-in early-boot path stays
 separate.
 
-Removing the module never removes the installed `james.dsp` app. On module
-boot, matching-signature APKs are updated in place. Different-signature
-migrations require explicit Volume Up confirmation; declining or timing out
-keeps the app and stages the APK in Downloads instead of touching app data.
-The ThePBone APK remains version 1.6.15, version code 56.
+Removing the module never removes the installed `james.dsp` app. A module
+signer migration is opt-in: Volume Down confirms replacement, and Volume Up or
+timeout keeps the installed app. A temporary data backup is attempted only
+after explicit confirmation; it is not a guarantee that Keystore-bound secrets
+can be transferred between signing identities.
 
 ## Build and test
 

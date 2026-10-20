@@ -93,30 +93,14 @@ fi
 
 ui_print " "
 ui_print "- UI installation -"
-ui_print "   Which UI you want to install?"
-ui_print "   Vol Up = Original 9.5, Vol Down = ThePBone 1.6.15"
-ui_print "   APKs use the current maintainer signing key"
-ui_print "   Same-signature apps are checked and updated during installation"
-ui_print "   Different signatures require volume-key confirmation"
+ui_print "   Installing ThePBone 1.6.15 root app"
+ui_print "   APK uses the current maintainer signing key"
+ui_print "   Same-signature apps are updated in place"
+ui_print "   Different signatures require explicit volume-key confirmation"
 copy_profile_backup
-if chooseport; then
-	ui_print "   Original version was selected"
-	mv -f "$MODPATH/common/files/JamesDSPManager.apk" "$MODPATH/JamesDSPManager.apk"
-	SELECTED_APK_META="$MODPATH/common/files/JamesDSPManager.apk.meta"
-	touch "$MODPATH/.apkorig"
-else
-	ui_print "   ThePBone version was selected"
-	mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
-	SELECTED_APK_META="$MODPATH/common/files/JamesDSPManagerThePBone.apk.meta"
-	touch "$MODPATH/.apkpbone"
-fi
+mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk" "$MODPATH/JamesDSPManager.apk"
+touch "$MODPATH/.apkpbone"
 
-# Update or migrate the app while the user is still in the module installer.
-# The boot service remains a fallback if Package Manager is unavailable here.
-. "$MODPATH/common/app_migration.sh"
-jdsp_install_selected_apk "$MODPATH/JamesDSPManager.apk" "$SELECTED_APK_META" "$MODPATH"
-
-# Stage the native helper and typed global-service mapping, if available.
 [ ! -f "$MODPATH/native-control.sh" ] || sh "$MODPATH/native-control.sh" prepare "$MODPATH"
 
 set -x
@@ -174,4 +158,20 @@ sed -i "1a NVBASE=$NVBASE" "$MODPATH/service.sh"
 ui_print "   Staging the selected APK to /sdcard as a manual-install fallback"
 cp -rf "$MODPATH/common/files/JamesDSP" /storage/emulated/0/JamesDSP
 cp -f "$MODPATH/JamesDSPManager.apk" /storage/emulated/0/JamesDSPManager.apk
+# Handle upgrades while the installer UI can display the bounded confirmation.
+# On recovery or when Package Manager is unavailable, service.sh retries safely.
+chmod +x "$MODPATH/jdsp_app.sh"
+if command -v cmd >/dev/null 2>&1; then
+  APP_PACKAGE_LIST=$(cmd package list packages 2>/dev/null)
+  APP_PM="cmd package"
+else
+  APP_PACKAGE_LIST=$(pm list packages 2>/dev/null)
+  APP_PM="pm"
+fi
+if echo "$APP_PACKAGE_LIST" | grep -Fqx "package:james.dsp"; then
+  ui_print "   Checking whether the installed app can be safely updated..."
+  MODPATH="$MODPATH" JDSP_FLASH_INSTALL=1 JDSP_PM_CMD="$APP_PM" sh "$MODPATH/jdsp_app.sh"
+else
+  ui_print "   No installed app detected; first install will run after boot"
+fi
 [ "$API" -gt 29 ] && { ui_print "   Enabling hidden api policy"; settings put global hidden_api_policy 1 2>/dev/null; }

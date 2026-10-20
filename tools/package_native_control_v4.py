@@ -97,6 +97,15 @@ def build(output, root=ROOT):
         raise ValueError('Source-only metadata must be promoted explicitly after artifact validation')
     payloads = dict(previous.PAYLOADS)
     payloads.pop('native-control/provenance.json', None)
+    # This candidate exposes only the ThePBone root app. Retire the prior
+    # certificate-inspection path and the classic UI APK from distributable ZIPs.
+    for retired in (
+        'common/app_migration.sh',
+        'common/apk_certificate.sh',
+        'common/files/JamesDSPManager.apk',
+        'common/files/JamesDSPManager.apk.meta',
+    ):
+        payloads.pop(retired, None)
     payloads.update({
         'native-control.sh': 0o100755,
         MANIFEST: 0o100644,

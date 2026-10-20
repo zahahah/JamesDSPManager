@@ -5,6 +5,18 @@
 * Prepare typed policy/helper overlays without automatic audio restarts.
 * Block ZIP creation pending newly compiled native artifacts and verified APK.
 
+### v6.5.15-native-control-v4-test (source candidate)
+
+* Carry the global-control-v4 source candidate forward on the Pixel AIDL branch.
+* Install only the ThePBone root app; remove the classic-versus-ThePBone choice.
+* Use Package Manager's actual update result to detect a signer mismatch, rather
+  than pre-comparing certificate metadata.
+* Require Volume Down to confirm signer migration; Volume Up or a 10-second
+  timeout preserves the installed app. Attempt a temporary data archive before
+  confirmed uninstall and restore it with updated ownership/SELinux labels.
+* The native-control-v4 binaries are not imported yet; packaging remains gated
+  until a matching build artifact and provenance are available.
+
 ### v6.5.11-pixel-native-control-v3-test
 
 * Bundle the native-control-v3 library and a signed experimental RootJamesDSP

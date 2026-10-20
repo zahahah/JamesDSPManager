@@ -35,6 +35,16 @@ class PixelNativeControlPackageTests(unittest.TestCase):
         self.assertIn("cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a", package.RETIRED_DRIVERS)
         self.assertIn("266909b6aaf9a81648538369a2671d3f79d47d1f0ea02b56b21cf6cfc1df54ce", package.RETIRED_DRIVERS)
 
+    def test_v4_zip_excludes_retired_signature_checker_and_classic_apk(self):
+        source = (ROOT / "tools/package_native_control_v4.py").read_text()
+        for payload in (
+            "common/app_migration.sh",
+            "common/apk_certificate.sh",
+            "common/files/JamesDSPManager.apk",
+            "common/files/JamesDSPManager.apk.meta",
+        ):
+            self.assertIn(repr(payload), source)
+
     def test_v4_provenance_keeps_regular_boot_dependency_gate_active(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
