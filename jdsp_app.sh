@@ -54,12 +54,16 @@ install_for_users() {
 		OUTPUT=$($PM_CMD install --user "$USER_ID" -r -g "$TEMP_INSTALL_PATH" 2>&1)
 		RESULT=$?
 		log "Install result (User $USER_ID): $OUTPUT (Code: $RESULT)"
-		if [ "$RESULT" -eq 0 ]; then
-			SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
-		elif echo "$OUTPUT" | grep -qiE 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match|signature.*match'; then
+		if echo "$OUTPUT" | grep -qiE 'INSTALL_FAILED_UPDATE_INCOMPATIBLE|signatures do not match|signature.*match'; then
 			log "SIGNATURE_MISMATCH user=$USER_ID"
 			rm -f "$TEMP_INSTALL_PATH"
 			return 2
+		elif [ "$RESULT" -eq 0 ] && echo "$OUTPUT" | grep -qE '(^|[[:space:]])Success([[:space:]]|$)'; then
+			SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
+		else
+			log "ERROR: Package Manager did not confirm installation success for user $USER_ID."
+			rm -f "$TEMP_INSTALL_PATH"
+			return 1
 		fi
 	done
 	rm -f "$TEMP_INSTALL_PATH"

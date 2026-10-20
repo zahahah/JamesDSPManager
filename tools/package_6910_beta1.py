@@ -12,7 +12,7 @@ import package_659_mustang_late_load as base
 
 ROOT = base.ROOT
 VERSION = "v6.9.10-beta-1"
-VERSION_CODE = 131
+VERSION_CODE = 132
 APP_PATH = ROOT / "common/files/release/JamesDSPManagerThePBone.apk"
 APP_SHA256 = "d696cea84d589310f2b3bde79553e13cbb16940c8906c31b5dd798ba1552ca9a"
 OUTPUT = Path(os.environ.get(

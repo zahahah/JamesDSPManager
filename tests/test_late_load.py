@@ -739,6 +739,27 @@ exit 0
             self.assertNotIn("uninstall", log)
             self.assertIn("Updated installed app", (module / "logs/jamesdsp_app_install.log").read_text())
 
+    def test_jdsp_app_does_not_treat_non_success_output_as_update_success(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks = root / "module", root / "mocks"
+            module.mkdir(); mocks.mkdir(); (module / "logs").mkdir()
+            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
+            (module / "JamesDSPManager.apk").write_text("apk")
+            pm_body = '''if [ "$1 $2" = "list packages" ]; then echo package:james.dsp; exit 0; fi
+if [ "$1 $2" = "list users" ]; then echo 'UserInfo{0:Owner:13}'; exit 0; fi
+echo "$@" >>"$MOCK_PM_LOG"
+echo 'Failure [INSTALL_FAILED_INTERNAL_ERROR]'
+exit 0
+'''
+            result = self.run_jdsp_app(module, mocks, pm_body, {"JDSP_FLASH_INSTALL": "1"})
+            self.assertEqual(result.returncode, 0, result.stderr)
+            log = (module / "logs/jamesdsp_app_install.log").read_text()
+            self.assertIn("did not confirm installation success", log)
+            self.assertIn("existing app preserved", log)
+            self.assertNotIn("Updated installed app", log)
+            self.assertNotIn("uninstall", (root / "pm.log").read_text())
+
     def test_jdsp_app_different_signature_requires_volume_down_and_defaults_to_keep(self):
         for key_event, should_uninstall in (("KEY_VOLUMEDOWN DOWN", True), ("KEY_VOLUMEUP DOWN", False), ("", False)):
             with self.subTest(key_event=key_event), tempfile.TemporaryDirectory() as tmp:
@@ -753,7 +774,7 @@ if [ "$1 $2" = "list users" ]; then echo 'UserInfo{{0:Owner:13}}'; exit 0; fi
 echo "$@" >>"$MOCK_PM_LOG"
 if [ "$1" = install ]; then
   n=0; [ -f "{state}" ] && n=$(cat "{state}"); n=$((n+1)); echo "$n" >"{state}"
-  [ "$n" -eq 1 ] && {{ echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 1; }}
+  [ "$n" -eq 1 ] && {{ echo 'Failure [INSTALL_FAILED_UPDATE_INCOMPATIBLE: signatures do not match]'; exit 0; }}
 fi
 echo Success
 exit 0
@@ -791,6 +812,7 @@ exit 0
   "list users") echo 'UserInfo{{0:Owner:13}}'; exit 0 ;;
 esac
 echo "$@" >>"{pm_log}"
+if [ "$1" = install ]; then echo Success; fi
 exit 0
 '''
             result = self.run_jdsp_app(module, mocks, pm_body)

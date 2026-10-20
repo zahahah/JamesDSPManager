@@ -7,6 +7,9 @@
   decision for 10 seconds: volume down confirms uninstall/reinstall, volume up
   declines, and no response preserves the existing app. A confirmed uninstall
   may erase private app data.
+* Require both a successful Package Manager exit status and explicit `Success`
+  output before reporting an update; classify signature-mismatch output even
+  when an OEM package command returns an unreliable exit code.
 * Keep Samsung late-load and normal built-in AIDL config preparation covered by
   the focused module tests. This prerelease does not claim new device validation.
 
