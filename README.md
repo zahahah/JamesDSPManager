@@ -23,7 +23,7 @@ It's a collection of tools, not a preset that automatically makes everything sou
 
 ## What's different in this fork?
 
-We're keeping the familiar ThePBone-based interface while changing how the app talks to the audio engine. The main control path is now **`jdsp.control`**, a global **Binder service** provided by our native JamesDSP library.
+We're keeping the familiar ThePBone-based interface while changing how the app talks to the audio engine. The main control path is now **`jdsp.control`**, a global **Binder service** provided by our native `libjamesdsp` library, which I compiled myself.
 
 There are three parts to the setup:
 
