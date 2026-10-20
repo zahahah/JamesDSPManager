@@ -6,7 +6,7 @@ This is our root-only JamesDSP module, paired with a modified version of ThePBon
 
 The current release is **v6.6-beta-1**, with the **JamesDSP root app 1.6.17 (versionCode 60)**. Development lives on `master`; `pixel-test-new-aidl` remains the integration branch.
 
-[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-1) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source](https://github.com/zahahah/LibLightningDSP-OSS)
+[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-1) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
 ## What can it do?
 
@@ -114,7 +114,7 @@ python3 tools/package_native_control_v4.py
 
 The packager verifies the native hashes, provenance, APK package/version and authorized signing certificate before producing the ZIP in `dist/`. It supports `master` and `pixel-test-new-aidl`. GitHub Actions runs the same verification and packaging flow.
 
-Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS); app development belongs in [RootJamesDSP](https://github.com/zahahah/RootJamesDSP). For historical release notes, see [changelog.md](changelog.md).
+Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [RootJamesDSP](https://github.com/zahahah/RootJamesDSP). For historical release notes, see [changelog.md](changelog.md).
 
 ## Credits and licensing
 
