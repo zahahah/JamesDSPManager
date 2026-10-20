@@ -93,8 +93,8 @@ def build(output, root=ROOT):
     if branch not in ('master', 'pixel-test-new-aidl'):
         raise ValueError('V4 distribution requires master or pixel-test-new-aidl')
     props = (root / 'module.prop').read_text()
-    if 'version=v6.6-beta-1\n' not in props or 'versionCode=134\n' not in props:
-        raise ValueError('Expected the promoted v6.6-beta-1 prerelease metadata')
+    if 'version=v6.6-beta-2\n' not in props or 'versionCode=135\n' not in props:
+        raise ValueError('Expected the v6.6-beta-2 prerelease metadata')
     payloads = dict(previous.PAYLOADS)
     payloads.pop('native-control/provenance.json', None)
     # This candidate exposes only the ThePBone root app. Retire the prior
@@ -143,7 +143,7 @@ def main():
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write('ready=' + str(ready).lower() + '\n')
         return
-    output = ROOT / 'dist/JamesDSPManager-v6.6-beta-1.zip'
+    output = ROOT / 'dist/JamesDSPManager-v6.6-beta-2.zip'
     print(build(output))
 
 if __name__ == '__main__':
