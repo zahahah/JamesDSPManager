@@ -32,13 +32,13 @@ class PixelNativeControlPackageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "V4 native build not imported"):
                 package.build(root / "candidate.zip", root=root)
 
-    def test_principal_and_integration_branches_package_identical_payloads(self):
+    def test_identical_sources_package_deterministically(self):
         with tempfile.TemporaryDirectory() as tmp:
             payloads = []
             for branch in ('master', 'pixel-test-new-aidl'):
                 output = Path(tmp) / (branch + '.zip')
                 with patch.object(package, 'verify_artifacts', return_value={}), \
-                     patch.object(package.subprocess, 'check_output', return_value=branch):
+                     patch.object(package, 'distribution_version', return_value='v6.6-beta-4'):
                     package.build(output)
                 payloads.append(output.read_bytes())
             self.assertEqual(payloads[0], payloads[1])
@@ -47,8 +47,30 @@ class PixelNativeControlPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(package, 'verify_artifacts', return_value={}), \
                  patch.object(package.subprocess, 'check_output', return_value='unrelated'):
-                with self.assertRaisesRegex(ValueError, 'requires master or pixel-test-new-aidl'):
+                with self.assertRaisesRegex(ValueError, 'requires an approved branch'):
                     package.build(Path(tmp) / 'candidate.zip')
+
+    def test_approved_branches_require_their_own_release_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for branch, (version, code) in package.DISTRIBUTIONS.items():
+                (root / 'module.prop').write_text(f'version={version}\nversionCode={code}\n')
+                with patch.object(package.subprocess, 'check_output', return_value=branch):
+                    self.assertEqual(package.distribution_version(root), version)
+            (root / 'module.prop').write_text('version=v6.6-beta-4\nversionCode=137\n')
+            with patch.object(package.subprocess, 'check_output', return_value='samsung-test-new-aidl'):
+                with self.assertRaisesRegex(ValueError, 'samsung-test1'):
+                    package.distribution_version(root)
+
+    def test_samsung_script_is_packaged_without_an_enabled_opt_in(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'candidate.zip'
+            with patch.object(package, 'verify_artifacts', return_value={}):
+                package.build(output)
+            with ZipFile(output) as archive:
+                self.assertIn('samsung-audio-recovery.sh', archive.namelist())
+                self.assertEqual(archive.getinfo('samsung-audio-recovery.sh').external_attr >> 16, 0o100755)
+                self.assertNotIn('.samsung-firmware-recovery-opt-in', archive.namelist())
 
     def test_retired_native_payloads_cannot_be_relabelled_as_v4(self):
         self.assertIn("cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a", package.RETIRED_DRIVERS)

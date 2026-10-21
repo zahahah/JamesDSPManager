@@ -4,7 +4,9 @@
 
 This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-The current prerelease is **v6.6-beta-4**, with the **JamesDSP root app 1.6.17 (versionCode 62)**. In KernelSU temp-root/late-load, the module waits 10 seconds, then makes one guarded audio-HAL recovery attempt on devices with a verified target. The app's Retry action can request one additional attempt. No path restarts `audioserver`; unknown HAL targets fail closed. The new beta-4 recovery flow still needs device validation, and Samsung compatibility remains unverified. Development is on `pixel-test-new-aidl`; `master` has not received these changes.
+This is the **`samsung-test-new-aidl` experimental branch**, based on v6.6-beta-4. The local candidate is `v6.6-beta-4-samsung-test1` (module code 138). It adds a manual, opt-in firmware recovery path for the reported Samsung `h8q`; audio processing on that device remains unverified. See [Samsung recovery](SAMSUNG-RECOVERY.md) for prerequisites, risks, and how to interpret results. The native library, helper, and signed root app **1.6.17/code 62** are unchanged.
+
+The published prerelease remains **v6.6-beta-4**. Its Pixel late-load path waits 10 seconds before a guarded HAL recovery; the owner reported it working on `mustang`. This Samsung branch does **not** add automatic Samsung audio restarts and has not been validated on a Samsung. `master` and `pixel-test-new-aidl` are not changed by this experiment.
 
 [Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
@@ -62,7 +64,7 @@ That's evidence for this setup, not a universal Android compatibility badge.
 
 **PIXAML isn't required for JamesDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make JamesDSP work.
 
-Late-load support can restart the verified audio HAL once after a delay. It never restarts `audioserver`. The normal boot path and late-load preparation are handled separately, and SELinux stays enforcing.
+The retained Pixel late-load path can restart its selected HAL after a delay. The experimental Samsung path requires explicit opt-in and a user Retry; it uses the firmware's multi-service stop/start handler instead. Neither path directly commands an `audioserver` restart, but vendor init actions or Binder disconnections can still cause one. Normal boot and late-load preparation remain separate, and SELinux stays enforcing.
 
 ## Installation
 
@@ -112,7 +114,7 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 python3 tools/package_native_control_v4.py
 ```
 
-The packager verifies the native hashes, provenance, APK package/version and authorized signing certificate before producing the ZIP in `dist/`. It supports `master` and `pixel-test-new-aidl`. GitHub Actions runs the same verification and packaging flow.
+The packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. It accepts `master`, `pixel-test-new-aidl`, and this experimental `samsung-test-new-aidl` branch with distinct required release metadata. GitHub Actions verifies and packages; it does not install the module or publish a release.
 
 Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [RootJamesDSP](https://github.com/zahahah/RootJamesDSP). For historical release notes, see [changelog.md](changelog.md).
 

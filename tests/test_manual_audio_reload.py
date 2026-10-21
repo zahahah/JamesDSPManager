@@ -148,6 +148,37 @@ class ManualAudioReloadTests(unittest.TestCase):
             self.assertIn("overlay_not_visible_to_hal", result.stdout)
             self.assertFalse(marker.exists())
 
+    def test_h8q_cannot_use_direct_legacy_hal_restart(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            script, marker, env = self.fixture(root)
+            self.executable(Path(env['JDSP_GETPROP_BIN']),
+                            'case "$1" in ro.product.device) echo h8q ;; *) echo running ;; esac\n')
+            result = subprocess.run(['sh', str(script), '--manual-once'], env=env,
+                                    capture_output=True, text=True)
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn('use_samsung_firmware_recovery', result.stdout)
+            self.assertFalse(marker.exists())
+
+    def test_h8q_dispatches_only_explicit_retry_to_samsung_recovery(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = Path(tmp)
+            (module / 'logs').mkdir()
+            (module / 'logs/native-control.status').write_text('WAITING policy=typed_rules_refreshed\n')
+            script = module / 'audio-hal-recovery.sh'
+            script.write_bytes((ROOT / script.name).read_bytes())
+            getprop = self.executable(module / 'getprop', 'echo h8q\n')
+            self.executable(module / 'samsung-audio-recovery.sh',
+                            'echo "$*" >>"${0%/*}/samsung.calls"\n')
+            env = {**os.environ, 'JDSP_GETPROP_BIN': str(getprop)}
+            auto = subprocess.run(['sh', str(script), '--auto-once'], env=env, capture_output=True, text=True)
+            self.assertNotEqual(auto.returncode, 0)
+            self.assertIn('samsung_requires_explicit_retry', auto.stdout)
+            self.assertFalse((module / 'samsung.calls').exists())
+            retry = subprocess.run(['sh', str(script), '--retry'], env=env, capture_output=True, text=True)
+            self.assertEqual(retry.returncode, 0, retry.stdout + retry.stderr)
+            self.assertEqual((module / 'samsung.calls').read_text(), '--retry-once\n')
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -52,6 +52,8 @@ case "$HAL_SERVICE:$HAL_PROCESS" in
     :*|*:|*[!a-zA-Z0-9_.:-]*) finish 'BLOCKED reason=explicit_hal_identity_required' ;;
 esac
 [ "$("$ID_BIN" -u 2>/dev/null)" = 0 ] || finish 'BLOCKED reason=root_required'
+[ "$("$GETPROP_BIN" ro.product.device 2>/dev/null)" != h8q ] || \
+    finish 'BLOCKED reason=use_samsung_firmware_recovery'
 [ -f "$MODPATH/.AIDL" ] || finish 'BLOCKED reason=aidl_marker_missing'
 [ ! -f "$MODPATH/disable" ] && [ ! -f "$MODPATH/skip_mount" ] || \
     finish 'BLOCKED reason=module_not_mounted'

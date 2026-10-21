@@ -23,6 +23,11 @@ RETIRED_DRIVERS = {
     'cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a',
 }
 TRUSTED_APK_SIGNER = 'c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357'
+DISTRIBUTIONS = {
+    'master': ('v6.6-beta-4', 137),
+    'pixel-test-new-aidl': ('v6.6-beta-4', 137),
+    'samsung-test-new-aidl': ('v6.6-beta-4-samsung-test1', 138),
+}
 
 def android_tool(name):
     explicit = os.environ.get('JDSP_' + name.upper()) or shutil.which(name)
@@ -87,14 +92,19 @@ def verify_artifacts(root=ROOT):
         raise ValueError('Installer APK version metadata mismatch')
     return value
 
+def distribution_version(root=ROOT):
+    branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
+    if branch not in DISTRIBUTIONS:
+        raise ValueError('V4 distribution requires an approved branch: ' + ', '.join(DISTRIBUTIONS))
+    version, code = DISTRIBUTIONS[branch]
+    props = (root / 'module.prop').read_text()
+    if f'version={version}\n' not in props or f'versionCode={code}\n' not in props:
+        raise ValueError('Expected the ' + version + ' metadata on ' + branch)
+    return version
+
 def build(output, root=ROOT):
     value = verify_artifacts(root)
-    branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch not in ('master', 'pixel-test-new-aidl'):
-        raise ValueError('V4 distribution requires master or pixel-test-new-aidl')
-    props = (root / 'module.prop').read_text()
-    if 'version=v6.6-beta-4\n' not in props or 'versionCode=137\n' not in props:
-        raise ValueError('Expected the v6.6-beta-4 prerelease metadata')
+    distribution_version(root)
     payloads = dict(previous.PAYLOADS)
     payloads.pop('native-control/provenance.json', None)
     # This candidate exposes only the ThePBone root app. Retire the prior
@@ -108,8 +118,10 @@ def build(output, root=ROOT):
         payloads.pop(retired, None)
     payloads.update({
         'TEMP-ROOT-RELOAD.md': 0o100644,
+        'SAMSUNG-RECOVERY.md': 0o100644,
         'manual-audio-reload.sh': 0o100755,
         'audio-hal-recovery.sh': 0o100755,
+        'samsung-audio-recovery.sh': 0o100755,
         'native-control.sh': 0o100755,
         MANIFEST: 0o100644,
         'native-control/v4-build-provenance.json': 0o100644,
@@ -144,7 +156,7 @@ def main():
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write('ready=' + str(ready).lower() + '\n')
         return
-    output = ROOT / 'dist/JamesDSPManager-v6.6-beta-4.zip'
+    output = ROOT / ('dist/JamesDSPManager-' + distribution_version() + '.zip')
     print(build(output))
 
 if __name__ == '__main__':

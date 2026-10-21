@@ -33,6 +33,16 @@ fi
 
 device=$("$GETPROP_BIN" ro.product.device 2>/dev/null)
 case "$device" in
+	h8q)
+		# The audited Samsung handler stops/starts several HAL services. Keep it
+		# manual and opt-in until runtime loading and recovery are validated.
+		if [ "$MODE" != --retry-once ]; then
+			printf 'BLOCKED reason=samsung_requires_explicit_retry device=h8q mode=%s\n' \
+				"$MODE" | tee "$LOGDIR/audio-hal-recovery.status"
+			exit 1
+		fi
+		exec sh "$MODPATH/samsung-audio-recovery.sh" --retry-once
+		;;
 	mustang)
 		JDSP_AUDIO_HAL_INIT_SERVICE=vendor.audio-hal-aidl
 		JDSP_AUDIO_HAL_PROCESS=android.hardware.audio.service-aidl.aoc

@@ -1,3 +1,15 @@
+### v6.6-beta-4-samsung-test1 (local experimental candidate)
+
+* Add a manual, opt-in recovery path for the reported h8q firmware using its
+  audited multi-service stop/start handler, not a direct HAL restart.
+* Validate factory ownership, executable identities, current-boot preparation,
+  typed policy, namespace overlays, and the firmware handler before a request.
+* Replace dependence on Samsung's empty factory dump with a bounded library-load
+  check, leaving actual UUID discovery and attachment to the existing app.
+* Keep automatic Samsung recovery disabled and limit opted-in recovery to one
+  request per boot, including failed requests. No audio-processing claim is made.
+* Preserve beta-4's signed APK, native driver and helper without recompilation.
+
 ### v6.6-beta-4
 
 * Schedule one validated audio-HAL recovery 10 seconds after KernelSU
