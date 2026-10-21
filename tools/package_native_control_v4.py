@@ -26,7 +26,7 @@ TRUSTED_APK_SIGNER = 'c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710
 DISTRIBUTIONS = {
     'master': ('v6.6-beta-4', 137),
     'pixel-test-new-aidl': ('v6.6-beta-4', 137),
-    'samsung-test-new-aidl': ('v6.6-beta-4-samsung-test1', 138),
+    'samsung-test-new-aidl': ('v6.6-beta-4-samsung-test2', 139),
 }
 
 def android_tool(name):
@@ -119,9 +119,9 @@ def build(output, root=ROOT):
     payloads.update({
         'TEMP-ROOT-RELOAD.md': 0o100644,
         'SAMSUNG-RECOVERY.md': 0o100644,
-        'manual-audio-reload.sh': 0o100755,
         'audio-hal-recovery.sh': 0o100755,
-        'samsung-audio-recovery.sh': 0o100755,
+        'aidl-audio-recovery.sh': 0o100755,
+        'aidl-effect-mount.sh': 0o100755,
         'native-control.sh': 0o100755,
         MANIFEST: 0o100644,
         'native-control/v4-build-provenance.json': 0o100644,

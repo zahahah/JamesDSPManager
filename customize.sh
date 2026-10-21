@@ -51,9 +51,9 @@ set_permissions() {
   [ -f "$MODPATH/service.sh" ] && set_perm "$MODPATH/service.sh" 0 0 0755
   [ -f "$MODPATH/late-load.sh" ] && set_perm "$MODPATH/late-load.sh" 0 0 0755
   [ -f "$MODPATH/audio-reload.sh" ] && set_perm "$MODPATH/audio-reload.sh" 0 0 0755
-  [ -f "$MODPATH/manual-audio-reload.sh" ] && set_perm "$MODPATH/manual-audio-reload.sh" 0 0 0755
   [ -f "$MODPATH/audio-hal-recovery.sh" ] && set_perm "$MODPATH/audio-hal-recovery.sh" 0 0 0755
-  [ -f "$MODPATH/samsung-audio-recovery.sh" ] && set_perm "$MODPATH/samsung-audio-recovery.sh" 0 0 0755
+  [ -f "$MODPATH/aidl-audio-recovery.sh" ] && set_perm "$MODPATH/aidl-audio-recovery.sh" 0 0 0755
+  [ -f "$MODPATH/aidl-effect-mount.sh" ] && set_perm "$MODPATH/aidl-effect-mount.sh" 0 0 0755
   [ -f "$MODPATH/jdsp_app.sh" ] && set_perm "$MODPATH/jdsp_app.sh" 0 0 0755
 
   # Note that all files/folders in magisk module directory have the $MODPATH prefix - keep this prefix on all of your files/folders

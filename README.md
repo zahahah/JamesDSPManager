@@ -4,11 +4,11 @@
 
 This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-This is the **`samsung-test-new-aidl` experimental branch**, based on v6.6-beta-4. The local candidate is `v6.6-beta-4-samsung-test1` (module code 138). It adds a manual, opt-in firmware recovery path for the reported Samsung `h8q`; audio processing on that device remains unverified. See [Samsung recovery](SAMSUNG-RECOVERY.md) for prerequisites, risks, and how to interpret results. The native library, helper, and signed root app **1.6.17/code 62** are unchanged.
+This is the **`samsung-test-new-aidl` experimental branch**, based on v6.6-beta-4. The local candidate is `v6.6-beta-4-samsung-test2` (module code 139). Despite the branch name, test2 uses one capability-driven AIDL late-load bridge, without a Pixel/Samsung model allowlist. It mounts the live effect files into init's namespace and can request one audited firmware recovery automatically after ten seconds. See [the late-load guide](TEMP-ROOT-RELOAD.md) for behavior, disable/retry controls, risks and limitations.
 
-The published prerelease remains **v6.6-beta-4**. Its Pixel late-load path waits 10 seconds before a guarded HAL recovery; the owner reported it working on `mustang`. This Samsung branch does **not** add automatic Samsung audio restarts and has not been validated on a Samsung. `master` and `pixel-test-new-aidl` are not changed by this experiment.
+The published Samsung prerelease is still **test1**; test2 is local and unvalidated on hardware. Pixel's previously reported beta-4 result does not validate this new path. The native library, helper, and signed root app **1.6.17/code 62** are unchanged. `master` and `pixel-test-new-aidl` have not been changed.
 
-[Download the module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
+[Published test1 module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4-samsung-test1) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
 ## What can it do?
 
@@ -64,7 +64,7 @@ That's evidence for this setup, not a universal Android compatibility badge.
 
 **PIXAML isn't required for JamesDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make JamesDSP work.
 
-The retained Pixel late-load path can restart its selected HAL after a delay. The experimental Samsung path requires explicit opt-in and a user Retry; it uses the firmware's multi-service stop/start handler instead. Neither path directly commands an `audioserver` restart, but vendor init actions or Binder disconnections can still cause one. Normal boot and late-load preparation remain separate, and SELinux stays enforcing.
+The common late-load path mounts first, then uses a validated firmware stop/start handler, at most once per boot. There is no model-based preference or hidden opt-in requirement in test2. It never directly requests an `audioserver` restart, but vendor actions or Binder disconnections can still cause one. Normal boot remains separate, and SELinux stays enforcing.
 
 ## Installation
 

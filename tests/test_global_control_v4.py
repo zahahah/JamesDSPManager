@@ -59,17 +59,19 @@ class PixelNativeControlPackageTests(unittest.TestCase):
                     self.assertEqual(package.distribution_version(root), version)
             (root / 'module.prop').write_text('version=v6.6-beta-4\nversionCode=137\n')
             with patch.object(package.subprocess, 'check_output', return_value='samsung-test-new-aidl'):
-                with self.assertRaisesRegex(ValueError, 'samsung-test1'):
+                with self.assertRaisesRegex(ValueError, 'samsung-test2'):
                     package.distribution_version(root)
 
-    def test_samsung_script_is_packaged_without_an_enabled_opt_in(self):
+    def test_common_aidl_scripts_replace_legacy_recovery_without_opt_in(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / 'candidate.zip'
             with patch.object(package, 'verify_artifacts', return_value={}):
                 package.build(output)
             with ZipFile(output) as archive:
-                self.assertIn('samsung-audio-recovery.sh', archive.namelist())
-                self.assertEqual(archive.getinfo('samsung-audio-recovery.sh').external_attr >> 16, 0o100755)
+                for script in ('aidl-effect-mount.sh', 'aidl-audio-recovery.sh'):
+                    self.assertEqual(archive.getinfo(script).external_attr >> 16, 0o100755)
+                self.assertNotIn('samsung-audio-recovery.sh', archive.namelist())
+                self.assertNotIn('manual-audio-reload.sh', archive.namelist())
                 self.assertNotIn('.samsung-firmware-recovery-opt-in', archive.namelist())
 
     def test_retired_native_payloads_cannot_be_relabelled_as_v4(self):

@@ -48,7 +48,6 @@ class LateLoadTests(unittest.TestCase):
             script.index('rm -f "$MODPATH/skip_mount"'),
         )
         self.assertIn('mv -f "$tmp" "$xml"', script)
-        self.assertIn('mv -f "$tmp" "$dst"', script)
         self.assertIn('mv -f "$tmp" "$MOD_VENDOR/etc/audio_effects_config.xml"', script)
         self.assertNotIn('cat "$tmp" >"$xml"', script)
         self.assertNotIn('cat "$tmp" >"$dst"', script)
@@ -120,6 +119,19 @@ class LateLoadTests(unittest.TestCase):
             self.assertTrue(status.startswith("READY late_load=1 boot_id="))
             self.assertIn(" vendor_config=patched_from_live_vendor lib=validated ", status)
 
+    def test_vendor_config_with_no_pixel_anchors_is_preserved(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module = self.make_late_load_module(tmp)
+            config = module / 'live_vendor_config.xml'
+            config.write_text(config.read_text().replace('libbundleaidl.so', 'libsamsung.so').replace(XML_UUID, 'vendor-uuid'))
+            result = self.run_post_fs(module, mock_executable(module / 'linker', 'exit 0\n'))
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertFalse((module / 'skip_mount').exists())
+            patched = (module / 'system/vendor/etc/audio_effects_config.xml').read_text()
+            self.assertIn('libsamsung.so', patched)
+            self.assertIn('vendor-uuid', patched)
+            self.assertIn(JDSP_UUID, patched)
+
     def test_post_fs_data_prepares_late_load_without_pixaml(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
@@ -174,7 +186,7 @@ class LateLoadTests(unittest.TestCase):
                 (module / "system/vendor/etc/audio_effects_config.xml").read_text(),
             )
 
-    def test_post_fs_data_generates_aidl_config_from_system_legacy_when_vendor_config_absent(self):
+    def test_post_fs_data_uses_dedicated_aidl_config_without_pixel_library_aliases(self):
         with tempfile.TemporaryDirectory() as tmp:
             module = self.make_late_load_module(tmp)
             linker = mock_executable(module / "linker", "exit 0\n")
@@ -206,14 +218,15 @@ class LateLoadTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((module / "skip_mount").exists())
             patched = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
-            self.assertIn('path="libbundleaidl.so"', patched)
-            self.assertIn('path="libreverbaidl.so"', patched)
-            self.assertIn('path="libvisualizeraidl.so"', patched)
+            self.assertNotIn('libbundle', patched)
+            self.assertNotIn('libreverb', patched)
+            self.assertNotIn('libvisualizer', patched)
+            self.assertIn('libbundlewrapper.so', legacy.read_text())
             self.assertNotIn('path="libaudiopreprocessing.so"', patched)
             self.assertIn(JDSP_UUID, patched)
             status = (module / "logs/late-load.status").read_text()
             self.assertTrue(status.startswith("READY late_load=1 boot_id="))
-            self.assertIn(" vendor_config=generated_from_system_legacy lib=validated ", status)
+            self.assertIn(" vendor_config=dedicated_aidl_template lib=validated ", status)
 
     def test_post_fs_data_fails_closed_when_late_load_lib_cannot_link(self):
         with tempfile.TemporaryDirectory() as tmp:

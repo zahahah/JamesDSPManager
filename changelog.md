@@ -1,4 +1,22 @@
-### v6.6-beta-4-samsung-test1 (local experimental candidate)
+### v6.6-beta-4-samsung-test2 (local experimental candidate)
+
+* Replace the model-selected primary recovery with a common AIDL late-load path.
+* Bind the driver and live vendor/ODM/system/product/SKU configs into init's
+  mount namespace, preserving existing effect entries and configuration labels.
+* Stop assuming Pixel stock library names when a vendor AIDL config is absent;
+  use a dedicated JamesDSP AIDL config in that case. Stock-effect regressions
+  remain a device-test requirement for this fallback.
+* Discover the factory owner and audit the firmware stop/start handler rather
+  than guessing process names or terminating audioserver.
+* Enable one automatic firmware request after the existing ten-second delay on
+  capable firmware, without the test1 opt-in requirement. Retry uses the same
+  once-per-boot guard. Unsupported handlers fail closed; disable markers work.
+* Track pending mount generations and observe mappings beyond the reported
+  five-second failure. Mapping is not effect registration or processed audio.
+* Keep the signed APK and native driver/helper unchanged; no hardware validation
+  is claimed for this candidate.
+
+### v6.6-beta-4-samsung-test1 (published experimental prerelease)
 
 * Add a manual, opt-in recovery path for the reported h8q firmware using its
   audited multi-service stop/start handler, not a direct HAL restart.

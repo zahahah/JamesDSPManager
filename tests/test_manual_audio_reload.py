@@ -77,10 +77,10 @@ class ManualAudioReloadTests(unittest.TestCase):
 
     def test_packaged_recovery_dispatcher_and_auto_schedule(self):
         source = (ROOT / "tools/package_native_control_v4.py").read_text()
-        self.assertIn("'manual-audio-reload.sh': 0o100755", source)
+        self.assertIn("'aidl-audio-recovery.sh': 0o100755", source)
         self.assertIn("'audio-hal-recovery.sh': 0o100755", source)
         self.assertIn("audio-hal-recovery.sh" , (ROOT / "service.sh").read_text())
-        self.assertIn('set_perm "$MODPATH/manual-audio-reload.sh" 0 0 0755',
+        self.assertIn('set_perm "$MODPATH/aidl-audio-recovery.sh" 0 0 0755',
                       (ROOT / "customize.sh").read_text())
         self.assertIn('set_perm "$MODPATH/audio-hal-recovery.sh" 0 0 0755',
                       (ROOT / "customize.sh").read_text())
@@ -112,31 +112,19 @@ class ManualAudioReloadTests(unittest.TestCase):
             self.assertIn("retry_reload_already_attempted_this_boot", second.stdout)
             self.assertEqual(marker.read_text(), "ctl.restart vendor.audio-hal-aidl\n")
 
-    def test_recovery_dispatcher_uses_only_verified_target_and_fails_closed(self):
+    def test_recovery_dispatcher_uses_common_aidl_path_without_model_selection(self):
         with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            module = root / "module"
-            module.mkdir()
-            (module / "logs").mkdir()
-            (module / "logs/native-control.status").write_text("WAITING policy=typed_rules_refreshed\n")
-            script = module / "audio-hal-recovery.sh"
-            script.write_bytes((ROOT / "audio-hal-recovery.sh").read_bytes())
-            invoked = root / "manual-called"
-            manual = module / "manual-audio-reload.sh"
-            manual.write_text(f'#!/bin/sh\nprintf "%s|%s|%s" "$JDSP_AUDIO_HAL_INIT_SERVICE" "$JDSP_AUDIO_HAL_PROCESS" "$1" >"{invoked}"\n')
-            manual.chmod(0o755)
-            getprop = root / "getprop"
-            self.executable(getprop, "echo \"${DEVICE:-unknown}\"\n")
-            env = {**os.environ, "JDSP_GETPROP_BIN": str(getprop), "DEVICE": "mustang"}
-            result = subprocess.run(["sh", str(script), "--retry"], env=env, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertEqual(invoked.read_text(), "vendor.audio-hal-aidl|android.hardware.audio.service-aidl.aoc|--retry-once")
-            invoked.unlink()
-            env["DEVICE"] = "unverified_samsung"
-            result = subprocess.run(["sh", str(script), "--auto-once"], env=env, capture_output=True, text=True)
-            self.assertNotEqual(result.returncode, 0)
-            self.assertIn("unverified_audio_hal_target", result.stdout)
-            self.assertFalse(invoked.exists())
+            module = Path(tmp)
+            script = module / 'audio-hal-recovery.sh'
+            script.write_bytes((ROOT / script.name).read_bytes())
+            self.executable(module / 'aidl-audio-recovery.sh',
+                            'echo "$1" >>"${0%/*}/aidl.calls"\n')
+            for mode in ('--auto-once', '--retry', '--check'):
+                result = subprocess.run(['sh', str(script), mode], capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual((module / 'aidl.calls').read_text(), '--auto-once\n--retry\n--check\n')
+            invalid = subprocess.run(['sh', str(script), '--unknown'], capture_output=True, text=True)
+            self.assertEqual(invalid.returncode, 2)
 
     def test_invisible_overlay_blocks_before_restart(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -160,24 +148,6 @@ class ManualAudioReloadTests(unittest.TestCase):
             self.assertIn('use_samsung_firmware_recovery', result.stdout)
             self.assertFalse(marker.exists())
 
-    def test_h8q_dispatches_only_explicit_retry_to_samsung_recovery(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            module = Path(tmp)
-            (module / 'logs').mkdir()
-            (module / 'logs/native-control.status').write_text('WAITING policy=typed_rules_refreshed\n')
-            script = module / 'audio-hal-recovery.sh'
-            script.write_bytes((ROOT / script.name).read_bytes())
-            getprop = self.executable(module / 'getprop', 'echo h8q\n')
-            self.executable(module / 'samsung-audio-recovery.sh',
-                            'echo "$*" >>"${0%/*}/samsung.calls"\n')
-            env = {**os.environ, 'JDSP_GETPROP_BIN': str(getprop)}
-            auto = subprocess.run(['sh', str(script), '--auto-once'], env=env, capture_output=True, text=True)
-            self.assertNotEqual(auto.returncode, 0)
-            self.assertIn('samsung_requires_explicit_retry', auto.stdout)
-            self.assertFalse((module / 'samsung.calls').exists())
-            retry = subprocess.run(['sh', str(script), '--retry'], env=env, capture_output=True, text=True)
-            self.assertEqual(retry.returncode, 0, retry.stdout + retry.stderr)
-            self.assertEqual((module / 'samsung.calls').read_text(), '--retry-once\n')
 
 
 if __name__ == "__main__":
