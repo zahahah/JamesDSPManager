@@ -45,6 +45,16 @@ else
 AIDL=false
 fi
 
+# The embedded experiment ships only its inspected ARM64 AIDL driver. Reject
+# unsupported transports/architectures before copying libraries or touching apps.
+if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
+    [ "$AIDL" = true ] || abort "! Embedded v5 requires an advertised AIDL effect factory; no legacy driver is bundled."
+    case ",$(getprop ro.product.cpu.abilist64)," in
+        *,arm64-v8a,*) ;;
+        *) abort "! Embedded v5 contains only the ARM64 driver; no matching device ABI found." ;;
+    esac
+fi
+
 ui_print " "
 ui_print "- Lib bit detection -"
 

@@ -27,7 +27,7 @@ class NativeControlPatchTests(unittest.TestCase):
         self.calls = self.root / "patchelf-calls"
         self.patchelf = self.root / "patchelf"
 
-    def run_patch(self, needed=EXPECTED, add_available=True, allow_mismatch=False):
+    def run_patch(self, needed=EXPECTED, add_available=True, allow_mismatch=False, library_roots=None):
         if add_available:
             for dependency in EXPECTED:
                 (self.deps / dependency).touch()
@@ -43,7 +43,7 @@ class NativeControlPatchTests(unittest.TestCase):
             "MODPATH": str(self.module),
             "MOD_VENDOR": str(self.module / "system/vendor"),
             "JDSP_PATCHELF_BIN": str(self.patchelf),
-            "JDSP_SYSTEM_LIB_DIRS": str(self.deps),
+            "JDSP_SYSTEM_LIB_DIRS": library_roots or str(self.deps),
             "JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH": "1" if allow_mismatch else "0",
         }
         return subprocess.run(
@@ -90,6 +90,48 @@ class NativeControlPatchTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("device lacks exact AIDL dependency", result.stderr)
         self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
+
+    def embedded_profile(self):
+        control = self.module / 'native-control'
+        control.mkdir()
+        (control / 'v5-candidate.json').write_text('{"iteration": 5}')
+
+    def test_embedded_driver_needs_no_versioned_audio_dsos(self):
+        self.embedded_profile()
+        needed = ('libbinder_ndk.so', 'liblog.so', 'libc.so', 'libm.so', 'libdl.so')
+        for name in needed:
+            (self.deps / name).touch()
+        result = self.run_patch(needed, add_available=False)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('embedded v5', result.stdout)
+        self.assertEqual(len(self.calls.read_text().splitlines()), 1)
+
+    def test_embedded_profile_resolves_bionic_from_an_apex_library_directory(self):
+        self.embedded_profile()
+        bionic = self.root / 'apex/com.android.runtime/lib64/bionic'
+        bionic.mkdir(parents=True)
+        (bionic / 'libc.so').touch()
+        (self.deps / 'libbinder_ndk.so').touch()
+        roots = str(self.deps) + ' ' + str(self.root / 'apex/*/lib64/bionic')
+        result = self.run_patch(('libbinder_ndk.so', 'libc.so'), add_available=False, library_roots=roots)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('/apex/*/lib64/bionic', (ROOT / 'patch.sh').read_text())
+
+    def test_embedded_profile_rejects_shared_audio_or_empty_dependency_list(self):
+        for needed in ((), EXPECTED, ('libbinder_ndk.so', 'libc.so', 'libc++.so'),
+                       ('libbinder_ndk.so',), ('libc.so',)):
+            with self.subTest(needed=needed):
+                marker = self.module / 'native-control/v5-candidate.json'
+                if not marker.exists():
+                    self.embedded_profile()
+                result = self.run_patch(needed, add_available=False)
+                self.assertNotEqual(result.returncode, 0)
+
+    def test_embedded_profile_still_rejects_missing_system_dependencies(self):
+        self.embedded_profile()
+        result = self.run_patch(('libbinder_ndk.so', 'libc.so'), add_available=False)
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('device lacks exact embedded-driver dependency', result.stderr)
 
 
 if __name__ == "__main__":

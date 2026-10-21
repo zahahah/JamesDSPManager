@@ -3,8 +3,10 @@ MODPATH=${0%/*}
 MODDIR="$MODPATH"
 LOGDIR="$MODPATH/logs"
 STATUS="$LOGDIR/late-load.status"
-NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v4-build-provenance.json"
-# Keep the historical baseline usable until the validated v4 import replaces it.
+NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v5-build-provenance.json"
+# Only imported artifacts have provenance. Keep the historical source baselines
+# usable, but do not treat an awaiting v5 manifest as an imported driver.
+[ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v4-build-provenance.json"
 [ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/provenance.json"
 JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
 JDSP_TYPE=f98765f4-c321-5de6-9a45-123459495ab2

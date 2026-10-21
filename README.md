@@ -4,11 +4,13 @@
 
 This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-This is the **`samsung-test-new-aidl` experimental branch**, based on v6.6-beta-4. The local candidate is `v6.6-beta-4-samsung-test2` (module code 139). Despite the branch name, test2 uses one capability-driven AIDL late-load bridge, without a Pixel/Samsung model allowlist. It mounts the live effect files into init's namespace and can request one audited firmware recovery automatically after ten seconds. See [the late-load guide](TEMP-ROOT-RELOAD.md) for behavior, disable/retry controls, risks and limitations.
+This is the **`samsung-test-new-aidl` experimental branch**. The next candidate uses LightningDSP **v5**, with the AIDL bindings, parcelables and base effect implementation linked into the native driver rather than supplied by versioned audio DSOs. It retains the capability-driven mounting and guarded late-load recovery from Samsung test2. See [the v5 integration guide](EMBEDDED-CONTROL-V5.md).
 
-The published Samsung prerelease is still **test1**; test2 is local and unvalidated on hardware. Pixel's previously reported beta-4 result does not validate this new path. The native library, helper, and signed root app **1.6.17/code 62** are unchanged. `master` and `pixel-test-new-aidl` have not been changed.
+The local **v6.6-beta-5-samsung-test** candidate (module code **140**) contains the newly compiled v5 driver and matching helper. Independent ELF inspection passed, including the embedded implementation, matching unstripped symbols and restricted runtime dependencies. No Android device result or new published release is claimed. The signed root app stays **1.6.17/code 62**. `master` and `pixel-test-new-aidl` are unchanged.
 
-[Published test1 module and APK](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4-samsung-test1) · [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
+The previously published [Samsung test2 module](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4-samsung-test2) still failed effect registration on the collaborator's device. V5 is an attempt to reduce native runtime dependencies, not a confirmed Samsung fix.
+
+[App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
 ## What can it do?
 
@@ -53,18 +55,18 @@ The native service currently accepts writes from **root only**. Installing the m
 
 ## Compatibility: what we've actually checked
 
-The current global-control setup has been checked on a **Pixel 10 Pro XL (`mustang`) running Android 17, KernelSU and Magic Mount**. On that device, `jdsp.control` was published, the helper reported a writable DSP context, accepted control generations were applied, and processed-frame counters increased during playback.
+The earlier v4 global-control setup was checked on a **Pixel 10 Pro XL (`mustang`) running Android 17, KernelSU and Magic Mount**. On that device, `jdsp.control` was published, the helper reported a writable DSP context, accepted control generations were applied, and processed-frame counters increased during playback.
 
 That's evidence for this setup, not a universal Android compatibility badge.
 
-- The bundled native library is **ARM64** and links against **Audio Effect AIDL V4** libraries. Compatible dependencies and an audio factory that can load the effect are required.
+- The v5 profile is **ARM64** with embedded **Audio Effect AIDL V4** bindings and media common types V5. Incorporating bindings reduces mandatory runtime DSOs; it does not remove the factory/plugin ABI requirements.
 - **Samsung and Audio Effect AIDL V3 compatibility remain unresolved.** There isn't a blanket device-model or V3-version rejection, but letting a device attempt installation doesn't make missing native dependencies disappear.
 - The control protocol reports **version 3**. That's the version of our control interface, not the Android Audio Effect AIDL version. They're separate numbers describing different things.
 - Root-manager mount behavior, firmware, output routing and other audio mods can affect whether audio reaches the effect. A visible module or a working settings screen isn't proof of processing.
 
 **PIXAML isn't required for JamesDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make JamesDSP work.
 
-The common late-load path mounts first, then uses a validated firmware stop/start handler, at most once per boot. There is no model-based preference or hidden opt-in requirement in test2. It never directly requests an `audioserver` restart, but vendor actions or Binder disconnections can still cause one. Normal boot remains separate, and SELinux stays enforcing.
+The common late-load path mounts first, then uses a validated firmware stop/start handler, at most once per boot. There is no model-based preference or hidden opt-in requirement in this path. It never directly requests an `audioserver` restart, but vendor actions or Binder disconnections can still cause one. Normal boot remains separate, and SELinux stays enforcing.
 
 ## Installation
 
@@ -107,14 +109,14 @@ For the deeper contract, authorization and mounting details, see [NATIVE-CONTROL
 
 This repository packages the app and native artifacts. It doesn't compile the native audio library as part of ZIP generation.
 
-With Python 3 and Android SDK build tools available through `ANDROID_HOME`, `ANDROID_SDK_ROOT` or `PATH`:
+Use Python 3, trusted `llvm-readelf`/`readelf` through `PATH` or `JDSP_READELF`, and Android SDK build tools through `ANDROID_HOME`, `ANDROID_SDK_ROOT` or `PATH`:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-python3 tools/package_native_control_v4.py
+python3 tools/package_native_control_v5.py
 ```
 
-The packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. It accepts `master`, `pixel-test-new-aidl`, and this experimental `samsung-test-new-aidl` branch with distinct required release metadata. GitHub Actions verifies and packages; it does not install the module or publish a release.
+The packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. The v5 packager accepts only `samsung-test-new-aidl` after a successful verified import. Historical v4 tooling remains separate. GitHub Actions verifies and packages; it does not install the module or publish a release.
 
 Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [RootJamesDSP](https://github.com/zahahah/RootJamesDSP). For historical release notes, see [changelog.md](changelog.md).
 

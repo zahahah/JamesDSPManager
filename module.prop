@@ -1,8 +1,8 @@
 id=ainur_jamesdsp
-name=JamesDSP Manager (AIDL late-load bridge test)
-version=v6.6-beta-4-samsung-test2
-versionCode=139
+name=JamesDSP Manager (embedded native-control-v5 test)
+version=v6.6-beta-5-samsung-test
+versionCode=140
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=Global jdsp.control with root-native client and legacy fallback; Audio Effect AIDL V4 build
+description=Embedded Audio Effect AIDL driver; global jdsp.control protocol 3 with legacy fallback
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970

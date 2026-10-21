@@ -1,4 +1,19 @@
-### v6.6-beta-4-samsung-test2 (local experimental candidate)
+### v6.6-beta-5-samsung-test (locally built experimental candidate)
+
+* Incorporate AIDL bindings, parcelables and the base effect implementation into
+  the new v5 driver, with internal symbols hidden and protocol 3 unchanged.
+* Validate the embedded runtime dependency profile without demanding versioned
+  audio libraries that should now be inside the driver.
+* Independently inspect matching stripped/unstripped artifacts before importing;
+  preserve existing payloads if verification fails.
+* Require v5-specific provenance and actual ELF checks before packaging, while
+  retaining the signed root app and guarded capability-driven late-load bridge.
+* Import the new driver and helper from native source `8c70215`, after local
+  ELF inspection reproduced the compiler report. The driver has eight direct
+  platform dependencies and no versioned audio AIDL DSOs.
+* Samsung factory compatibility and audio processing remain unverified.
+
+### v6.6-beta-4-samsung-test2 (published experimental prerelease)
 
 * Replace the model-selected primary recovery with a common AIDL late-load path.
 * Bind the driver and live vendor/ODM/system/product/SKU configs into init's

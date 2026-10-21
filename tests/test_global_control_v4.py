@@ -65,7 +65,8 @@ class PixelNativeControlPackageTests(unittest.TestCase):
     def test_common_aidl_scripts_replace_legacy_recovery_without_opt_in(self):
         with tempfile.TemporaryDirectory() as tmp:
             output = Path(tmp) / 'candidate.zip'
-            with patch.object(package, 'verify_artifacts', return_value={}):
+            with patch.object(package, 'verify_artifacts', return_value={}), \
+                    patch.object(package, 'distribution_version', return_value='v6.6-beta-4-samsung-test2'):
                 package.build(output)
             with ZipFile(output) as archive:
                 for script in ('aidl-effect-mount.sh', 'aidl-audio-recovery.sh'):
@@ -88,18 +89,19 @@ class PixelNativeControlPackageTests(unittest.TestCase):
         ):
             self.assertIn(repr(payload), source)
 
-    def test_v4_provenance_keeps_regular_boot_dependency_gate_active(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / 'native-control').mkdir()
-            (root / 'native-control/v4-build-provenance.json').write_text('{}')
-            (root / 'patch.sh').write_text('return 1\n')
-            shutil.copy2(ROOT / 'post-fs-data.sh', root / 'post-fs-data.sh')
-            result = subprocess.run(['sh', str(root / 'post-fs-data.sh')],
-                env={**os.environ, 'KSU_LATE_LOAD': '0'}, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((root / 'skip_mount').exists())
-            self.assertIn('native_control_dependency_mismatch', (root / 'logs/late-load.status').read_text())
+    def test_native_provenance_keeps_regular_boot_dependency_gate_active(self):
+        for iteration in (4, 5):
+            with self.subTest(iteration=iteration), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'native-control').mkdir()
+                (root / f'native-control/v{iteration}-build-provenance.json').write_text('{}')
+                (root / 'patch.sh').write_text('return 1\n')
+                shutil.copy2(ROOT / 'post-fs-data.sh', root / 'post-fs-data.sh')
+                result = subprocess.run(['sh', str(root / 'post-fs-data.sh')],
+                    env={**os.environ, 'KSU_LATE_LOAD': '0'}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue((root / 'skip_mount').exists())
+                self.assertIn('native_control_dependency_mismatch', (root / 'logs/late-load.status').read_text())
 
     def test_candidate_service_only_schedules_guarded_hal_recovery_for_late_load(self):
         service = (ROOT / "service.sh").read_text(encoding="utf-8")
