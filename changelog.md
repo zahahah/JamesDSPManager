@@ -1,3 +1,18 @@
+### v6.6-beta-5-pixel-test
+
+* Bring the Pixel integration branch up to the reported-working Samsung test2
+  baseline, preserving that Samsung branch and release.
+* Allow one audited late-load recovery per verified Android framework session,
+  rather than exhausting recovery for the whole kernel boot. Repeated soft
+  reboots have no global attempt cap; HAL-only restarts and repeated Retry taps
+  do not re-arm the guard.
+* Preserve failed-request guards and recheck framework identity before recovery.
+  An old AIDL guard can be seeded without a restart only from a matching mapped
+  driver with a ready native context and no pending mount generation.
+* Keep the signed app, v5 driver and helper unchanged. The Pixel's authorized
+  recovery restored registration and processing; ten repeated soft reboots were
+  simulated in host tests, not validated unattended on physical hardware.
+
 ### v6.6-beta-5-samsung-test2
 
 * Fix rejection of valid Samsung audio-effect XML with mixed CRLF/LF endings,

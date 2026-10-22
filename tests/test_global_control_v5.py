@@ -116,6 +116,16 @@ class EmbeddedV5Tests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, 'samsung-test-new-aidl'):
                 package.distribution_version(self.root)
 
+    def test_distribution_accepts_integration_branches_with_exact_version(self):
+        props = self.root / 'module.prop'
+        for branch in ('pixel-test-new-aidl', 'samsung-test-new-aidl'):
+            with self.subTest(branch=branch), patch.object(package.subprocess, 'check_output', return_value=branch):
+                props.write_text(f'version={package.VERSION}\nversionCode={package.VERSION_CODE}\n')
+                self.assertEqual(package.distribution_version(self.root), package.VERSION)
+                props.write_text(f'version={package.VERSION}\nversionCode=141\n')
+                with self.assertRaisesRegex(ValueError, 'version metadata'):
+                    package.distribution_version(self.root)
+
     def test_zip_is_deterministic_and_excludes_history_and_classic_app(self):
         for name in package.payloads():
             target = self.root / name

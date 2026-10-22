@@ -18,8 +18,8 @@ MANIFEST = 'native-control/v5-candidate.json'
 PROVENANCE = 'native-control/v5-build-provenance.json'
 NOTICES = 'native-control/v5-NOTICES.txt'
 EXPECTED_PATHS = baseline.EXPECTED_PATHS
-VERSION = 'v6.6-beta-5-samsung-test2'
-VERSION_CODE = 141
+VERSION = 'v6.6-beta-5-pixel-test'
+VERSION_CODE = 142
 PROFILE = json.loads(gate.PROFILE.read_text())
 
 
@@ -104,8 +104,8 @@ def verify_artifacts(root=ROOT, readelf=None):
 
 def distribution_version(root=ROOT):
     branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch != 'samsung-test-new-aidl':
-        raise ValueError('V5 distribution requires samsung-test-new-aidl')
+    if branch not in ('pixel-test-new-aidl', 'samsung-test-new-aidl'):
+        raise ValueError('V5 distribution requires pixel-test-new-aidl or samsung-test-new-aidl')
     props = (root / 'module.prop').read_text()
     if f'version={VERSION}\n' not in props or f'versionCode={VERSION_CODE}\n' not in props:
         raise ValueError('Expected embedded v5 module version metadata')
