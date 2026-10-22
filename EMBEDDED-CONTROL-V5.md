@@ -11,19 +11,21 @@ The new native target compiles the AOSP base effect implementation and frozen
 NDK audio interfaces/parcelables into the driver. It uses a static C++ runtime and
 hides internal implementation symbols. It does not rename versioned dependencies
 or make a V4 plugin advertise V3. The first embedded profile is Effect V4 with
-media common types V5; actual vendor factory compatibility still needs testing.
+media common types V5; vendor factory compatibility remains a target-device
+question, not a consequence of embedding alone.
 
 The module keeps the capability-driven late-load mounting and audited firmware
-recovery path from Samsung test2. The dependency check now recognizes the
-embedded profile: it must not demand audio DSOs that are incorporated into the
+recovery path introduced in v6.6-beta-4-samsung-test2. The dependency check
+recognizes the embedded profile: it must not demand audio DSOs that are incorporated into the
 new driver. It rejects unexpected runtime dependencies and still checks required
 system libraries. The real linker check remains active. Nothing here authorizes
 permissive SELinux, broad service grants or repeated recovery attempts.
 
 A five-second settings screen is not proof that audio was processed. Factory
 registration, an authorized writable context, applied generations, increasing
-frames and audible/measured output remain distinct checks. The earlier Samsung
-test2 failure is not treated as fixed merely because the new driver builds.
+frames and audible/measured output remain distinct checks. The earlier
+v6.6-beta-4-samsung-test2 failure was not treated as fixed merely because the new
+driver built.
 
 ## Confirmed Samsung mount blocker
 
@@ -36,9 +38,11 @@ Test2 strips only a terminal CR from the matching view and prints the original
 record for all retained vendor lines. The reported file now passes byte-identically;
 CRLF insertion/idempotence and malformed-input rejection are regression-tested.
 This removes a demonstrated pre-mount failure, not proof of HAL loading or audio.
-The driver/helper/app hashes below are unchanged.
+The driver/helper/app hashes below are unchanged. After updating to test2, the
+collaborator reported that it works. The [Samsung record](SAMSUNG-RECOVERY.md)
+separates that positive report from the missing post-fix instrumented checks.
 
-## Current local candidate
+## Released test2 identity
 
 - Module: `v6.6-beta-5-samsung-test2`, versionCode 141.
 - Native source: `8c70215c61676c2a3e0f2d570c0dc3d4255d5e74`.

@@ -8,7 +8,7 @@ This is the **`samsung-test-new-aidl` experimental branch**. This branch uses Li
 
 **v6.6-beta-5-samsung-test2** (module code **141**) fixes a confirmed late-load mount blocker: the previous parser rejected valid Samsung XML containing mixed CRLF/LF line endings. Matching now tolerates the terminal CR while existing vendor lines remain byte-for-byte unchanged. The exact reported file is covered by a regression test.
 
-The v5 driver, matching helper and signed root app **1.6.17/code 62** are unchanged. You can keep the same installed app. This fixes the reproduced mounting failure, not a confirmed end-to-end Samsung audio result. `master` and `pixel-test-new-aidl` are unchanged.
+The v5 driver, matching helper and signed root app **1.6.17/code 62** are unchanged. You can keep the same installed app. After this fix, the Samsung collaborator reported that test2 works. See [the configuration and evidence record](SAMSUNG-RECOVERY.md) for the exact baseline and limits; no fresh Binder/frame telemetry accompanied that report. `master` and `pixel-test-new-aidl` are unchanged.
 
 [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
@@ -60,7 +60,7 @@ The earlier v4 global-control setup was checked on a **Pixel 10 Pro XL (`mustang
 That's evidence for this setup, not a universal Android compatibility badge.
 
 - The v5 profile is **ARM64** with embedded **Audio Effect AIDL V4** bindings and media common types V5. Incorporating bindings reduces mandatory runtime DSOs; it does not remove the factory/plugin ABI requirements.
-- **Samsung and Audio Effect AIDL V3 compatibility remain unresolved.** There isn't a blanket device-model or V3-version rejection, but letting a device attempt installation doesn't make missing native dependencies disappear.
+- **Samsung `h8q`: reported working after the beta-5 test2 mount fix**, in the collaborator's DFRoot/KernelSU late-load setup. This is a user report, not a general Samsung or Audio Effect AIDL V3 compatibility result. Details and outstanding checks are in [the Samsung record](SAMSUNG-RECOVERY.md).
 - The control protocol reports **version 3**. That's the version of our control interface, not the Android Audio Effect AIDL version. They're separate numbers describing different things.
 - Root-manager mount behavior, firmware, output routing and other audio mods can affect whether audio reaches the effect. A visible module or a working settings screen isn't proof of processing.
 
@@ -71,8 +71,8 @@ The common late-load path mounts first, then uses a validated firmware stop/star
 ## Installation
 
 1. Download the module ZIP from [Releases](https://github.com/zahahah/JamesDSPManager/releases).
-2. Install it through your compatible root manager, then reboot normally.
-3. Open JamesDSP and **grant it root access**.
+2. Install it through your compatible root manager. For normal-boot root, follow its reboot procedure. For temp-root/late-load, use its activation flow; do not assume reboot preserves root.
+3. Open JamesDSP and **grant it root access**. After late-load activation, allow at least 30 seconds and reopen the app if its initial check ran too early.
 4. Enable processing, play some music and try an obvious EQ adjustment at a comfortable volume.
 
 The module includes only our modified **ThePBone-based root app**, package `james.dsp`. There is no classic-app selection or Rootless APK in the ZIP. The signed APK is also attached to the release if you want to download it separately.

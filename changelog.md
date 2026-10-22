@@ -7,7 +7,10 @@
 * Add the exact reported file as a byte-preserved regression fixture, plus CRLF
   preservation and idempotence coverage.
 * Keep the v5 driver, matching helper and signed app unchanged. No app reinstall
-  or native rebuild is needed; Samsung audio still requires a device test.
+  or native rebuild is needed.
+* Follow-up: the Samsung temp-root collaborator reports test2 works. Record the
+  exact configuration and evidence limits in `SAMSUNG-RECOVERY.md`; fresh native
+  probe/frame telemetry was not supplied with that report.
 
 ### v6.6-beta-5-samsung-test (published experimental prerelease)
 

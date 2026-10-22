@@ -1,9 +1,12 @@
-# Common AIDL late-load bridge (test2)
+# Common AIDL late-load bridge
 
-The test2 candidate uses the same capability-driven path on Pixel, Samsung and
-other devices. There is no model allowlist. This is not a promise of universal
-ABI support: the packaged driver still needs Audio Effect AIDL V4 and common
-audio types V5. Dependency and artifact integrity checks remain enabled.
+The bridge introduced in v6.6-beta-4-samsung-test2 remains the capability-driven
+path in v6.6-beta-5-samsung-test2. There is no model allowlist. The current ARM64
+v5 driver embeds Effect AIDL V4 / media common V5 bindings and the base effect
+implementation rather than requiring their versioned audio DSOs directly. This
+does not erase factory ABI requirements or the remaining platform dependencies.
+Dependency and artifact integrity checks remain enabled. See the
+[reported working Samsung configuration](SAMSUNG-RECOVERY.md).
 
 ## Order of operations
 
@@ -13,7 +16,8 @@ audio types V5. Dependency and artifact integrity checks remain enabled.
 2. Ten seconds after KernelSU late-load, bind the driver and patched live XMLs
    into **init's mount namespace**. Scan vendor, ODM, system, product, system_ext
    and Qualcomm SKU config locations. Preserve vendor entries, routing and XML
-   labels. A missing driver file uses a shadow soundfx directory preserving its
+   labels. Matching accepts CRLF/LF records without rewriting retained vendor
+   lines. A missing driver file uses a shadow soundfx directory preserving its
    existing files and symlinks. There is no shell-namespace fallback.
 3. Identify the default AIDL factory PID, its executable, and its unique running
    init service from firmware declarations. No process names are guessed from
@@ -90,5 +94,7 @@ DFRoot can destabilize. Our guard limits our requests, not vendor restart loops.
 Keep runtime staging files under `.aidl-mount` while their mounts are active.
 
 Neither successful host mocks nor ViPER working on a device proves this driver
-works there. ViPER also has a native library-lifetime fix for vendor `dlclose`;
-this candidate does not change our native library or claim to implement that fix.
+works there. Our v5 driver retains its existing NODELETE lifetime protection;
+the test2 CRLF fix changed the mount script, not that native mechanism. The
+collaborator's positive test2 report is recorded separately from host tests and
+from the still-uncollected post-fix Binder/frame telemetry.
