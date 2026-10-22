@@ -161,7 +161,7 @@ class EmbeddedV5Tests(unittest.TestCase):
                                           self.value['nativeSource']['commit'], self.root, 'readelf', 'nm')
         self.assertEqual(before, {name: (self.root / name).read_bytes() for name in names})
 
-    def test_installer_checks_the_real_transport_and_abi_before_library_or_app_changes(self):
+    def test_installer_selects_v5_payload_and_checks_abi_before_library_or_app_changes(self):
         source = (ROOT / 'common/install.sh').read_text()
         check = source.index('if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then')
         first_library_copy = source.index('cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so"')
@@ -169,17 +169,68 @@ class EmbeddedV5Tests(unittest.TestCase):
         self.assertLess(check, first_library_copy)
         self.assertLess(check, app_move)
         gate = source[check:source.index('ui_print "- Lib bit detection -"', check)]
-        self.assertIn('[ "$AIDL" = true ] || abort', gate)
+        self.assertNotIn('[ "$AIDL" = true ] || abort', gate)
+        self.assertIn('AIDL=true', gate)
         self.assertIn('getprop ro.product.cpu.abilist64', gate)
         self.assertNotIn('ro.product.device', gate)
 
-    def test_installer_transport_gate_accepts_arm64_aidl_and_blocks_unsupported_payloads(self):
+    def test_v5_payload_selection_does_not_require_live_factory_enumeration(self):
+        source = (ROOT / 'common/install.sh').read_text()
+        start = source.index('if service list')
+        block = source[start:source.index('# The AIDL candidate is ELF64.', start)]
+        prelude = r'''
+abort() { echo "$1"; exit 23; }
+getprop() { echo "$MOCK_ABI64"; }
+ui_print() { echo "$*"; }
+service() { printf '%s\n' "$MOCK_SERVICES"; return "$MOCK_SERVICE_EXIT"; }
+cp_ch() { mkdir -p "${2%/*}"; cp "$1" "$2"; }
+'''
+        # Enumeration can be empty, denied, unavailable, or expose only HIDL.
+        for services, code, discovered in (
+                ('1 android.hardware.audio.effect.IFactory/default', '0', 'observed'),
+                ('', '0', 'not_observed'), ('Permission denied', '1', 'not_observed'),
+                ('', '127', 'not_observed'),
+                ('android.hardware.audio.effect@7.0::IEffectsFactory/default', '0', 'not_observed')):
+            with self.subTest(services=services, code=code):
+                (self.root / '.AIDL').unlink(missing_ok=True)
+                result = subprocess.run(['sh', '-c', prelude + block + '\nprintf "SELECTED=%s\n" "$QARCH"'],
+                                        capture_output=True, text=True,
+                                        env={**os.environ, 'MODPATH': str(self.root),
+                                             'MOCK_SERVICES': services, 'MOCK_SERVICE_EXIT': code,
+                                             'MOCK_ABI64': 'arm64-v8a', 'LIB': '', 'LIB2': ''})
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertIn('SELECTED=aidl', result.stdout)
+                self.assertTrue((self.root / '.AIDL').exists())
+                self.assertEqual((self.root / 'system/lib64/soundfx/libjamesdsp.so').read_bytes(),
+                                 (self.root / package.EXPECTED_PATHS['driver']).read_bytes())
+                self.assertFalse((self.root / 'system/lib/soundfx/libjamesdsp.so').exists())
+                status = (self.root / 'logs/install-transport.status').read_text()
+                self.assertIn('factory_discovery=' + discovered, status)
+                self.assertIn('compatibility=unverified', status)
+                if discovered == 'not_observed':
+                    self.assertIn('no legacy/HIDL driver', result.stdout)
+
+    def test_non_v5_payload_is_not_forced_onto_aidl(self):
+        source = (ROOT / 'common/install.sh').read_text()
+        start = source.index('if service list')
+        block = source[start:source.index('ui_print " "', start)]
+        (self.root / package.MANIFEST).unlink()
+        prelude = 'service() { :; }; ui_print() { :; }; '
+        result = subprocess.run(['sh', '-c', prelude + block + '\nprintf "%s" "$AIDL"'],
+                                capture_output=True, text=True,
+                                env={**os.environ, 'MODPATH': str(self.root)})
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(result.stdout, 'false')
+        self.assertFalse((self.root / 'logs/install-transport.status').exists())
+
+    def test_v5_abi_gate_still_rejects_unsupported_architectures(self):
         source = (ROOT / 'common/install.sh').read_text()
         start = source.index('if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then')
         block = source[start:source.index('ui_print " "', start)]
-        prelude = 'abort() { echo "$1"; exit 23; }; getprop() { echo "$MOCK_ABI64"; }; '
+        prelude = 'abort() { echo "$1"; exit 23; }; getprop() { echo "$MOCK_ABI64"; }; ui_print() { :; }; '
         for aidl, abi, expected in (('true', 'arm64-v8a', 0), ('true', 'x86_64,arm64-v8a', 0),
-                                    ('false', 'arm64-v8a', 23), ('true', 'x86_64', 23), ('true', '', 23)):
+                                    ('false', 'arm64-v8a', 0), ('true', 'x86_64', 23),
+                                    ('false', 'armeabi-v7a', 23), ('true', '', 23)):
             with self.subTest(aidl=aidl, abi=abi):
                 result = subprocess.run(['sh', '-c', prelude + block], capture_output=True, text=True,
                                         env={**os.environ, 'MODPATH': str(self.root), 'AIDL': aidl, 'MOCK_ABI64': abi})

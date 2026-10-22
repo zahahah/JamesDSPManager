@@ -39,20 +39,33 @@ LIB=$(lshal debug "$(lshal | grep -oE "android.hardware.audio.effect@[0-9]+\.[0-
 
 LIB2=$(file /*/bin/hw/android.hardware.audio.service* 2>/dev/null | grep -oE "32-bit|64-bit" | head -n 1)
 
-if service list | grep -q "android.hardware.audio.effect.IFactory"; then
+if service list | grep -Fq "android.hardware.audio.effect.IFactory"; then
 AIDL=true
 else
 AIDL=false
 fi
 
-# The embedded experiment ships only its inspected ARM64 AIDL driver. Reject
-# unsupported transports/architectures before copying libraries or touching apps.
+# Factory enumeration describes this installer's Binder view, not the payload
+# ABI or what a late-started HAL will discover. V5 ships only ARM64 AIDL: select
+# that candidate even when enumeration is inconclusive, never a missing legacy
+# driver. Actual loading/registration remain separate runtime checks.
 if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
-    [ "$AIDL" = true ] || abort "! Embedded v5 requires an advertised AIDL effect factory; no legacy driver is bundled."
     case ",$(getprop ro.product.cpu.abilist64)," in
         *,arm64-v8a,*) ;;
         *) abort "! Embedded v5 contains only the ARM64 driver; no matching device ABI found." ;;
     esac
+    FACTORY_DISCOVERY=not_observed
+    if [ "$AIDL" = true ]; then
+        FACTORY_DISCOVERY=observed
+    else
+        ui_print "   ! AIDL effect factory was not visible to the installer."
+        ui_print "   ! Staging the AIDL candidate; runtime compatibility is unverified."
+        ui_print "   ! This ZIP contains no legacy/HIDL driver."
+    fi
+    AIDL=true
+    mkdir -p "$MODPATH/logs" || abort "! Cannot create installer diagnostics."
+    printf 'SELECTED payload=aidl-arm64 factory_discovery=%s compatibility=unverified processing=unverified\n' \
+        "$FACTORY_DISCOVERY" >"$MODPATH/logs/install-transport.status" || abort "! Cannot record installer transport selection."
 fi
 
 ui_print " "
@@ -60,7 +73,11 @@ ui_print "- Lib bit detection -"
 
 if [ "$AIDL" = "true" ]; then
 	QARCH="aidl"
-	ui_print "  AIDL libs detected "
+	if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
+		ui_print "   Installing embedded ARM64 AIDL candidate"
+	else
+		ui_print "  AIDL libs detected "
+	fi
 	touch "$MODPATH/.AIDL"
 	cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib64/soundfx/libjamesdsp.so"
 elif [ "$LIB" = "lib64" ] || [ "$LIB2" = "64-bit" ]; then

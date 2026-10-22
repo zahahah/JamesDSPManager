@@ -37,7 +37,8 @@
     "Effect V4/common V5 bindings and the base implementation are incorporated; control protocol remains 3.",
     "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
     "Samsung test2 fixes the reproduced mixed CRLF/LF XML preflight rejection; native artifacts and signed app are unchanged.",
-    "Pixel test changes the module recovery guard to one request per verified Android framework lifecycle, without changing the driver, helper or signed app. Repeated soft reboots are host-tested; unattended device lifecycle validation remains pending."
+    "Pixel test changes the module recovery guard to one request per verified Android framework lifecycle, without changing the driver, helper or signed app. Repeated soft reboots are host-tested; unattended device lifecycle validation remains pending.",
+    "Module v6.6-beta-5.3 allows ARM64 AIDL candidate staging when installer factory enumeration is inconclusive; runtime compatibility remains unverified. Native artifacts and signed app are unchanged."
   ],
   "profile": "embedded-effect-v4-common-v5-arm64",
   "notices": {

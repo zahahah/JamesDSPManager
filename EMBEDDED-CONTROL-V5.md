@@ -57,6 +57,29 @@ of the platform libraries themselves or prove vendor factory compatibility.
 The compiler also ran the native/Soong host and isolated Binder suites; none of
 those results substitutes for Android device, HAL, SELinux or audible testing.
 
+## Installer discovery is not a compatibility verdict
+
+The Samsung integration branch no longer aborts v5 installation merely because
+`service list` does not enumerate an AIDL effect factory. The reported installer
+used an MMRS metainstall environment; its listing was negative, but that log alone
+does not establish whether the firmware lacks AIDL, the service is not yet
+published, or the installer's Binder view differs. None of those explanations
+has been confirmed on this second Samsung.
+
+The v5 manifest selects the shipped ARM64 AIDL candidate and `.AIDL` path, rather
+than falling through to historical legacy binaries that are absent from the ZIP.
+A missing listing produces an explicit warning and an
+`install-transport.status` diagnostic with `factory_discovery=not_observed` and
+`compatibility=unverified`. Even an observed factory does not prove the driver
+can load. The ARM64 device ABI check, artifact/signature checks, ELF dependency
+validation, namespace checks and audited runtime recovery preflight remain.
+No Binder stability relaxation or broader SELinux grants are introduced.
+
+This permits an experimental installation, **not HIDL support**. A firmware that
+only provides HIDL/legacy effect loading still needs a compatible native adapter;
+removing this installer gate cannot create one. Successful installation does not
+prove effect registration, native control or processed audio.
+
 ## Import and packaging
 
 The compiler publishes artifacts, matching unstripped symbols, pinned AOSP

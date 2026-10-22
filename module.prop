@@ -1,7 +1,7 @@
 id=ainur_jamesdsp
 name=JamesDSP Manager (embedded native-control-v5 test)
-version=v6.6-beta-5-pixel-test
-versionCode=142
+version=v6.6-beta-5.3
+versionCode=143
 banner=JDSP_banner.png
 author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
 description=Embedded Audio Effect AIDL driver; global jdsp.control protocol 3 with legacy fallback

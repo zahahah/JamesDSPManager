@@ -1,3 +1,13 @@
+### v6.6-beta-5.3
+
+* Include the Pixel branch's soft-reboot lifecycle guard changes.
+* Stop treating a missing AIDL factory listing in the installer as definitive
+  incompatibility. Stage the shipped ARM64 AIDL candidate with an explicit
+  warning and transport diagnostic instead of aborting or selecting an absent
+  legacy payload.
+* Keep ABI, artifact integrity and runtime loading/recovery checks. No HIDL
+  adapter, driver rebuild or compatibility guarantee is added.
+
 ### v6.6-beta-5-pixel-test
 
 * Bring the Pixel integration branch up to the reported-working Samsung test2
