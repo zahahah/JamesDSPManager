@@ -4,11 +4,11 @@
 
 This is our root-only JamesDSP module, paired with a modified version of ThePBone's JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. JamesDSP handles the processing underneath.
 
-This is the **`samsung-test-new-aidl` experimental branch**. The next candidate uses LightningDSP **v5**, with the AIDL bindings, parcelables and base effect implementation linked into the native driver rather than supplied by versioned audio DSOs. It retains the capability-driven mounting and guarded late-load recovery from Samsung test2. See [the v5 integration guide](EMBEDDED-CONTROL-V5.md).
+This is the **`samsung-test-new-aidl` experimental branch**. This branch uses LightningDSP **v5**, with the AIDL bindings, parcelables and base effect implementation linked into the native driver rather than supplied by versioned audio DSOs. It retains the capability-driven mounting and guarded late-load recovery from Samsung test2. See [the v5 integration guide](EMBEDDED-CONTROL-V5.md).
 
-The local **v6.6-beta-5-samsung-test** candidate (module code **140**) contains the newly compiled v5 driver and matching helper. Independent ELF inspection passed, including the embedded implementation, matching unstripped symbols and restricted runtime dependencies. No Android device result or new published release is claimed. The signed root app stays **1.6.17/code 62**. `master` and `pixel-test-new-aidl` are unchanged.
+**v6.6-beta-5-samsung-test2** (module code **141**) fixes a confirmed late-load mount blocker: the previous parser rejected valid Samsung XML containing mixed CRLF/LF line endings. Matching now tolerates the terminal CR while existing vendor lines remain byte-for-byte unchanged. The exact reported file is covered by a regression test.
 
-The previously published [Samsung test2 module](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-4-samsung-test2) still failed effect registration on the collaborator's device. V5 is an attempt to reduce native runtime dependencies, not a confirmed Samsung fix.
+The v5 driver, matching helper and signed root app **1.6.17/code 62** are unchanged. You can keep the same installed app. This fixes the reproduced mounting failure, not a confirmed end-to-end Samsung audio result. `master` and `pixel-test-new-aidl` are unchanged.
 
 [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 

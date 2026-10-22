@@ -1,4 +1,15 @@
-### v6.6-beta-5-samsung-test (locally built experimental candidate)
+### v6.6-beta-5-samsung-test2
+
+* Fix rejection of valid Samsung audio-effect XML with mixed CRLF/LF endings,
+  which blocked the mount plan before the new driver could be activated.
+* Preserve existing vendor lines and their original line endings; keep malformed
+  configuration rejection and all-before-mount validation intact.
+* Add the exact reported file as a byte-preserved regression fixture, plus CRLF
+  preservation and idempotence coverage.
+* Keep the v5 driver, matching helper and signed app unchanged. No app reinstall
+  or native rebuild is needed; Samsung audio still requires a device test.
+
+### v6.6-beta-5-samsung-test (published experimental prerelease)
 
 * Incorporate AIDL bindings, parcelables and the base effect implementation into
   the new v5 driver, with internal symbols hidden and protocol 3 unchanged.

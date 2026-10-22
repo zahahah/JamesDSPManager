@@ -35,7 +35,8 @@
   "notes": [
     "The v5 driver and matching helper passed independent ELF and embedded-code inspection before import.",
     "Effect V4/common V5 bindings and the base implementation are incorporated; control protocol remains 3.",
-    "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build."
+    "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
+    "Samsung test2 fixes the reproduced mixed CRLF/LF XML preflight rejection; native artifacts and signed app are unchanged."
   ],
   "profile": "embedded-effect-v4-common-v5-arm64",
   "notices": {

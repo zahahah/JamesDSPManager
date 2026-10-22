@@ -18,8 +18,8 @@ MANIFEST = 'native-control/v5-candidate.json'
 PROVENANCE = 'native-control/v5-build-provenance.json'
 NOTICES = 'native-control/v5-NOTICES.txt'
 EXPECTED_PATHS = baseline.EXPECTED_PATHS
-VERSION = 'v6.6-beta-5-samsung-test'
-VERSION_CODE = 140
+VERSION = 'v6.6-beta-5-samsung-test2'
+VERSION_CODE = 141
 PROFILE = json.loads(gate.PROFILE.read_text())
 
 

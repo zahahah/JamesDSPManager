@@ -209,7 +209,7 @@ class EmbeddedV5Tests(unittest.TestCase):
                                                self.root / package.EXPECTED_PATHS['helper'], Path('manifest.xml'),
                                                self.value['nativeSource']['commit'], self.root, 'readelf', 'nm')
         self.assertEqual(result['state'], 'ready-for-device-test')
-        self.assertIn('versionCode=140', (self.root / 'module.prop').read_text())
+        self.assertIn('versionCode=' + str(package.VERSION_CODE), (self.root / 'module.prop').read_text())
         self.assertEqual(before, app.read_bytes())
         self.verify()
 

@@ -25,9 +25,22 @@ registration, an authorized writable context, applied generations, increasing
 frames and audible/measured output remain distinct checks. The earlier Samsung
 test2 failure is not treated as fixed merely because the new driver builds.
 
+## Confirmed Samsung mount blocker
+
+The beta-5 report showed the old v4 library still visible and the mount bridge
+blocked on `/vendor/etc/audio_effects.xml`. The supplied file was well-formed XML
+with 25 CRLF and two LF records. Its exact bytes reproduced the rejection; merely
+normalizing CRLF made the original parser pass.
+
+Test2 strips only a terminal CR from the matching view and prints the original
+record for all retained vendor lines. The reported file now passes byte-identically;
+CRLF insertion/idempotence and malformed-input rejection are regression-tested.
+This removes a demonstrated pre-mount failure, not proof of HAL loading or audio.
+The driver/helper/app hashes below are unchanged.
+
 ## Current local candidate
 
-- Module: `v6.6-beta-5-samsung-test`, versionCode 140.
+- Module: `v6.6-beta-5-samsung-test2`, versionCode 141.
 - Native source: `8c70215c61676c2a3e0f2d570c0dc3d4255d5e74`.
 - Private build record: `8395181fa1819b561e556cd899b159ba1eec58b9`.
 - Driver SHA-256: `f8148f22d7e606273205d3f8512c62ef89c3d80043771c1555c45c7b3eb77097`.
