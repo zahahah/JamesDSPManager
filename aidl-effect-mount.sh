@@ -31,15 +31,19 @@ label_of() {
 patch_config() {
     # Only replace our own standalone entries. Preserve vendor effects, routing,
     # comments and library paths; never translate vendor libraries to Pixel names.
+    # Match a view without a terminal CR, but print the original record so
+    # untouched vendor lines keep their CRLF/LF bytes. Mixed endings are valid
+    # XML and occur when module-inserted LF entries join stock CRLF configs.
     awk -v uuid="$UUID" '
+    { original_line=$0; sub(/\r$/, "") }
     /<!--/ { comment=1 }
-    comment { print; if (/-->/) comment=0; next }
+    comment { print original_line; if (/-->/) comment=0; next }
     /name="(jdsp|jamesdsp)"/ || index($0, uuid) {
         if ($0 ~ /^[ \t]*<library[ \t]+name="jdsp"[ \t]+path="[^"]+"[ \t]*\/>[ \t]*$/ ||
             $0 ~ /^[ \t]*<effect[ \t]+name="jamesdsp"[ \t]+.*\/>[ \t]*$/) next
         bad=1; next
     }
-    { print }
+    { print original_line }
     /^[ \t]*<audio_effects_conf[ \t>]/ { root++ }
     /^[ \t]*<\/audio_effects_conf>[ \t]*$/ { endroot++ }
     /^[ \t]*<libraries>[ \t]*$/ {

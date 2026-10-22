@@ -1,3 +1,4 @@
+from hashlib import sha256
 import os
 from pathlib import Path
 import subprocess
@@ -104,6 +105,44 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertIn('changed=0', second.stdout)
             self.assertEqual((root / 'mount.calls').read_text(), calls)
 
+    def test_reported_samsung_mixed_newlines_mount_without_altering_vendor_bytes(self):
+        data = (ROOT / 'tests/fixtures/samsung-audio_effects-mixed.xml').read_bytes()
+        self.assertEqual(sha256(data).hexdigest(), 'ac1107a21c28f6b40bddf01d9d9f828499329249b82cf65fd29e2fc2b803db95')
+        self.assertEqual(data.count(b'\r\n'), 25)
+        self.assertEqual(data.count(b'\n'), 27)
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module, script, init, env = self.fixture(root)
+            target = init / 'vendor/etc/audio_effects.xml'
+            target.write_bytes(data)
+            result = self.run_script(script, env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertEqual(target.read_bytes(), data)
+            self.assertEqual((init / 'vendor/lib64/soundfx/libjamesdsp.so').read_bytes(), b'expected-driver')
+            self.assertTrue((module / 'logs/aidl-effect-mount.generation').exists())
+            self.assertIn('configs=5', result.stdout)
+
+    def test_crlf_config_preserves_stock_lines_and_is_idempotent(self):
+        original = XML.replace('\n', '\r\n').encode()
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, script, init, env = self.fixture(root)
+            target = init / 'vendor/etc/audio_effects_config.xml'
+            target.write_bytes(original)
+            result = self.run_script(script, env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            patched = target.read_bytes()
+            stock = b''.join(line for line in patched.splitlines(keepends=True)
+                             if b'name="jdsp"' not in line and b'name="jamesdsp"' not in line)
+            self.assertEqual(stock, original)
+            self.assertEqual(patched.count(UUID.encode()), 1)
+            calls = (root / 'mount.calls').read_bytes()
+            result = self.run_script(script, env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn('changed=0', result.stdout)
+            self.assertEqual(target.read_bytes(), patched)
+            self.assertEqual((root / 'mount.calls').read_bytes(), calls)
+
     def test_check_stages_without_mounting_or_creating_pending_generation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -127,7 +166,8 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
 
     def test_unsupported_config_aborts_all_staging_before_any_mount(self):
         for invalid in ('<config/>\n', XML.replace('<effects>', '<effects/><effects>'),
-                        XML.replace('vendor-uuid', UUID), '<!--\n' + XML):
+                        XML.replace('vendor-uuid', UUID), '<!--\n' + XML,
+                        '<config/>\r\n', XML.replace('vendor-uuid', UUID).replace('\n', '\r\n')):
             with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 module, script, init, env = self.fixture(root)
