@@ -39,6 +39,7 @@ class AidlAudioRecoveryTests(unittest.TestCase):
             (p / 'root/vendor/lib64/soundfx/libjamesdsp.so').write_bytes(lib.read_bytes())
             (p / 'root/vendor/etc/audio_effects_config.xml').write_text(f'<effect uuid="{UUID}"/>\n')
             (p / 'maps').write_text('/vendor/lib64/soundfx/libjamesdsp.so\n' if pid == 201 else '')
+        self.framework_processes(proc)
         init = root / 'init'
         (init / 'vendor/etc/init').mkdir(parents=True)
         (init / 'system/etc/init').mkdir(parents=True)
@@ -66,6 +67,8 @@ esac
 ''')
         self.executable(bin_dir / 'pidof', f'''case "$1" in
 {owner_exe.rsplit('/', 1)[1]}) if [ -e "{calls}" ]; then echo 201; else echo "${{MOCK_FACTORY_PIDS:-101}}"; fi ;;
+zygote64) echo 301 ;;
+system_server) echo 302 ;;
 secaudiohalaidl) if [ -e "{calls}" ]; then echo 202; else echo 102; fi ;;
 esac
 ''')
@@ -82,6 +85,114 @@ esac
         for name in ('id', 'flock', 'getprop', 'pidof', 'dumpsys', 'setprop', 'linker', 'sleep', 'logcat'):
             env['JDSP_' + name.upper() + '_BIN'] = str(bin_dir / name)
         return module, script, calls, rc, env
+
+    def framework_processes(self, proc, zstart=100, sstart=110):
+        for pid, parent, start in ((301, 1, zstart), (302, 301, sstart)):
+            p = proc / str(pid)
+            p.mkdir(exist_ok=True)
+            # stat fields 3..22; names may contain spaces and parentheses.
+            (p / 'stat').write_text(f'{pid} (framework (test)) S {parent} ' +
+                                     '0 ' * 17 + f'{start}\n')
+            exe = p / 'exe'
+            if not exe.exists() and not exe.is_symlink():
+                exe.symlink_to('/system/bin/app_process64')
+
+    def test_ten_soft_reboots_each_allow_one_request_but_hal_only_does_not(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module, script, calls, _, env = self.fixture(root, pixel=True)
+            for session in range(11):
+                with self.subTest(session=session):
+                    self.framework_processes(root / 'proc', 100 + session * 100, 110 + session * 100)
+                    if calls.exists():
+                        calls.unlink()  # Mock a fresh HAL before the next request.
+                    result = self.run_script(script, env, '--auto-once')
+                    self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                    self.assertEqual(calls.read_text(), 'sys.audio.restart.hal 1\n')
+                    # HAL PID changes from 101 to 201, framework stays the same.
+                    again = self.run_script(script, env)
+                    self.assertIn('reload_already_attempted_this_boot', again.stdout)
+                    self.assertEqual(calls.read_text(), 'sys.audio.restart.hal 1\n')
+            self.assertEqual((module / 'logs/audio-hal-reload-aidl.lifecycle').read_text(),
+                             'boot-1 301 1100 302 1110\n')
+
+    def test_framework_identity_must_be_valid_and_both_processes_recreated(self):
+        for case in ('server_only', 'zygote_only', 'backwards', 'missing', 'parent', 'exe', 'corrupt_ledger'):
+            with self.subTest(case=case), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                module, script, calls, _, env = self.fixture(root)
+                self.assertEqual(self.run_script(script, env).returncode, 0)
+                if case == 'server_only':
+                    self.framework_processes(root / 'proc', 100, 210)
+                elif case == 'zygote_only':
+                    self.framework_processes(root / 'proc', 200, 110)
+                elif case == 'backwards':
+                    self.framework_processes(root / 'proc', 90, 95)
+                elif case == 'missing':
+                    (root / 'proc/301/stat').unlink()
+                elif case == 'parent':
+                    p = root / 'proc/302/stat'
+                    p.write_text(p.read_text().replace(' S 301 ', ' S 999 '))
+                elif case == 'exe':
+                    p = root / 'proc/301/exe'
+                    p.unlink()
+                    p.symlink_to('/data/unknown')
+                else:
+                    (module / 'logs/audio-hal-reload-aidl.lifecycle').write_text('broken\n')
+                result = self.run_script(script, env)
+                self.assertNotEqual(result.returncode, 0, result.stdout)
+                self.assertEqual(calls.read_text(), 'sys.audio.restart.hal 1\n')
+
+    def test_framework_change_during_preflight_never_requests_reload(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, script, calls, _, env = self.fixture(root)
+            prop = Path(env['JDSP_GETPROP_BIN'])
+            prop.write_text(prop.read_text().replace(
+                'sys.audio.restart.hal)',
+                f'''sys.audio.restart.hal) n=$(cat "{root}/property.reads" 2>/dev/null || echo 0); n=$((n+1)); echo $n >"{root}/property.reads"; [ $n -lt 2 ] || rm -f "{root}/proc/301/stat";''' ))
+            result = self.run_script(script, env)
+            self.assertIn('framework_changed_during_preflight', result.stdout)
+            self.assertFalse(calls.exists())
+
+    def test_failed_request_is_not_retried_in_the_same_session(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, script, calls, _, env = self.fixture(root)
+            env['MOCK_SETPROP_FAILURE'] = '1'
+            self.assertIn('firmware_reload_request_failed', self.run_script(script, env).stdout)
+            self.assertIn('reload_already_attempted_this_boot', self.run_script(script, env).stdout)
+            self.assertEqual(calls.read_text(), 'sys.audio.restart.hal 1\n')
+
+    def test_ready_native_context_can_seed_upgrade_without_restarting(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module, script, calls, _, env = self.fixture(root)
+            (module / 'logs/audio-hal-reload-aidl.boot-id').write_text('boot-1\n')
+            (root / 'proc/101/maps').write_text('/vendor/lib64/soundfx/libjamesdsp.so\n')
+            helper = module / 'common/files/control/arm64-v8a/jdspctl'
+            helper.parent.mkdir(parents=True)
+            self.executable(helper, 'echo JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3\n')
+            timeout = self.executable(root / 'bin/timeout', 'shift; exec "$@"\n')
+            env.update(JDSP_CONTROL_HELPER=str(helper), JDSP_TIMEOUT_BIN=str(timeout))
+            result = self.run_script(script, env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertFalse(calls.exists())
+            self.assertEqual((module / 'logs/audio-hal-reload-aidl.lifecycle').read_text(),
+                             'boot-1 301 100 302 110\n')
+            self.framework_processes(root / 'proc', 200, 210)
+            (root / 'proc/101/maps').write_text('')
+            recovered = self.run_script(script, env, '--auto-once')
+            self.assertEqual(recovered.returncode, 0, recovered.stdout + recovered.stderr)
+            self.assertEqual(calls.read_text(), 'sys.audio.restart.hal 1\n')
+
+    def test_old_guard_without_lifecycle_record_stays_blocked(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module, script, calls, _, env = self.fixture(Path(tmp))
+            (module / 'logs/audio-hal-reload-aidl.boot-id').write_text('boot-1\n')
+            result = self.run_script(script, env)
+            self.assertIn('reload_already_attempted_this_boot', result.stdout)
+            self.assertFalse(calls.exists())
 
     def run_script(self, script, env, mode='--retry'):
         return subprocess.run(['sh', str(script), mode], env=env, capture_output=True, text=True, timeout=30)

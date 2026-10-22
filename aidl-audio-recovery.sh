@@ -21,6 +21,7 @@ LOGCAT_BIN=${JDSP_LOGCAT_BIN:-/system/bin/logcat}
 FACTORY=android.hardware.audio.effect.IFactory/default
 UUID=f27317f4-c984-4de6-9a90-545759495bf2
 GUARD="$LOGDIR/audio-hal-reload-aidl.boot-id"
+LIFECYCLE_GUARD="$LOGDIR/audio-hal-reload-aidl.lifecycle"
 
 finish() {
     printf '%s\n' "$1" | tee "$LOGDIR/aidl-audio-recovery.status" >"$LOGDIR/audio-hal-recovery.status"
@@ -38,6 +39,27 @@ unique_pid() {
     [ "$#" -eq 1 ] || return 1
     case "$1" in ''|*[!0-9]*) return 1 ;; esac
     printf '%s\n' "$1"
+}
+# PID alone can be reused. Read starttime (field 22) after the final comm
+# delimiter, since /proc/stat names can contain spaces and parentheses.
+process_identity() {
+    line=$(cat "$PROC_ROOT/$1/stat" 2>/dev/null) || return 1
+    case "$line" in "$1 ("*") "*) ;; *) return 1 ;; esac
+    fields=${line##*) }
+    printf '%s\n' "$fields" | awk '
+        $2 ~ /^[0-9]+$/ && $20 ~ /^[0-9]+$/ && $20 > 0 { print $2, $20; ok=1 }
+        END { if (!ok) exit 1 }
+    '
+}
+framework_identity() {
+    zpid=$(unique_pid /system/bin/zygote64) || return 1
+    spid=$(unique_pid /system/bin/system_server) || return 1
+    [ "$(readlink "$PROC_ROOT/$zpid/exe")" = /system/bin/app_process64 ] &&
+        [ "$(readlink "$PROC_ROOT/$spid/exe")" = /system/bin/app_process64 ] || return 1
+    zidentity=$(process_identity "$zpid") && sidentity=$(process_identity "$spid") || return 1
+    set -- $zidentity $sidentity
+    [ "$#" = 4 ] && [ "$3" = "$zpid" ] && [ "$4" -ge "$2" ] || return 1
+    printf '%s %s %s %s\n' "$zpid" "$2" "$spid" "$4"
 }
 running() { [ "$("$GETPROP_BIN" "init.svc.$1" 2>/dev/null)" = running ]; }
 overlay_ok() {
@@ -177,6 +199,13 @@ fi
 native_diagnostics
 if library_mapped "$before_pid" && [ "$mount_generation" = "$activated_generation" ] &&
     grep -q '^JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:' "$LOGDIR/aidl-recovery-probe.txt"; then
+    # Upgrade an old guard only from a proven live, matching native context.
+    # This consumes the current session without requesting another restart;
+    # a later verified framework recreation can then recover normally.
+    if [ ! -e "$LIFECYCLE_GUARD" ] && [ "$(cat "$GUARD" 2>/dev/null)" = "$boot_id" ]; then
+        framework=$(framework_identity) || finish 'BLOCKED reason=framework_lifecycle_unavailable'
+        printf '%s %s\n' "$boot_id" "$framework" >"$LIFECYCLE_GUARD" || finish 'BLOCKED reason=lifecycle_guard_write_failed'
+    fi
     finish 'LOADED reason=native_context_already_ready restart=not_needed processing=unverified' 0
 fi
 # Allow policy activation to catch up with the existing ten-second scheduler.
@@ -185,7 +214,31 @@ while ! grep -q 'policy=typed_rules_refreshed' "$LOGDIR/native-control.status" 2
     [ "$MODE" = --auto-once ] && [ "$count" -lt 20 ] && ! grep -q '^BLOCKED ' "$LOGDIR/native-control.status" 2>/dev/null || finish 'BLOCKED reason=typed_policy_not_ready'
     count=$((count + 1)); "$SLEEP_BIN" 1
 done
-for guard in "$GUARD" "$LOGDIR/audio-hal-reload-samsung.boot-id" "$LOGDIR/audio-hal-reload-retry.boot-id" "$LOGDIR/audio-hal-reload-auto.boot-id" "$LOGDIR/manual-audio-reload.boot-id"; do
+# HAL restarts must not re-arm recovery. Only a newer zygote AND its newer
+# system_server qualify. There is no lifetime cap across verified soft reboots.
+# Old guards without a trusted lifecycle record remain fail-closed on upgrade.
+framework=$(framework_identity) || finish 'BLOCKED reason=framework_lifecycle_unavailable'
+set -- $framework
+zstart=$2; sstart=$4
+recorded_boot=
+if [ -f "$LIFECYCLE_GUARD" ]; then
+    [ "$(wc -l <"$LIFECYCLE_GUARD" | tr -d ' ')" = 1 ] || finish 'BLOCKED reason=lifecycle_guard_invalid'
+    read -r recorded_boot old_zpid old_zstart old_spid old_sstart extra <"$LIFECYCLE_GUARD"
+    case "$recorded_boot" in ''|*[!a-zA-Z0-9-]*) finish 'BLOCKED reason=lifecycle_guard_invalid' ;; esac
+    for number in "$old_zpid" "$old_zstart" "$old_spid" "$old_sstart"; do
+        case "$number" in ''|*[!0-9]*) finish 'BLOCKED reason=lifecycle_guard_invalid' ;; esac
+        [ "$number" -gt 0 ] 2>/dev/null || finish 'BLOCKED reason=lifecycle_guard_invalid'
+    done
+    [ -z "$extra" ] || finish 'BLOCKED reason=lifecycle_guard_invalid'
+    if [ "$recorded_boot" = "$boot_id" ]; then
+        awk -v z="$zstart" -v s="$sstart" -v oz="$old_zstart" -v os="$old_sstart" \
+            'BEGIN { exit !(z > oz && s > os) }' || finish 'BLOCKED reason=reload_already_attempted_this_boot'
+    fi
+fi
+if [ -f "$GUARD" ] && [ "$(cat "$GUARD")" = "$boot_id" ] && [ "$recorded_boot" != "$boot_id" ]; then
+    finish 'BLOCKED reason=reload_already_attempted_this_boot'
+fi
+for guard in "$LOGDIR/audio-hal-reload-samsung.boot-id" "$LOGDIR/audio-hal-reload-retry.boot-id" "$LOGDIR/audio-hal-reload-auto.boot-id" "$LOGDIR/manual-audio-reload.boot-id"; do
     [ ! -f "$guard" ] || [ "$(cat "$guard")" != "$boot_id" ] || finish 'BLOCKED reason=reload_already_attempted_this_boot'
 done
 [ ! -f "$MODPATH/disable" ] && [ ! -f "$MODPATH/skip_mount" ] && [ ! -f "$MODPATH/.aidl-recovery-disabled" ] && [ ! -f "$MODPATH/.samsung-firmware-recovery-disabled" ] || finish 'BLOCKED reason=recovery_disabled_during_preflight'
@@ -194,6 +247,10 @@ while read -r service exe old_pid; do
     running "$service" && [ "$(unique_pid "$exe")" = "$old_pid" ] || finish 'BLOCKED reason=audio_state_changed_during_preflight'
 done <"$work/targets"
 case "$("$GETPROP_BIN" sys.audio.restart.hal)" in ''|0) ;; *) finish 'BLOCKED reason=firmware_reload_already_in_progress' ;; esac
+[ "$(framework_identity)" = "$framework" ] || finish 'BLOCKED reason=framework_changed_during_preflight'
+# Persist the consumed lifecycle before the legacy boot marker and request. A
+# partial/failed write blocks rather than silently enabling another restart.
+printf '%s %s\n' "$boot_id" "$framework" >"$LIFECYCLE_GUARD" || finish 'BLOCKED reason=lifecycle_guard_write_failed'
 printf '%s\n' "$boot_id" >"$GUARD" || finish 'BLOCKED reason=guard_write_failed'
 "$SETPROP_BIN" sys.audio.restart.hal 1 || finish 'BLOCKED reason=firmware_reload_request_failed'
 count=0

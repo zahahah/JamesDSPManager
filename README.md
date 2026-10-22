@@ -66,7 +66,7 @@ That's evidence for this setup, not a universal Android compatibility badge.
 
 **PIXAML isn't required for JamesDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make JamesDSP work.
 
-The common late-load path mounts first, then uses a validated firmware stop/start handler, at most once per boot. There is no model-based preference or hidden opt-in requirement in this path. It never directly requests an `audioserver` restart, but vendor actions or Binder disconnections can still cause one. Normal boot remains separate, and SELinux stays enforcing.
+The common late-load path mounts first, then uses a validated firmware stop/start handler, at most once per verified Android session. Repeated soft reboots are supported without a kernel-boot attempt cap; a HAL-only restart does not re-arm recovery. See [lifecycle guards](TEMP-ROOT-RELOAD.md#retry-disable-and-diagnostics). There is no model-based preference or hidden opt-in requirement in this path. It never directly requests an `audioserver` restart, but vendor actions or Binder disconnections can still cause one. Normal boot remains separate, and SELinux stays enforcing.
 
 ## Installation
 

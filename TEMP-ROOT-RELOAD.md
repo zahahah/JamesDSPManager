@@ -26,7 +26,8 @@ Dependency and artifact integrity checks remain enabled. See the
    ordered stop/start list of audio services followed by its property reset. It
    must include the factory owner. Reject unrelated services, direct `restart`,
    `exec`, extra conditions/actions and ambiguous service identities.
-5. When needed, request that handler **once per boot**, including failed requests.
+5. When needed, request that handler **once per verified Android session**,
+   including failed requests.
    Automatic activation does not require an opt-in marker in test2. Observe all
    initially running handler targets returning with new verified PIDs, the new
    factory owner, matching library mappings and a six-second stability window.
@@ -39,8 +40,22 @@ Dependency and artifact integrity checks remain enabled. See the
 
 The app's Retry uses this same path. It can recover a preflight failure that did
 not request the firmware sequence, but **cannot request a second reload in the
-same boot**. Legacy Pixel/Samsung boot guards are also respected. Do not delete
-those guards or reinstall to force retries.
+same Android session**. There is no kernel-boot cap across repeated soft reboots:
+a newer zygote64 and its newer system_server (verified executable, parent and
+process start times) allow a fresh attempt. A HAL-only restart or a Retry tap
+does not. The lifecycle is rechecked immediately before consuming the guard.
+The existing ten-second scheduler runs when KernelSU invokes the module service
+hook; this is not a promise that every vendor's soft reboot invokes that hook.
+
+Old guards without a lifecycle record remain blocked, since their original
+framework identity cannot be reconstructed safely. The AIDL guard can be seeded
+without a restart when the matching mapped driver already has a live, writable
+native context and no pending mount generation. That marks the current session
+as consumed and permits recovery after a later verified soft reboot. Otherwise,
+a new kernel boot is needed; older non-AIDL guards remain respected. Do not
+delete those guards or reinstall to force retries. Malformed lifecycle records
+also block recovery. These checks prevent repeated requests
+within a session, not vendor restart loops across full framework recreations.
 
 ```sh
 su -c '/data/adb/modules/ainur_jamesdsp/audio-hal-recovery.sh --check'
@@ -98,3 +113,23 @@ works there. Our v5 driver retains its existing NODELETE lifetime protection;
 the test2 CRLF fix changed the mount script, not that native mechanism. The
 collaborator's positive test2 report is recorded separately from host tests and
 from the still-uncollected post-fix Binder/frame telemetry.
+
+## Pixel soft-reboot investigation (2026-10-21)
+
+On the connected mustang running test2, a soft reboot retained the kernel boot
+ID but replaced the HAL and Android framework processes. The current HAL saw the
+correct v5 library and patched XML on disk, yet did not map the driver; its
+factory listed 21 stock effects without JamesDSP. The existing kernel-boot guard
+blocked another activation. This is consistent with the factory starting before
+the late-load overlay was available, although startup visibility was not traced.
+
+A single owner-authorized firmware recovery, without clearing existing guards,
+changed the HAL PID, mapped the matching v5 driver, and registered JamesDSP as the
+22nd effect. The native service initially had zero contexts. After reopening the
+app, the live probe reported one writable context, accepted/applied generations
+matched, and frames were nonzero. The owner confirmed audio processing returned.
+This validates that recovery on this run, not repeated unattended soft reboots.
+
+The Pixel branch now scopes the recovery guard to the kernel boot ID plus the
+verified zygote/system_server start times. The Samsung test2 branch and release
+remain the previously reported working baseline, without this guard change.
