@@ -4,18 +4,18 @@
   "controlProtocol": 3,
   "state": "elf-validated-runtime-unverified",
   "source": {
-    "commit": "93da2c54364f79a78ab42c308bf45d3fa72a4309",
+    "commit": "e92d60d2986effef348e9486d8dd0cafcfcd453c",
     "aospManifestSha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131"
   },
   "embeddedCodeEvidence": {
     "definedSymbolsVerified": true,
-    "loadSegmentsSha256": "1622db14e5f7aac24e58aaaa184bb9007f99e532a12e462337425460335c82a0",
-    "unstrippedSha256": "ae6b424ea18de06086592ce99ad7f4d2eca35b412620ec00bf8ca02b854f3a4e"
+    "loadSegmentsSha256": "07b4147f5e117738010e63f9cb97aa5d64acac6890f8c251550d041b451280cb",
+    "unstrippedSha256": "123222df037893b56dbdc65933f7ddd21dec076c90113ba02b34ad5c2dbd71e9"
   },
   "artifacts": {
     "driver": {
-      "sha256": "947cf86533d851a9d96b8bec73fd3c99b9032ed3a93847e63d518399debe76bf",
-      "sizeBytes": 2252584,
+      "sha256": "cb79ff6bfb9f44d2053f0f984ffd8470e44ebb7053e86a0d90df3ffe620e50c5",
+      "sizeBytes": 2252528,
       "direct_dt_needed": [
         "libbinder_ndk.so",
         "libbase.so",

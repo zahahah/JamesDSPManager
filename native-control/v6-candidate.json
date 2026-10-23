@@ -1,6 +1,6 @@
 {
   "iteration": 6,
-  "state": "awaiting-new-native-build",
+  "state": "ready-for-device-test",
   "wireProtocol": 3,
   "service": "jdsp.control",
   "descriptor": "lightning.dsp.IJamesDspControl",
@@ -23,8 +23,8 @@
     },
     "driver": {
       "path": "common/files/aidl/libjamesdsp.so",
-      "sha256": "947cf86533d851a9d96b8bec73fd3c99b9032ed3a93847e63d518399debe76bf",
-      "sizeBytes": 2252584
+      "sha256": "cb79ff6bfb9f44d2053f0f984ffd8470e44ebb7053e86a0d90df3ffe620e50c5",
+      "sizeBytes": 2252528
     },
     "helper": {
       "path": "common/files/control/arm64-v8a/jdspctl",
@@ -33,9 +33,12 @@
     }
   },
   "notes": [
-    "Experimental Soundstage fixed-size specialization and aligned storage, plus safer lifecycle/fallback for existing persistent long-tail workers; production partition selection is unchanged.",
-    "Source tests and standalone measurements do not prove elimination of live audio chopping.",
-    "APK and control protocol remain unchanged. Previous native payload is not this build and must not be packaged."
+    "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
+    "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
+    "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
+    "Experimental Soundstage fixed-size specialization and aligned private storage, plus safer lifecycle and serial failure fallback for existing persistent convolution-tail workers.",
+    "Production convolution partition selection is unchanged; the broader offload policy remains test-only after Android timing regressions.",
+    "Source tests and isolated measurements do not establish elimination of chopping with five/six live effects. APK and control protocol are unchanged."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
   "notices": {
@@ -46,6 +49,6 @@
   "buildArtifactSource": {
     "repository": "https://github.com/zahahah/LightningDSP-builds",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "383b23aa91609aecc476fac2c200ece270b31fb8"
+    "commit": "8d728c45c9dd90fcf17279381e191d8d9a186ab0"
   }
 }
