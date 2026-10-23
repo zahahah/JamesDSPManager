@@ -51,6 +51,25 @@ native enable/post-gain/prepared-FIR control works. Other app parameters retain
 the existing AudioEffect path. No effect-bound transport, Binder driver switch,
 permissive SELinux or broad ordinary-app authorization is introduced.
 
+## Vendor DSP-thread scheduling profile
+
+The module starts a small root-side watcher for the effect thread named
+`James Audio DS`. It applies the vendor `RealtimePerformance` task profile only
+when `/vendor/etc/task_profiles.json` defines that profile as exactly one
+`WriteFile` action to `/proc/vendor_sched/groups/ta/set_task_group`, and the
+matching `ta`/`fg` controls plus `/proc/vendor_sched/dump_task` exist. It moves
+only a matching thread currently in `fg`; unknown profiles and other thread
+groups are left alone. This prevents falling through to AOSP's generic
+`cpu/rt` profile on devices with different policy.
+
+The watcher checks every five seconds for late thread creation and HAL thread
+replacement. It restores threads it changed when the module is disabled or the
+watcher exits; a reboot resets the runtime assignment. It does not pin cores,
+change governors, request FIFO scheduling, restart audio services, or adjust
+effect settings. Devices without the exact vendor profile report a skipped
+status and retain the existing behavior. The profile was manually tested on a
+Pixel 10 Pro XL; support on other vendor implementations remains unverified.
+
 ## Evidence required on a device
 
 Verify the imported artifact/hash, loaded ELF, effect discovery/creation, helper

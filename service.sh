@@ -9,6 +9,14 @@ if [ -f "$MODPATH/native-control.sh" ]; then
 	sh "$MODPATH/native-control.sh" activate "$MODPATH" >"$MODPATH/logs/native-control-activation.log" 2>&1 &
 fi
 
+# Some vendor task profiles map the DSP thread into a scheduler group that
+# avoids the underruns observed on the Pixel. The helper validates the exact
+# vendor profile before changing anything and exits harmlessly elsewhere.
+if [ -x "$MODPATH/dsp-thread-profile.sh" ]; then
+	sh "$MODPATH/dsp-thread-profile.sh" --watch "$MODPATH" \
+		>>"$MODPATH/logs/dsp-thread-profile.log" 2>&1 </dev/null &
+fi
+
 start_jdsp_app_installer() {
 	[ -f "$MODPATH/jdsp_app.sh" ] || return 0
 	MODPATH="$MODPATH" sh "$MODPATH/jdsp_app.sh" >/dev/null 2>&1 &

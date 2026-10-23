@@ -146,6 +146,8 @@ class EmbeddedV6Tests(unittest.TestCase):
             self.assertNotIn('native-control/provenance.json', archive.namelist())
             self.assertNotIn('common/files/JamesDSPManager.apk', archive.namelist())
             self.assertNotIn('update.json', archive.namelist())
+            self.assertIn('dsp-thread-profile.sh', archive.namelist())
+            self.assertEqual(archive.getinfo('dsp-thread-profile.sh').external_attr >> 16, 0o100755)
             drivers = [name for name in archive.namelist() if name.endswith('/libjamesdsp.so')]
             self.assertEqual(drivers, [package.EXPECTED_PATHS['driver']])
             self.assertEqual(archive.getinfo(package.EXPECTED_PATHS['helper']).external_attr >> 16, 0o100755)

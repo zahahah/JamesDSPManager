@@ -54,6 +54,7 @@ set_permissions() {
   [ -f "$MODPATH/audio-hal-recovery.sh" ] && set_perm "$MODPATH/audio-hal-recovery.sh" 0 0 0755
   [ -f "$MODPATH/aidl-audio-recovery.sh" ] && set_perm "$MODPATH/aidl-audio-recovery.sh" 0 0 0755
   [ -f "$MODPATH/aidl-effect-mount.sh" ] && set_perm "$MODPATH/aidl-effect-mount.sh" 0 0 0755
+  [ -f "$MODPATH/dsp-thread-profile.sh" ] && set_perm "$MODPATH/dsp-thread-profile.sh" 0 0 0755
   [ -f "$MODPATH/jdsp_app.sh" ] && set_perm "$MODPATH/jdsp_app.sh" 0 0 0755
 
   # Note that all files/folders in magisk module directory have the $MODPATH prefix - keep this prefix on all of your files/folders

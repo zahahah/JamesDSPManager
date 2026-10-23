@@ -1,3 +1,20 @@
+### v6.6-beta-6.3-dsp-scheduler (experimental prerelease)
+
+* Apply the vendor's `RealtimePerformance` profile to the JamesDSP processing
+  thread only when the vendor profile is a single, verified task-group mapping
+  to its own `ta` scheduler group. Generic AOSP `cpu/rt` behavior and unknown
+  vendor profiles are explicitly skipped.
+* Watch for the effect thread across late creation and HAL lifecycle changes;
+  only threads named `James Audio DS` currently in `fg` are eligible. No core
+  pinning, FIFO policy, governor changes, HAL restart, or audio-quality change.
+* Include bounded FFT-head selection for eligible short/medium stereo FIRs,
+  matrix-kernel iteration cleanup, and Soundstage block-call consolidation.
+  Reverb vectorization was rejected after exact state and timing tests failed.
+* Host strict/fast/sanitizer response tests passed. Pixel live playback showed
+  no audible interference during a temporary one-minute profile test, then the
+  original group was restored. This is promising device evidence, not a claim
+  that all devices or workloads are glitch-free.
+
 ### v6.6-beta-5.3
 
 * Include the Pixel branch's soft-reboot lifecycle guard changes.

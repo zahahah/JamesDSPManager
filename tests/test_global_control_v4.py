@@ -105,6 +105,7 @@ class PixelNativeControlPackageTests(unittest.TestCase):
 
     def test_candidate_service_only_schedules_guarded_hal_recovery_for_late_load(self):
         service = (ROOT / "service.sh").read_text(encoding="utf-8")
+        self.assertIn('dsp-thread-profile.sh" --watch', service)
         late_branch = service.split('if [ "${KSU_LATE_LOAD:-0}"', 1)[1].split("fi", 1)[0]
         self.assertNotIn("audio-reload.sh", late_branch)
         self.assertNotIn("killall", late_branch)

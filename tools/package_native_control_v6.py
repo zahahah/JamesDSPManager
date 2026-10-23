@@ -18,8 +18,8 @@ MANIFEST = 'native-control/v6-candidate.json'
 PROVENANCE = 'native-control/v6-build-provenance.json'
 NOTICES = 'native-control/v6-NOTICES.txt'
 EXPECTED_PATHS = baseline.EXPECTED_PATHS
-VERSION = 'v6.6-beta-6.2-dsp-test'
-VERSION_CODE = 146
+VERSION = 'v6.6-beta-6.3-dsp-scheduler'
+VERSION_CODE = 147
 PROFILE = json.loads(gate.PROFILE.read_text())
 
 
@@ -129,6 +129,7 @@ def payloads():
         'DUAL-ENTRY-CONTROL-V6.md': 0o100644,
         'effect-host.sh': 0o100755, 'audio-hal-recovery.sh': 0o100755, 'aidl-audio-recovery.sh': 0o100755,
         'aidl-effect-mount.sh': 0o100755, 'native-control.sh': 0o100755,
+        'dsp-thread-profile.sh': 0o100755,
         MANIFEST: 0o100644, PROVENANCE: 0o100644, NOTICES: 0o100644,
         'native-control/global-service.rule': 0o100644,
         'native-control/default-label-opt-in.rule': 0o100644,
