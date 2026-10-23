@@ -94,8 +94,21 @@ matching_tasks() {
 		"$PROC_ROOT/vendor_sched/dump_task" 2>/dev/null
 }
 
+# Bind ownership to a live DSP mapping and thread lifetime, not its name alone.
+task_identity() {
+	[ "$(cat "$PROC_ROOT/$1/comm" 2>/dev/null)" = 'James Audio DS' ] || return 1
+	tgid=$(awk '/^Tgid:/ { print $2; exit }' "$PROC_ROOT/$1/status" 2>/dev/null)
+	case "$tgid" in ''|*[!0-9]*) return 1 ;; esac
+	grep -Eq '/libjamesdsp\.so$' "$PROC_ROOT/$tgid/maps" 2>/dev/null || return 1
+	start=$(awk '{ sub(/^.*\) /, ""); print $20 }' "$PROC_ROOT/$1/stat" 2>/dev/null)
+	case "$start" in ''|*[!0-9]*) return 1 ;; esac
+	printf '%s:%s\n' "$tgid" "$start"
+}
+
 restore_applied() {
-	for tid in $APPLIED_TIDS; do
+	for owned in $APPLIED_TIDS; do
+		tid=${owned%%:*}
+		[ "$(task_identity "$tid")" = "${owned#*:}" ] || continue
 		[ "$(task_group "$tid")" = ta ] || continue
 		echo "$tid" >"$PROC_ROOT/vendor_sched/groups/fg/set_task_group" 2>/dev/null || continue
 		log_event "RESTORED tid=$tid group=fg"
@@ -149,12 +162,13 @@ while :; do
 			group=${item#*:}
 			case "$tid" in ''|*[!0-9]*) continue ;; esac
 			[ "$group" = fg ] || continue
+			identity=$(task_identity "$tid") || continue
 			"$SETTASKPROFILE" "$tid" RealtimePerformance >/dev/null 2>&1 || {
 				write_status "FAILED reason=task_profile_failed tid=$tid"
 				continue
 			}
-			if [ "$(task_group "$tid")" = ta ]; then
-				case " $APPLIED_TIDS " in *" $tid "*) ;; *) APPLIED_TIDS="$APPLIED_TIDS $tid" ;; esac
+			if [ "$(task_group "$tid")" = ta ] && [ "$(task_identity "$tid")" = "$identity" ]; then
+				case " $APPLIED_TIDS " in *" $tid:$identity "*) ;; *) APPLIED_TIDS="$APPLIED_TIDS $tid:$identity" ;; esac
 				write_status "APPLIED profile=RealtimePerformance tid=$tid group=ta"
 				log_event "APPLIED tid=$tid original=fg target=ta"
 			else

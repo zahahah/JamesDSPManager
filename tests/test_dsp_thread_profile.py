@@ -25,6 +25,14 @@ class DspThreadProfileTests(unittest.TestCase):
         (proc / "dump_task").write_text(
             "30362 James Audio DS fg 0 1024 0 1024 0x0 0 0x0 1\n"
         )
+        task = self.root / "proc/30362"
+        task.mkdir()
+        (task / "comm").write_text("James Audio DS\n")
+        (task / "status").write_text("Tgid:\t2913\n")
+        (task / "stat").write_text("30362 (James Audio DS) S " + "0 " * 18 + "12345 0\n")
+        host = self.root / "proc/2913"
+        host.mkdir()
+        (host / "maps").write_text("1000-2000 r-xp 00000000 00:01 1 /vendor/lib64/soundfx/libjamesdsp.so\n")
         profile = {
             "Profiles": [{
                 "Name": "RealtimePerformance",
@@ -122,6 +130,22 @@ class DspThreadProfileTests(unittest.TestCase):
         result = self.run_once()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertFalse(self.calls.exists())
+
+    def test_same_thread_name_without_a_live_dsp_mapping_is_not_targeted(self):
+        (self.root / "proc/2913/maps").write_text(
+            "1000-2000 r-xp 00000000 00:01 1 /vendor/lib64/soundfx/libjamesdsp.so (deleted)\n"
+        )
+        result = self.run_once()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertFalse(self.calls.exists())
+
+    def test_reused_thread_id_is_not_restored_as_the_old_thread(self):
+        mock = self.root / "settaskprofile"
+        mock.write_text(mock.read_text() + f"echo '30362 (James Audio DS) S {'0 ' * 18}54321 0' >'{self.root / 'proc/30362/stat'}'\n")
+        result = self.run_once()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(self.calls.read_text(), "30362 RealtimePerformance\n")
+        self.assertEqual((self.root / "proc/vendor_sched/groups/fg/set_task_group").read_text(), "")
 
 
 if __name__ == "__main__":

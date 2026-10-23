@@ -7,7 +7,7 @@
   "nativeSource": {
     "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "e92d60d2986effef348e9486d8dd0cafcfcd453c"
+    "commit": "8f80739614c681efacea3375fb7077e2ddb59ad2"
   },
   "artifacts": {
     "app": {
@@ -23,8 +23,8 @@
     },
     "driver": {
       "path": "common/files/aidl/libjamesdsp.so",
-      "sha256": "cb79ff6bfb9f44d2053f0f984ffd8470e44ebb7053e86a0d90df3ffe620e50c5",
-      "sizeBytes": 2252528
+      "sha256": "41bd6e843e15fcffaa91716aacbdee0de2d65e84aee32d53fbe6392781c07432",
+      "sizeBytes": 2252656
     },
     "helper": {
       "path": "common/files/control/arm64-v8a/jdspctl",
@@ -36,9 +36,9 @@
     "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
     "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
     "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
-    "Experimental Soundstage fixed-size specialization and aligned private storage, plus safer lifecycle and serial failure fallback for existing persistent convolution-tail workers.",
-    "Production convolution partition selection is unchanged; the broader offload policy remains test-only after Android timing regressions.",
-    "Source tests and isolated measurements do not establish elimination of chopping with five/six live effects. APK and control protocol are unchanged."
+    "Eligible short/medium stereo FIR heads and the Soundstage block path are specialized; matrix convolution accumulation retains tested response/state. Reverb source is unchanged from e92d60.",
+    "The module capability-gates its vendor DSP thread scheduler watcher; unknown profiles remain unchanged. A temporary Pixel listening experiment is not packaged-build runtime validation.",
+    "APK and control protocol are unchanged; five/six-effect live playback and callback deadlines remain pending device testing."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
   "notices": {
@@ -49,6 +49,6 @@
   "buildArtifactSource": {
     "repository": "https://github.com/zahahah/LightningDSP-builds",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "8d728c45c9dd90fcf17279381e191d8d9a186ab0"
+    "commit": "95ccab8763f43014d8735b95729b36db3d917c3e"
   }
 }

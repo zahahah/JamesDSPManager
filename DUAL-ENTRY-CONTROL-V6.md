@@ -58,7 +58,9 @@ The module starts a small root-side watcher for the effect thread named
 when `/vendor/etc/task_profiles.json` defines that profile as exactly one
 `WriteFile` action to `/proc/vendor_sched/groups/ta/set_task_group`, and the
 matching `ta`/`fg` controls plus `/proc/vendor_sched/dump_task` exist. It moves
-only a matching thread currently in `fg`; unknown profiles and other thread
+only a matching thread currently in `fg` whose host has a live `libjamesdsp.so`
+mapping. Its thread start time is checked before restoring an assignment so a
+reused TID is not treated as the old thread. Unknown profiles and other thread
 groups are left alone. This prevents falling through to AOSP's generic
 `cpu/rt` profile on devices with different policy.
 
@@ -69,6 +71,14 @@ change governors, request FIFO scheduling, restart audio services, or adjust
 effect settings. Devices without the exact vendor profile report a skipped
 status and retain the existing behavior. The profile was manually tested on a
 Pixel 10 Pro XL; support on other vendor implementations remains unverified.
+
+`v6.6-beta-6.3-dsp-scheduler` also imports native source `8f80739614c6`:
+bounded head sizing for eligible short/medium stereo FIRs, matrix-kernel loop
+consolidation, and fewer out-of-line Soundstage calls. Strict, fast-math and
+sanitizer regression suites passed. Synthetic timings do not establish a
+live callback deadline improvement. Reverb source remains unchanged from the
+previous candidate; the attempted vector rewrite failed its state/timing gate
+and was rejected. The app, effect presets and control protocol are unchanged.
 
 ## Evidence required on a device
 
