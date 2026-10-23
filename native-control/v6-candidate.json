@@ -1,6 +1,6 @@
 {
   "iteration": 6,
-  "state": "awaiting-native-build",
+  "state": "ready-for-device-test",
   "wireProtocol": 3,
   "service": "jdsp.control",
   "descriptor": "lightning.dsp.IJamesDspControl",
@@ -23,8 +23,8 @@
     },
     "driver": {
       "path": "common/files/aidl/libjamesdsp.so",
-      "sha256": "d5d4075c1aac725a671da8e6225e017e1547c41fac22d7656a1c20b5dc21166b",
-      "sizeBytes": 2252552
+      "sha256": "947cf86533d851a9d96b8bec73fd3c99b9032ed3a93847e63d518399debe76bf",
+      "sizeBytes": 2252584
     },
     "helper": {
       "path": "common/files/control/arm64-v8a/jdspctl",
@@ -33,15 +33,21 @@
     }
   },
   "notes": [
-    "Awaiting a source-bound Soong build for the isolated reverb ring-index experiment.",
-    "Existing payload files are previous beta-6 artifacts, not a build of this candidate; distribution is blocked until verified import.",
-    "Presets, oversampling, AIDL/legacy effect interfaces and control protocol 3 are unchanged.",
-    "Combined-chain performance improvement and elimination of audible interruptions remain unverified."
+    "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
+    "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
+    "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
+    "This is an isolated reverb ring-index experiment; presets, oversampling and floating-point filter calculations are unchanged.",
+    "Bitwise output/state and real Convolver plus Plate High regression tests passed; full-chain timing improvement and elimination of audible chopping remain unverified."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
   "notices": {
     "path": "native-control/v6-NOTICES.txt",
     "sha256": "bbe1e520452203f73d385b70f9ffc1ec02c3820db1f02c35c580d19d5be24458",
     "sizeBytes": 286423
+  },
+  "buildArtifactSource": {
+    "repository": "https://github.com/zahahah/LightningDSP-builds",
+    "branch": "native/reverb-ring-index-optimization",
+    "commit": "383b23aa91609aecc476fac2c200ece270b31fb8"
   }
 }
