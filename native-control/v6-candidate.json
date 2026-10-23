@@ -1,13 +1,13 @@
 {
   "iteration": 6,
-  "state": "ready-for-device-test",
+  "state": "awaiting-new-native-build",
   "wireProtocol": 3,
   "service": "jdsp.control",
   "descriptor": "lightning.dsp.IJamesDspControl",
   "nativeSource": {
     "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "93da2c54364f79a78ab42c308bf45d3fa72a4309"
+    "commit": "e92d60d2986effef348e9486d8dd0cafcfcd453c"
   },
   "artifacts": {
     "app": {
@@ -33,11 +33,9 @@
     }
   },
   "notes": [
-    "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
-    "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
-    "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
-    "This is an isolated reverb ring-index experiment; presets, oversampling and floating-point filter calculations are unchanged.",
-    "Bitwise output/state and real Convolver plus Plate High regression tests passed; full-chain timing improvement and elimination of audible chopping remain unverified."
+    "Experimental Soundstage fixed-size specialization and aligned storage, plus safer lifecycle/fallback for existing persistent long-tail workers; production partition selection is unchanged.",
+    "Source tests and standalone measurements do not prove elimination of live audio chopping.",
+    "APK and control protocol remain unchanged. Previous native payload is not this build and must not be packaged."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
   "notices": {

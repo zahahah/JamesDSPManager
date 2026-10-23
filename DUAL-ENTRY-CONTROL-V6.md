@@ -76,3 +76,19 @@ results vary with CPU placement and workload; improvement of the combined
 chain and elimination of audible chopping are not established. This is a
 playback comparison candidate, not a confirmed fix. The original beta-6
 release and Samsung integration branch remain separate and available.
+
+
+## Combined-effects DSP experiment
+
+`v6.6-beta-6.2-dsp-test` continues on the same optimization branch. It adds
+fixed-size Soundstage loop specialization, aligned channel storage, and safer
+existing convolution-tail workers with serial fallback on creation failure.
+Production partition selection remains unchanged: broader offload worsened
+standalone Pixel timing and was rejected. No effect-count trigger, app rebuild,
+audio restart or new transport is added.
+
+The isolated widening stage used about 29% less thread CPU in three matched
+Android standalone runs; full-chain timings were variable. This remains
+experimental: live Android playback with five/six effects and the actual IR /
+presets must verify processing margin and audible continuity. The earlier
+beta-6.1 and original Samsung branch remain available for rollback.
