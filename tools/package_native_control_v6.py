@@ -18,8 +18,8 @@ MANIFEST = 'native-control/v6-candidate.json'
 PROVENANCE = 'native-control/v6-build-provenance.json'
 NOTICES = 'native-control/v6-NOTICES.txt'
 EXPECTED_PATHS = baseline.EXPECTED_PATHS
-VERSION = 'v6.6-beta-6'
-VERSION_CODE = 144
+VERSION = 'v6.6-beta-6.1-reverb-test'
+VERSION_CODE = 145
 PROFILE = json.loads(gate.PROFILE.read_text())
 
 
@@ -104,8 +104,8 @@ def verify_artifacts(root=ROOT, readelf=None):
 
 def distribution_version(root=ROOT):
     branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch not in ('pixel-test-new-aidl', 'samsung-test-new-aidl'):
-        raise ValueError('V6 distribution requires pixel-test-new-aidl or samsung-test-new-aidl')
+    if branch not in ('pixel-test-new-aidl', 'samsung-test-new-aidl', 'reverb-ring-index-optimization'):
+        raise ValueError('V6 distribution requires pixel-test-new-aidl, samsung-test-new-aidl or reverb-ring-index-optimization')
     props = (root / 'module.prop').read_text()
     if f'version={VERSION}\n' not in props or f'versionCode={VERSION_CODE}\n' not in props:
         raise ValueError('Expected embedded v6 module version metadata')

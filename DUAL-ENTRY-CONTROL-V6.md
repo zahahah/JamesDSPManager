@@ -62,3 +62,17 @@ the reference devices. Build/host tests and ELF gates cannot replace these steps
 Public candidate/provenance files contain allowlisted artifact/source facts;
 full compiler logs, pinned manifests and debug binaries remain private. Existing
 v5 releases remain available for rollback. No APK migration is needed here.
+
+## Separate reverb experiment
+
+`v6.6-beta-6.1-reverb-test` is built on the separate
+`reverb-ring-index-optimization` module branch. It keeps the v6 loading/control
+interfaces and existing APK, but tests a native circular-buffer index
+optimization without changing reverb presets, filters or oversampling.
+
+The previous v6 driver is the reference for bit-identical output/state tests,
+including a real threaded Convolver + Plate High chain. Standalone timing
+results vary with CPU placement and workload; improvement of the combined
+chain and elimination of audible chopping are not established. This is a
+playback comparison candidate, not a confirmed fix. The original beta-6
+release and Samsung integration branch remain separate and available.

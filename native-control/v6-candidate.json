@@ -1,13 +1,13 @@
 {
   "iteration": 6,
-  "state": "ready-for-device-test",
+  "state": "awaiting-native-build",
   "wireProtocol": 3,
   "service": "jdsp.control",
   "descriptor": "lightning.dsp.IJamesDspControl",
   "nativeSource": {
     "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
-    "branch": "samsung-test-new-aidl",
-    "commit": "4cb616a90e1b19a30ce3f30411e876bec981a6bd"
+    "branch": "native/reverb-ring-index-optimization",
+    "commit": "93da2c54364f79a78ab42c308bf45d3fa72a4309"
   },
   "artifacts": {
     "app": {
@@ -33,16 +33,12 @@
     }
   },
   "notes": [
-    "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
-    "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
-    "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build."
+    "Awaiting a source-bound Soong build for the isolated reverb ring-index experiment.",
+    "Existing payload files are previous beta-6 artifacts, not a build of this candidate; distribution is blocked until verified import.",
+    "Presets, oversampling, AIDL/legacy effect interfaces and control protocol 3 are unchanged.",
+    "Combined-chain performance improvement and elimination of audible interruptions remain unverified."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
-  "buildArtifactSource": {
-    "repository": "https://github.com/zahahah/LightningDSP-builds",
-    "branch": "native/dual-entry-control-v6",
-    "commit": "d3cea9239fc25b424c17269bc7d868f94b8f9812"
-  },
   "notices": {
     "path": "native-control/v6-NOTICES.txt",
     "sha256": "bbe1e520452203f73d385b70f9ffc1ec02c3820db1f02c35c580d19d5be24458",

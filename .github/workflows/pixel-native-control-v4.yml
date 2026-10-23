@@ -1,7 +1,7 @@
 name: Global native control source and package
 on:
   push:
-    branches: [pixel-test-new-aidl, samsung-test-new-aidl, master]
+    branches: [pixel-test-new-aidl, samsung-test-new-aidl, reverb-ring-index-optimization, master]
   workflow_dispatch:
 permissions:
   contents: read

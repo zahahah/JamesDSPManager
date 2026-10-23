@@ -118,7 +118,7 @@ class EmbeddedV6Tests(unittest.TestCase):
 
     def test_distribution_accepts_integration_branches_with_exact_version(self):
         props = self.root / 'module.prop'
-        for branch in ('pixel-test-new-aidl', 'samsung-test-new-aidl'):
+        for branch in ('pixel-test-new-aidl', 'samsung-test-new-aidl', 'reverb-ring-index-optimization'):
             with self.subTest(branch=branch), patch.object(package.subprocess, 'check_output', return_value=branch):
                 props.write_text(f'version={package.VERSION}\nversionCode={package.VERSION_CODE}\n')
                 self.assertEqual(package.distribution_version(self.root), package.VERSION)
