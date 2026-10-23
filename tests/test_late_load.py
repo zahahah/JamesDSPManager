@@ -3,6 +3,7 @@ import pathlib
 import shutil
 import subprocess
 import tempfile
+import time
 import unittest
 import zipfile
 
@@ -415,10 +416,17 @@ class LateLoadTests(unittest.TestCase):
                 check=False,
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            for _ in range(20):
-                if recovery_calls.exists():
-                    break
-                subprocess.run(["sleep", "0.05"], check=False)
+            # The scheduler is intentionally detached. Wait for its completed
+            # write, not merely file creation, with a bounded monotonic deadline.
+            # A one-second fork-based poll flakes on a loaded macOS host.
+            deadline = time.monotonic() + 10
+            while time.monotonic() < deadline:
+                try:
+                    if recovery_calls.read_text() == "--auto-once\n":
+                        break
+                except FileNotFoundError:
+                    pass
+                time.sleep(0.02)
             self.assertEqual(recovery_calls.read_text(), "--auto-once\n")
             self.assertEqual((module / "logs/sleep.calls").read_text(), "10\n")
             self.assertEqual(

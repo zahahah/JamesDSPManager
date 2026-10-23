@@ -29,9 +29,12 @@ finish() {
     exit "${2:-1}"
 }
 factory_pid() {
-    result=$("$DUMPSYS_BIN" -t 2 --pid "$FACTORY" 2>/dev/null) || return 1
-    case "$result" in ''|*[!0-9]*) return 1 ;; esac
-    printf '%s\n' "$result"
+    result=$("$DUMPSYS_BIN" -t 2 --pid "$FACTORY" 2>/dev/null)
+    case "$result" in
+        ''|*[!0-9]*)
+            sh "$MODPATH/effect-host.sh" --hidl-pid 2>/dev/null ;;
+        *) printf '%s\n' "$result" ;;
+    esac
 }
 unique_pid() {
     ids=$("$PIDOF_BIN" "${1##*/}" 2>/dev/null) || return 1
@@ -147,10 +150,11 @@ done >"$work/rc-files"
 while IFS= read -r rc; do
     # Data-only parsing. Do not source, eval, or execute firmware file contents.
     awk '
-    function flush() { if (name != "") print name, exe, user; name="" }
+    function flush() { if (name != "") print name, exe, user, override; name="" }
     { sub(/#.*/, "") }
-    $1 == "service" { flush(); name=$2; exe=$3; user="root"; next }
+    $1 == "service" { flush(); name=$2; exe=$3; user="root"; override=0; next }
     name != "" && $1 == "user" { user=$2 }
+    name != "" && $1 == "override" { override=1 }
     /^[^ \t]/ && $1 != "" { flush() }
     END { flush() }
     ' "$rc" >>"$work/services"
@@ -163,6 +167,20 @@ while IFS= read -r rc; do
     active && NF { $1=$1; print }
     ' "$rc" >>"$work/handler"
 done <"$work/rc-files"
+# Resolve only an unambiguous override declaration. Real init import order
+# remains authoritative; the selected executable must match the live PID below.
+# Multiple overrides and duplicate base declarations remain ambiguous.
+awk '
+    { count[$1]++; row[$1]=$0; if ($4 == 1) { overrides[$1]++; replacement[$1]=$0 } }
+    END {
+        for (name in count) {
+            if (count[name] == 1) print row[name];
+            else if (count[name] == 2 && overrides[name] == 1) print replacement[name];
+            else print name, "AMBIGUOUS", "unknown", 0;
+        }
+    }
+' "$work/services" >"$work/services.effective"
+mv "$work/services.effective" "$work/services"
 owner=$(awk -v exe="$owner_exe" '$2 == exe && $3 == "audioserver" { print $1 }' "$work/services")
 case "$owner" in ''|*[!a-zA-Z0-9_.:-]*) finish 'BLOCKED reason=factory_init_service_not_unique' ;; esac
 [ "$(awk -v svc="$owner" '$1 == svc { n++ } END { print n+0 }' "$work/services")" = 1 ] && running "$owner" || finish 'BLOCKED reason=factory_init_service_not_running'

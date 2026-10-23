@@ -1,0 +1,33 @@
+{
+  "iteration": 6,
+  "state": "source-candidate-awaiting-soong-build",
+  "profile": "dual-entry-effect-v4-legacy-arm64",
+  "controlProtocol": 3,
+  "driverTarget": "liblightningdsp_v6",
+  "helperTarget": "jdspctl_v6",
+  "embeddedInterfaces": [
+    "android.hardware.audio.effect-V4-ndk",
+    "android.media.audio.common.types-V5-ndk",
+    "android.hardware.audio.common-V5-ndk",
+    "android.media.audio.eraser.types-V2-ndk",
+    "android.hardware.common-V2-ndk",
+    "android.hardware.common.fmq-V1-ndk"
+  ],
+  "driverAllowedNeeded": [
+    "libbinder_ndk.so",
+    "liblog.so",
+    "libbase.so",
+    "libfmq.so",
+    "libcutils.so",
+    "libc.so",
+    "libm.so",
+    "libdl.so"
+  ],
+  "helperAllowedNeeded": [
+    "libbinder_ndk.so",
+    "liblog.so",
+    "libc.so",
+    "libm.so",
+    "libdl.so"
+  ]
+}

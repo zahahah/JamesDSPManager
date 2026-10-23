@@ -25,8 +25,10 @@ NEEDED_LIST=$("$PATCHELF_BIN" --print-needed "$MY_LIB") || {
 # An imported embedded profile must not demand the shared AIDL libraries it
 # compiled into the driver. Keep a strict runtime allowlist and still check
 # every direct system dependency; this is not an ABI or linker-namespace proof.
-if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
-    [ -n "$NEEDED_LIST" ] || { echo "embedded v5 driver has no runtime dependencies" >&2; return 1; }
+if [ -f "$MODPATH/native-control/v5-candidate.json" ] || [ -f "$MODPATH/native-control/v6-candidate.json" ]; then
+    embedded_profile=v5
+    [ ! -f "$MODPATH/native-control/v6-candidate.json" ] || embedded_profile=v6
+    [ -n "$NEEDED_LIST" ] || { echo "embedded $embedded_profile driver has no runtime dependencies" >&2; return 1; }
     has_binder=false
     has_libc=false
     for REQUIRED in $NEEDED_LIST; do
@@ -34,7 +36,7 @@ if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
             libbinder_ndk.so) has_binder=true ;;
             libc.so) has_libc=true ;;
             liblog.so|libbase.so|libfmq.so|libcutils.so|libm.so|libdl.so) ;;
-            *) echo "forbidden embedded v5 runtime dependency: $REQUIRED" >&2; return 1 ;;
+            *) echo "forbidden embedded $embedded_profile runtime dependency: $REQUIRED" >&2; return 1 ;;
         esac
         discovered=false
         for root in $LIB_ROOTS; do
@@ -46,10 +48,10 @@ if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
         }
     done
     [ "$has_binder" = true ] && [ "$has_libc" = true ] || {
-        echo "embedded v5 driver lacks required Binder/libc dependencies" >&2
+        echo "embedded $embedded_profile driver lacks required Binder/libc dependencies" >&2
         return 1
     }
-    echo "embedded v5 runtime dependencies validated without rewriting DT_NEEDED"
+    echo "embedded $embedded_profile runtime dependencies validated without rewriting DT_NEEDED"
     return 0
 fi
 

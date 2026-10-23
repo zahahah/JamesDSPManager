@@ -24,7 +24,9 @@ jobs:
       - name: Check compiled candidate readiness (source-only is not a release)
         id: native
         run: |
-          if [ -f native-control/v5-candidate.json ]; then
+          if [ -f native-control/v6-candidate.json ]; then
+            python3 tools/package_native_control_v6.py --check-source
+          elif [ -f native-control/v5-candidate.json ]; then
             python3 tools/package_native_control_v5.py --check-source
           else
             python3 tools/package_native_control_v4.py --check-source
@@ -32,7 +34,9 @@ jobs:
       - name: Package only a fully imported and verified candidate
         if: steps.native.outputs.ready == 'true'
         run: |
-          if [ -f native-control/v5-candidate.json ]; then
+          if [ -f native-control/v6-candidate.json ]; then
+            python3 tools/package_native_control_v6.py
+          elif [ -f native-control/v5-candidate.json ]; then
             python3 tools/package_native_control_v5.py
           else
             python3 tools/package_native_control_v4.py

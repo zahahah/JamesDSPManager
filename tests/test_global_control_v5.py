@@ -163,7 +163,7 @@ class EmbeddedV5Tests(unittest.TestCase):
 
     def test_installer_selects_v5_payload_and_checks_abi_before_library_or_app_changes(self):
         source = (ROOT / 'common/install.sh').read_text()
-        check = source.index('if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then')
+        check = source.index('if [ -f "$MODPATH/native-control/v5-candidate.json" ] && [ ! -f "$MODPATH/native-control/v6-candidate.json" ]; then')
         first_library_copy = source.index('cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so"')
         app_move = source.index('mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk"')
         self.assertLess(check, first_library_copy)
@@ -225,7 +225,7 @@ cp_ch() { mkdir -p "${2%/*}"; cp "$1" "$2"; }
 
     def test_v5_abi_gate_still_rejects_unsupported_architectures(self):
         source = (ROOT / 'common/install.sh').read_text()
-        start = source.index('if [ -f "$MODPATH/native-control/v5-candidate.json" ]; then')
+        start = source.index('if [ -f "$MODPATH/native-control/v5-candidate.json" ] && [ ! -f "$MODPATH/native-control/v6-candidate.json" ]; then')
         block = source[start:source.index('ui_print " "', start)]
         prelude = 'abort() { echo "$1"; exit 23; }; getprop() { echo "$MOCK_ABI64"; }; ui_print() { :; }; '
         for aidl, abi, expected in (('true', 'arm64-v8a', 0), ('true', 'x86_64,arm64-v8a', 0),
