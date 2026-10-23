@@ -188,6 +188,7 @@ class EmbeddedV6Tests(unittest.TestCase):
     def test_successful_import_preserves_app_and_updates_version_only_after_verification(self):
         app = self.root / package.EXPECTED_PATHS['app']
         before = app.read_bytes()
+        (self.root / package.EXPECTED_PATHS['driver']).chmod(0o755)
         with patch.object(importer, 'inspect_bundle', return_value=self.report), \
                 patch.object(package.subprocess, 'check_output', side_effect=self.inspector), \
                 patch.object(package.baseline, 'verify_apk'):
@@ -197,6 +198,9 @@ class EmbeddedV6Tests(unittest.TestCase):
         self.assertEqual(result['state'], 'ready-for-device-test')
         self.assertIn('versionCode=' + str(package.VERSION_CODE), (self.root / 'module.prop').read_text())
         self.assertEqual(before, app.read_bytes())
+        self.assertEqual((self.root / package.EXPECTED_PATHS['driver']).stat().st_mode & 0o777, 0o644)
+        self.assertEqual((self.root / package.EXPECTED_PATHS['helper']).stat().st_mode & 0o777, 0o755)
+        self.assertTrue(any('Effect V4/common V5' in note and 'AELI' in note for note in result['notes']))
         self.verify()
 
     def test_copy_failure_rolls_back_completed_payload_writes(self):

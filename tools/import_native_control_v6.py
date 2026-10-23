@@ -94,6 +94,7 @@ def import_candidate(driver, unstripped, helper, manifest, commit, root=package.
                 target = root / name
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(stage / name, target)
+            (root / package.EXPECTED_PATHS['driver']).chmod(0o644)
             (root / package.EXPECTED_PATHS['helper']).chmod(0o755)
         except Exception:
             for name, before in backups.items():
