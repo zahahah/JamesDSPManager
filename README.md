@@ -119,8 +119,9 @@ Previously JamesDSP. Maintained by **lightning zahah**. Contributors to the earl
 
 ## Credits and licensing
 
-LightningDSP is the current project name, inspired by the original JamesDSP
-project. The rebrand does not replace or erase that lineage. Our thanks go to:
+This work builds on the original JamesDSP project and the people who made it
+possible. LightningDSP is the current name of our maintained project; the
+rebrand does not replace or erase that JamesDSP lineage. Our thanks go to:
 
 - [JamesDSP by James Fung (james34602)](https://github.com/james34602/JamesDSPManager),
   the original audio-processing project behind this work.
