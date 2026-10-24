@@ -6,6 +6,11 @@ This is our root-only LightningDSP module, paired with a modified version of The
 
 This is the **`ldsp-rebrand` experimental branch**. The module, app integration and native control service use the LightningDSP names. The app package is `com.lightning.dsp` and the module ID is `ainur_lightningdsp`. On installation, the previous `ainur_jamesdsp` module is identity-checked, disabled, and removed so its payload cannot compete with LightningDSP. The old `james.dsp` app is removed before installing the new package; its private app data is not migrated.
 
+LightningDSP is the new name for our maintained JamesDSP-based project,
+inspired by the original JamesDSP work. The rebrand updates the product identity,
+not the history: original contributors and license notices remain credited below
+and in the source repositories.
+
 The prerelease target is **v6.6-beta-7-ldsp**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
 [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
@@ -63,7 +68,7 @@ The common late-load path mounts first, then uses a validated firmware stop/star
 
 ## Installation
 
-1. Download the module ZIP from [Releases](https://github.com/zahahah/LightningDSPManager/releases).
+1. Download the module ZIP from [Releases](https://github.com/zahahah/JamesDSPManager/releases).
 2. Install it through your compatible root manager. For normal-boot root, follow its reboot procedure. For temp-root/late-load, use its activation flow; do not assume reboot preserves root.
 3. Open LightningDSP and **grant it root access**. After late-load activation, allow at least 30 seconds and reopen the app if its initial check ran too early.
 4. Enable processing, play some music and try an obvious EQ adjustment at a comfortable volume.
@@ -114,10 +119,14 @@ Previously JamesDSP. Maintained by **lightning zahah**. Contributors to the earl
 
 ## Credits and licensing
 
-This work builds on LightningDSP and the people who made it possible:
+LightningDSP is the current project name, inspired by the original JamesDSP
+project. The rebrand does not replace or erase that lineage. Our thanks go to:
 
-- [LightningDSP by james34602](https://github.com/james34602/LightningDSPManager), the audio processing project behind it all.
-- [ThePBone's RootlessLightningDSP](https://github.com/ThePBone/RootlessLightningDSP), the basis of our modified root app.
-- [The original LightningDSPManager module](https://github.com/therealahrion/LightningDSPManager) and [ShadoV90's fork](https://github.com/ShadoV90/LightningDSPManager), along with the contributors credited in the project.
+- [JamesDSP by James Fung (james34602)](https://github.com/james34602/JamesDSPManager),
+  the original audio-processing project behind this work.
+- [ThePBone's RootlessJamesDSP](https://github.com/ThePBone/RootlessJamesDSP), the original upstream basis of our modified root app.
+- [The original JamesDSPManager module](https://github.com/therealahrion/JamesDSPManager)
+  and [ShadoV90's JamesDSPManager fork](https://github.com/ShadoV90/JamesDSPManager),
+  along with the contributors credited in those projects.
 
 The native library's GPL-2.0 license is included in [native-control/LightningDSP-Main-LICENSE.txt](native-control/LightningDSP-Main-LICENSE.txt). See the linked source repositories for their respective licenses and attribution. Our changes don't replace those credits or terms.

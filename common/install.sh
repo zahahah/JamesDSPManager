@@ -27,6 +27,7 @@ copy_profile_backup() {
 ui_print " "
 ui_print " LightningDSP by lightning zahah"
 ui_print " Previously JamesDSP"
+ui_print " Inspired by JamesDSP"
 ui_print " Contributors: james34602, zackptg5, ahrion, anonymix007, ShadoV90"
 
 # Remove the prior module after verifying its identity so its payload cannot

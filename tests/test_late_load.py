@@ -727,6 +727,7 @@ exit 1
     def test_rebrand_disables_and_removes_verified_old_module(self):
         installer = (ROOT / "common/install.sh").read_text()
         self.assertIn('id=ainur_lightningdsp', (ROOT / "module.prop").read_text())
+        self.assertIn('Inspired by JamesDSP', installer)
         self.assertIn('modules/ainur_jamesdsp', installer)
         self.assertIn('modules_update/ainur_jamesdsp', installer)
         self.assertIn('touch "$LEGACY_MODULE/disable"', installer)
