@@ -724,13 +724,20 @@ exit 1
             self.assertFalse(legacy_state.exists())
             self.assertIn("private app data will be removed", result.stdout)
 
-    def test_rebrand_disables_old_module_without_deleting_it(self):
+    def test_rebrand_disables_and_removes_verified_old_module(self):
         installer = (ROOT / "common/install.sh").read_text()
         self.assertIn('id=ainur_lightningdsp', (ROOT / "module.prop").read_text())
         self.assertIn('modules/ainur_jamesdsp', installer)
         self.assertIn('modules_update/ainur_jamesdsp', installer)
         self.assertIn('touch "$LEGACY_MODULE/disable"', installer)
-        self.assertNotIn('rm -rf "$LEGACY_MODULE"', installer)
+        self.assertIn('grep -Fqx \'id=ainur_jamesdsp\' "$LEGACY_MODULE/module.prop"', installer)
+        self.assertIn('rm -rf "$LEGACY_MODULE"', installer)
+        self.assertIn('Removed previous ainur_jamesdsp module.', installer)
+        self.assertNotIn('not deleted', installer)
+
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn('disabled, and removed', readme)
+        self.assertIn('then removes its directory', readme)
 
     def test_late_load_reload_script_has_no_restart_loop_or_killall(self):
         combined = (ROOT / "audio-reload.sh").read_text()

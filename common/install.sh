@@ -29,16 +29,17 @@ ui_print " LightningDSP by lightning zahah"
 ui_print " Previously JamesDSP"
 ui_print " Contributors: james34602, zackptg5, ahrion, anonymix007, ShadoV90"
 
-# The rebrand has a new module ID. Disable, but never delete, the prior
-# JamesDSP module so its mounted payload cannot compete with LightningDSP.
-# Root managers process this marker on the normal reboot after installation.
+# Remove the prior module after verifying its identity so its payload cannot
+# compete with LightningDSP. The disable marker protects against reactivation
+# if removal is interrupted; live mounts are replaced on the normal reboot.
 NVBASE=${NVBASE:-/data/adb}
 for LEGACY_MODULE in "$NVBASE/modules/ainur_jamesdsp" "$NVBASE/modules_update/ainur_jamesdsp"; do
 	if [ -d "$LEGACY_MODULE" ] && [ "$LEGACY_MODULE" != "$MODPATH" ] &&
-		[ ! -f "$LEGACY_MODULE/disable" ] &&
 		grep -Fqx 'id=ainur_jamesdsp' "$LEGACY_MODULE/module.prop" 2>/dev/null; then
 		touch "$LEGACY_MODULE/disable" || abort "! Could not disable the previous ainur_jamesdsp module."
-		ui_print "   Disabled previous ainur_jamesdsp module (not deleted)."
+		rm -rf "$LEGACY_MODULE" || abort "! Could not remove the previous ainur_jamesdsp module."
+		[ ! -e "$LEGACY_MODULE" ] || abort "! Previous ainur_jamesdsp module still exists after removal."
+		ui_print "   Removed previous ainur_jamesdsp module."
 	fi
 done
 

@@ -4,7 +4,7 @@
 
 This is our root-only LightningDSP module, paired with a modified version of ThePBone's LightningDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. LightningDSP handles the processing underneath.
 
-This is the **`ldsp-rebrand` experimental branch**. The module, app integration and native control service use the LightningDSP names. The app package is `com.lightning.dsp` and the module ID is `ainur_lightningdsp`. On installation, a previous `ainur_jamesdsp` module is disabled, not deleted. The old `james.dsp` app is removed before installing the new package; its private app data is not migrated.
+This is the **`ldsp-rebrand` experimental branch**. The module, app integration and native control service use the LightningDSP names. The app package is `com.lightning.dsp` and the module ID is `ainur_lightningdsp`. On installation, the previous `ainur_jamesdsp` module is identity-checked, disabled, and removed so its payload cannot compete with LightningDSP. The old `james.dsp` app is removed before installing the new package; its private app data is not migrated.
 
 The prerelease target is **v6.6-beta-7-ldsp**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
@@ -72,7 +72,7 @@ The module includes only our modified **ThePBone-based root app**, package `com.
 
 ### Migrating from JamesDSP
 
-The installer disables (but does not delete) the old `ainur_jamesdsp` module. It also removes the old `james.dsp` app and installs `com.lightning.dsp`. The package ID changed, so Android keeps their app data separate; this migration does not copy the old app's private data. Export or back up presets before installing if you need them. The normal update path for an already-installed `com.lightning.dsp` remains unchanged: matching signatures update in place; a signature mismatch still requires the existing volume-key confirmation and best-effort backup flow.
+The installer verifies the module ID, marks the old `ainur_jamesdsp` module disabled, then removes its directory. Any already-active mounts are replaced on the normal reboot after installation. It also removes the old `james.dsp` app and installs `com.lightning.dsp`. The package ID changed, so Android keeps their app data separate; this migration does not copy the old app's private data. Export or back up presets before installing if you need them. The normal update path for an already-installed `com.lightning.dsp` remains unchanged: matching signatures update in place; a signature mismatch still requires the existing volume-key confirmation and best-effort backup flow.
 
 The boot service won't silently uninstall an existing app. Removing the module also leaves the installed LightningDSP app alone.
 
