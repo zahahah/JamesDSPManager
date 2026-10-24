@@ -21,7 +21,7 @@ class NativeControlPatchTests(unittest.TestCase):
         self.module = self.root / "module"
         self.libdir = self.module / "system/vendor/lib64/soundfx"
         self.libdir.mkdir(parents=True)
-        (self.libdir / "libjamesdsp.so").write_bytes(b"fixture shared object")
+        (self.libdir / "lightningdsplib.so").write_bytes(b"fixture shared object")
         self.deps = self.root / "system-lib64"
         self.deps.mkdir()
         self.calls = self.root / "patchelf-calls"
@@ -42,9 +42,9 @@ class NativeControlPatchTests(unittest.TestCase):
             "AIDL": "true",
             "MODPATH": str(self.module),
             "MOD_VENDOR": str(self.module / "system/vendor"),
-            "JDSP_PATCHELF_BIN": str(self.patchelf),
-            "JDSP_SYSTEM_LIB_DIRS": library_roots or str(self.deps),
-            "JDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH": "1" if allow_mismatch else "0",
+            "LDSP_PATCHELF_BIN": str(self.patchelf),
+            "LDSP_SYSTEM_LIB_DIRS": library_roots or str(self.deps),
+            "LDSP_EXPERIMENTAL_ALLOW_ABI_MISMATCH": "1" if allow_mismatch else "0",
         }
         return subprocess.run(
             ["sh", "-c", '. "$1/patch.sh"', "patch-test", str(ROOT)],
@@ -55,12 +55,12 @@ class NativeControlPatchTests(unittest.TestCase):
         )
 
     def test_exact_dependencies_are_accepted_without_binary_rewrite(self):
-        before = (self.libdir / "libjamesdsp.so").read_bytes()
+        before = (self.libdir / "lightningdsplib.so").read_bytes()
         result = self.run_patch()
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("validated without rewriting DT_NEEDED", result.stdout)
-        self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
-        self.assertEqual(self.calls.read_text().splitlines(), [f"--print-needed {self.libdir}/libjamesdsp.so"])
+        self.assertEqual((self.libdir / "lightningdsplib.so").read_bytes(), before)
+        self.assertEqual(self.calls.read_text().splitlines(), [f"--print-needed {self.libdir}/lightningdsplib.so"])
 
     def test_unavailable_compiled_interface_version_is_rejected(self):
         needed = list(EXPECTED)
@@ -68,7 +68,7 @@ class NativeControlPatchTests(unittest.TestCase):
         result = self.run_patch(needed)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("device lacks exact AIDL dependency", result.stderr)
-        self.assertEqual(self.calls.read_text().splitlines(), [f"--print-needed {self.libdir}/libjamesdsp.so"])
+        self.assertEqual(self.calls.read_text().splitlines(), [f"--print-needed {self.libdir}/lightningdsplib.so"])
 
     def test_missing_platform_dependency_is_rejected(self):
         result = self.run_patch(add_available=False)
@@ -84,17 +84,17 @@ class NativeControlPatchTests(unittest.TestCase):
         self.assertIn("validated without rewriting", result.stdout)
 
     def test_legacy_bypass_flag_cannot_hide_missing_dependencies(self):
-        before = (self.libdir / "libjamesdsp.so").read_bytes()
+        before = (self.libdir / "lightningdsplib.so").read_bytes()
         needed = [name.replace("-V4-", "-V3-") for name in EXPECTED]
         result = self.run_patch(needed=needed, add_available=False, allow_mismatch=True)
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("device lacks exact AIDL dependency", result.stderr)
-        self.assertEqual((self.libdir / "libjamesdsp.so").read_bytes(), before)
+        self.assertEqual((self.libdir / "lightningdsplib.so").read_bytes(), before)
 
     def embedded_profile(self):
         control = self.module / 'native-control'
         control.mkdir()
-        (control / 'v5-candidate.json').write_text('{"iteration": 5}')
+        (control / 'ldsp-candidate.json').write_text('{"iteration": 6}')
 
     def test_embedded_driver_needs_no_versioned_audio_dsos(self):
         self.embedded_profile()
@@ -103,7 +103,7 @@ class NativeControlPatchTests(unittest.TestCase):
             (self.deps / name).touch()
         result = self.run_patch(needed, add_available=False)
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('embedded v5', result.stdout)
+        self.assertIn('embedded LightningDSP', result.stdout)
         self.assertEqual(len(self.calls.read_text().splitlines()), 1)
 
     def test_embedded_profile_resolves_bionic_from_an_apex_library_directory(self):
@@ -121,7 +121,7 @@ class NativeControlPatchTests(unittest.TestCase):
         for needed in ((), EXPECTED, ('libbinder_ndk.so', 'libc.so', 'libc++.so'),
                        ('libbinder_ndk.so',), ('libc.so',)):
             with self.subTest(needed=needed):
-                marker = self.module / 'native-control/v5-candidate.json'
+                marker = self.module / 'native-control/ldsp-candidate.json'
                 if not marker.exists():
                     self.embedded_profile()
                 result = self.run_patch(needed, add_available=False)

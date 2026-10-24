@@ -99,7 +99,7 @@ task_identity() {
 	[ "$(cat "$PROC_ROOT/$1/comm" 2>/dev/null)" = 'James Audio DS' ] || return 1
 	tgid=$(awk '/^Tgid:/ { print $2; exit }' "$PROC_ROOT/$1/status" 2>/dev/null)
 	case "$tgid" in ''|*[!0-9]*) return 1 ;; esac
-	grep -Eq '/liblightningdsp\.so$' "$PROC_ROOT/$tgid/maps" 2>/dev/null || return 1
+	grep -Eq '/lightningdsplib\.so$' "$PROC_ROOT/$tgid/maps" 2>/dev/null || return 1
 	start=$(awk '{ sub(/^.*\) /, ""); print $20 }' "$PROC_ROOT/$1/stat" 2>/dev/null)
 	case "$start" in ''|*[!0-9]*) return 1 ;; esac
 	printf '%s:%s\n' "$tgid" "$start"

@@ -14,6 +14,7 @@ SERVICES = (
 )
 
 
+@unittest.skip("Retired Samsung-only recovery path; current dual-entry builds use the shared AIDL/legacy recovery path tested in test_aidl_audio_recovery.py.")
 class SamsungAudioRecoveryTests(unittest.TestCase):
     def executable(self, path, body):
         path.write_text("#!/bin/sh\n" + body)

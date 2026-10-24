@@ -105,7 +105,7 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertIn('changed=0', second.stdout)
             self.assertEqual((root / 'mount.calls').read_text(), calls)
 
-    def test_reported_samsung_mixed_newlines_mount_without_altering_vendor_bytes(self):
+    def test_reported_samsung_mixed_newlines_mount_preserves_stock_entries(self):
         data = (ROOT / 'tests/fixtures/samsung-audio_effects-mixed.xml').read_bytes()
         self.assertEqual(sha256(data).hexdigest(), 'ac1107a21c28f6b40bddf01d9d9f828499329249b82cf65fd29e2fc2b803db95')
         self.assertEqual(data.count(b'\r\n'), 25)
@@ -117,7 +117,11 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             target.write_bytes(data)
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(target.read_bytes(), data)
+            mounted = target.read_bytes()
+            self.assertIn(b'<library name="bundle" path="libbundlewrapper.so"/>\r\n', mounted)
+            self.assertIn(b'<effect name="bassboost" library="bundle"', mounted)
+            self.assertNotIn(b'libjamesdsp.so', mounted)
+            self.assertEqual(mounted.count(UUID.encode()), 1)
             self.assertEqual((init / 'vendor/lib64/soundfx/lightningdsplib.so').read_bytes(), b'expected-driver')
             self.assertTrue((module / 'logs/aidl-effect-mount.generation').exists())
             self.assertIn('configs=5', result.stdout)
@@ -143,6 +147,24 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertEqual(target.read_bytes(), patched)
             self.assertEqual((root / 'mount.calls').read_bytes(), calls)
 
+    def test_target_effect_is_identified_by_uuid_not_historical_names(self):
+        config = XML.replace('<library name="samsung" path="libsamsung.so"/>',
+                             '<library name="vendor_fx" path="libvendor_fx.so"/>')
+        config = config.replace('<effect name="samsung" library="samsung" uuid="vendor-uuid"/>',
+                                f'<effect name="vendor_effect" library="vendor_fx" uuid="{UUID}"/>')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, script, init, env = self.fixture(root)
+            target = init / 'vendor/etc/audio_effects.xml'
+            target.write_text(config)
+            result = self.run_script(script, env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            patched = target.read_text()
+            self.assertIn('path="lightningdsplib.so"', patched)
+            self.assertIn('name="lightningdsp" library="ldsp"', patched)
+            self.assertNotIn('libvendor_fx.so', patched)
+            self.assertEqual(patched.count(UUID), 1)
+
     def test_check_stages_without_mounting_or_creating_pending_generation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
@@ -166,8 +188,7 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
 
     def test_unsupported_config_aborts_all_staging_before_any_mount(self):
         for invalid in ('<config/>\n', XML.replace('<effects>', '<effects/><effects>'),
-                        XML.replace('vendor-uuid', UUID), '<!--\n' + XML,
-                        '<config/>\r\n', XML.replace('vendor-uuid', UUID).replace('\n', '\r\n')):
+                        '<!--\n' + XML, '<config/>\r\n'):
             with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 module, script, init, env = self.fixture(root)

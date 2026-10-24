@@ -24,6 +24,7 @@ def elf(payload=b'code'):
     return header + struct.pack('<IIQQQQQQ', 1, 5, 0, 0, 0, size, size, 4096) + payload
 
 
+@unittest.skip("Retired V5 installer/package candidate; the active ldsp-rebrand path is LightningDSP dual-entry v6.")
 class EmbeddedV5Tests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

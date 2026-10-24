@@ -12,7 +12,7 @@ class DualEntryHostTests(unittest.TestCase):
     def fixture(self, root):
         module = root / 'module'
         (module / 'native-control').mkdir(parents=True)
-        (module / 'native-control/v6-candidate.json').write_text('{}')
+        (module / 'native-control/ldsp-candidate.json').write_text('{}')
         script = module / 'effect-host.sh'
         script.write_bytes((ROOT / script.name).read_bytes())
         init = root / 'init'
@@ -63,18 +63,18 @@ class DualEntryHostTests(unittest.TestCase):
                 elif case == 'domain': (proc / '101/attr/current').write_text('u:r:audioserver:s0')
                 elif case == 'maps': (proc / '101/maps').write_text('/vendor/lib64/libeffectsconfig.so\n')
                 elif case == 'binder': (proc / '101/fd/5').unlink()
-                else: (root / 'module/native-control/v6-candidate.json').unlink()
+                else: (root / 'module/native-control/ldsp-candidate.json').unlink()
                 self.assertNotEqual(self.run_script(script, env).returncode, 0)
 
     def test_installer_stages_one_dual_entry_payload_without_transport_block(self):
         source = (ROOT / 'common/install.sh').read_text()
-        start = source.index('if [ -f "$MODPATH/native-control/v6-candidate.json" ]; then')
+        start = source.index('if [ -f "$MODPATH/native-control/ldsp-candidate.json" ]; then')
         block = source[start:source.index('ui_print "- Lib bit detection -"', start)]
         for abi, expected in (('arm64-v8a', 0), ('arm64-v8a,armeabi-v7a', 0), ('armeabi-v7a', 23), ('', 23)):
             with self.subTest(abi=abi), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 (root / 'native-control').mkdir()
-                (root / 'native-control/v6-candidate.json').write_text('{}')
+                (root / 'native-control/ldsp-candidate.json').write_text('{}')
                 # A leftover old manifest must not overwrite v6 selection.
                 (root / 'native-control/v5-candidate.json').write_text('{}')
                 prelude = 'abort() { echo "$1"; exit 23; }; getprop() { echo "$ABI"; }; ui_print() { :; }; '

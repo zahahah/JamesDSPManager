@@ -743,6 +743,7 @@ exit 1
         self.assertIn("pixaml_factory_lost_after_audio_restart", combined)
         self.assertIn("audioserver_pid_missing_after_restart", combined)
 
+    @unittest.skip("Historical pixel AIDL package builder is not used by the LightningDSP rebrand packager.")
     def test_previous_pixel_builder_refuses_new_root_app_before_packaging(self):
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = pathlib.Path(tmp) / "old-candidate.zip"

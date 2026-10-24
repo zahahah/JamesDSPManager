@@ -71,7 +71,7 @@ overlay_ok() {
 }
 library_mapped() {
     overlay_ok "$PROC_ROOT/$1/root" || return 1
-    paths=$(awk '$NF ~ /\/liblightningdsp[.]so$/ { print $NF }' "$PROC_ROOT/$1/maps" 2>/dev/null)
+    paths=$(awk '$NF ~ /\/lightningdsplib[.]so$/ { print $NF }' "$PROC_ROOT/$1/maps" 2>/dev/null)
     for mapped in $paths; do
         case "$mapped" in
             /vendor/lib64/soundfx/lightningdsplib.so|/system/vendor/lib64/soundfx/lightningdsplib.so|"$MODPATH"/system/vendor/lib64/soundfx/lightningdsplib.so|"$MODPATH"/.aidl-mount/*/lightningdsplib.so)

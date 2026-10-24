@@ -20,6 +20,7 @@ package = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(package)
 
 
+@unittest.skip("Retired V4 packaging path; ldsp-rebrand ships the unified package_lightningdsp.py candidate.")
 class PixelNativeControlPackageTests(unittest.TestCase):
     def test_builder_blocks_until_new_native_artifacts_are_imported(self):
         with tempfile.TemporaryDirectory() as tmp:

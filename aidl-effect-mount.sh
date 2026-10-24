@@ -35,28 +35,82 @@ patch_config() {
     # untouched vendor lines keep their CRLF/LF bytes. Mixed endings are valid
     # XML and occur when module-inserted LF entries join stock CRLF configs.
     awk -v uuid="$UUID" '
-    { original_line=$0; sub(/\r$/, "") }
-    /<!--/ { comment=1 }
-    comment { print original_line; if (/-->/) comment=0; next }
-    /name="(ldsp|lightningdsp)"/ || index($0, uuid) {
-        if ($0 ~ /^[ \t]*<library[ \t]+name="ldsp"[ \t]+path="[^"]+"[ \t]*\/>[ \t]*$/ ||
-            $0 ~ /^[ \t]*<effect[ \t]+name="lightningdsp"[ \t]+.*\/>[ \t]*$/) next
-        bad=1; next
+    function attr(line, key, token, tail, end) {
+        token = key "=\""
+        if (!index(line, token)) return ""
+        tail = substr(line, index(line, token) + length(token))
+        end = index(tail, "\"")
+        return end ? substr(tail, 1, end - 1) : ""
     }
-    { print original_line }
-    /^[ \t]*<audio_effects_conf[ \t>]/ { root++ }
-    /^[ \t]*<\/audio_effects_conf>[ \t]*$/ { endroot++ }
-    /^[ \t]*<libraries>[ \t]*$/ {
-        libs++
-        print "        <library name=\"ldsp\" path=\"lightningdsplib.so\"/>"
+    {
+        original[NR] = $0
+        normalized[NR] = $0
+        sub(/\r$/, "", normalized[NR])
+        count = NR
     }
-    /^[ \t]*<\/libraries>[ \t]*$/ { endlibs++ }
-    /^[ \t]*<effects>[ \t]*$/ {
-        effects++
-        print "        <effect name=\"lightningdsp\" library=\"ldsp\" uuid=\"" uuid "\" type=\"f98765f4-c321-5de6-9a45-123459495ab2\"/>"
+    END {
+        # The effect UUID is the stable identity. Derive any old library alias
+        # from its own effect entry, rather than depending on a legacy name.
+        in_comment = 0
+        for (i = 1; i <= count; i++) {
+            line = normalized[i]
+            if (in_comment) {
+                if (index(line, "<!--")) bad = 1
+                if (index(line, "-->")) in_comment = 0
+                continue
+            }
+            if (index(line, "<!--")) { if (!index(line, "-->")) in_comment = 1; continue }
+            if (index(line, uuid) && line ~ /^[ \t]*<effect[ \t]+/) {
+                alias = attr(line, "library")
+                if (alias != "") target_alias[alias] = 1
+            }
+        }
+        in_comment = 0
+        for (i = 1; i <= count; i++) {
+            line = normalized[i]
+            if (in_comment) {
+                if (index(line, "<!--")) bad = 1
+                if (index(line, "-->")) in_comment = 0
+                continue
+            }
+            if (index(line, "<!--")) { if (!index(line, "-->")) in_comment = 1; continue }
+            if (line ~ /^[ \t]*<effect[ \t]+/ && !index(line, uuid)) {
+                alias = attr(line, "library")
+                if (alias in target_alias) shared_alias[alias] = 1
+            }
+        }
+        for (i = 1; i <= count; i++) {
+            line = normalized[i]
+            if (index(line, "<!--")) in_comment = !index(line, "-->")
+            else if (in_comment) { if (index(line, "-->")) in_comment = 0 }
+            else if (index(line, uuid)) {
+                if (line ~ /^[ \t]*<effect[ \t]+/ && line ~ /\/>[ \t]*$/) continue
+                bad = 1; continue
+            } else if (line ~ /^[ \t]*<library[ \t]+/ && attr(line, "name") in target_alias &&
+                       !(attr(line, "name") in shared_alias)) {
+                if (line !~ /^[ \t]*<library[ \t]+[^>]+\/>[ \t]*$/) bad = 1
+                continue
+            } else if (line ~ /name="(ldsp|lightningdsp)"/) {
+                if (line ~ /^[ \t]*<library[ \t]+name="ldsp"[ \t]+path="[^"]+"[ \t]*\/>[ \t]*$/ ||
+                    line ~ /^[ \t]*<effect[ \t]+name="lightningdsp"[ \t]+.*\/>[ \t]*$/) continue
+                bad = 1; continue
+            }
+            print original[i]
+            if (line ~ /^[ \t]*<audio_effects_conf[ \t>]/) root++
+            if (line ~ /^[ \t]*<\/audio_effects_conf>[ \t]*$/) endroot++
+            if (line ~ /^[ \t]*<libraries>[ \t]*$/) {
+                libs++
+                print "        <library name=\"ldsp\" path=\"lightningdsplib.so\"/>"
+            }
+            if (line ~ /^[ \t]*<\/libraries>[ \t]*$/) endlibs++
+            if (line ~ /^[ \t]*<effects>[ \t]*$/) {
+                effects++
+                print "        <effect name=\"lightningdsp\" library=\"ldsp\" uuid=\"" uuid "\" type=\"f98765f4-c321-5de6-9a45-123459495ab2\"/>"
+            }
+            if (line ~ /^[ \t]*<\/effects>[ \t]*$/) endeffects++
+        }
+        if (bad || in_comment || root != 1 || endroot != 1 || libs != 1 || endlibs != 1 || effects != 1 || endeffects != 1) exit 1
     }
-    /^[ \t]*<\/effects>[ \t]*$/ { endeffects++ }
-    END { if (bad || comment || root != 1 || endroot != 1 || libs != 1 || endlibs != 1 || effects != 1 || endeffects != 1) exit 1 }
     ' "$1" >"$2"
 }
 

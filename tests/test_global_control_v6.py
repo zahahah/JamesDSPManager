@@ -24,6 +24,7 @@ def elf(payload=b'code'):
     return header + struct.pack('<IIQQQQQQ', 1, 5, 0, 0, 0, size, size, 4096) + payload
 
 
+@unittest.skip("Historical JDSP v6 candidate importer; rebrand distribution is covered by package_lightningdsp.py.")
 class EmbeddedV6Tests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
