@@ -1,3 +1,19 @@
+### v6.6-beta-6.5-soundstage (experimental prerelease)
+
+* Keep centred voices and bass at unity while adjusting stereo side width.
+  The existing 30..75 controls now span a gentler 0.8..1.25x side width,
+  replacing beta 6.4's exaggerated centre attenuation. Width 50 stays bypass.
+* Keep the frequency-independent, stateless Soundstage path. No new crossover,
+  delay or virtual surround is added. Centre level can sound louder than 6.4;
+  start at a comfortable volume when comparing.
+* Prepare finite -30..+30 dB post-gain support in the DSP, legacy parameter,
+  global control and matching helper. The APK and its +/-15 dB UI are unchanged;
+  an explicit extended-range app option will follow separately. Positive boost
+  still reaches the existing limiter and is not guaranteed output loudness.
+* Add centre/hard-pan regressions and extended gain boundary checks. Preserve
+  AIDL/legacy loading, control protocol, other effects and scheduler recovery.
+  Host verification does not replace listening on the target device.
+
 ### v6.6-beta-6.4-soundstage (experimental prerelease)
 
 * Replace Soundstage's fast nonlinear multiband centre extraction with a

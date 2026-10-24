@@ -134,3 +134,20 @@ Width 50 is exact bypass; there is no Soundstage filterbank, envelope or delay
 in the callback. Other effects, dual-entry loading, helper, scheduler watcher
 and APK are unchanged. This needs listening validation on the packaged build;
 previous releases remain available for comparison and rollback.
+
+## Centre-preserving width and post-gain preparation
+
+`v6.6-beta-6.5-soundstage` retains the linear, frequency-independent width path
+but no longer retains beta 6.4's mid attenuation. Mid stays at unity and side
+scales by `0.5 + mix`: UI 30..75 corresponds to 0.8..1.25x. This avoids the old
+3x side/mid ratio at 75. Mono centre, hard-pan symmetry, spectral residual and
+combined-chain tests cover the intentional response change. It is not a new
+HRTF/distance virtualizer. At 75 centred material is louder than beta 6.4; use
+a comfortable listening volume and keep prior releases for comparison.
+
+The DSP, parameter 1500, service validator and matching helper now support
+finite -30..+30 dB post-gain. Wire protocol 3 and the distributed APK remain
+unchanged. The app still exposes its existing +/-15 dB range; enabling the
+extended range is a separate app task. +30 dB means about 31.62x before the
+existing limiter, not a promise of a 30 dB output increase. No live gain boost
+is applied as part of build validation.
