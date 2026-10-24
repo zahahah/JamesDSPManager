@@ -23,6 +23,11 @@ RETIRED_DRIVERS = {
     'cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a',
 }
 TRUSTED_APK_SIGNER = 'c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357'
+DISTRIBUTIONS = {
+    'master': ('v6.6-beta-4', 137),
+    'pixel-test-new-aidl': ('v6.6-beta-4', 137),
+    'samsung-test-new-aidl': ('v6.6-beta-4-samsung-test2', 139),
+}
 
 def android_tool(name):
     explicit = os.environ.get('JDSP_' + name.upper()) or shutil.which(name)
@@ -42,8 +47,8 @@ def verify_apk(path):
         raise ValueError('APK does not have the sole authorized signer')
     badging = subprocess.check_output([android_tool('aapt'), 'dump', 'badging', str(path)], text=True)
     match = re.search(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging)
-    if not match or match.groups() != ('james.dsp', '60', '1.6.17'):
-        raise ValueError('APK package/version is not the v4 root integration client')
+    if not match or match.groups() != ('james.dsp', '62', '1.6.17'):
+        raise ValueError('APK package/version is not the v4 beta-4 root integration client')
 
 def candidate(root=ROOT):
     value = json.loads((root / MANIFEST).read_text())
@@ -78,23 +83,28 @@ def verify_artifacts(root=ROOT):
             if native.get('sha256') != digest or not native.get('direct_dt_needed'):
                 raise ValueError('Missing matching native ELF/dependency report: ' + kind)
         else:
-            if artifact.get('packageId') != 'james.dsp' or artifact.get('versionCode') != 60:
+            if artifact.get('packageId') != 'james.dsp' or artifact.get('versionCode') != 62:
                 raise ValueError('Incorrect root integration APK metadata')
             if artifact.get('signatureVerified') is not True or artifact.get('signerSha256') != TRUSTED_APK_SIGNER:
                 raise ValueError('APK signer verification must be recorded before packaging')
             verify_apk(root / expected_path)
-    if (root / 'common/files/JamesDSPManagerThePBone.apk.meta').read_text() != 'versionCode=60\n':
+    if (root / 'common/files/JamesDSPManagerThePBone.apk.meta').read_text() != 'versionCode=62\n':
         raise ValueError('Installer APK version metadata mismatch')
     return value
 
+def distribution_version(root=ROOT):
+    branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
+    if branch not in DISTRIBUTIONS:
+        raise ValueError('V4 distribution requires an approved branch: ' + ', '.join(DISTRIBUTIONS))
+    version, code = DISTRIBUTIONS[branch]
+    props = (root / 'module.prop').read_text()
+    if f'version={version}\n' not in props or f'versionCode={code}\n' not in props:
+        raise ValueError('Expected the ' + version + ' metadata on ' + branch)
+    return version
+
 def build(output, root=ROOT):
     value = verify_artifacts(root)
-    branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch not in ('master', 'pixel-test-new-aidl'):
-        raise ValueError('V4 distribution requires master or pixel-test-new-aidl')
-    props = (root / 'module.prop').read_text()
-    if 'version=v6.6-beta-1\n' not in props or 'versionCode=134\n' not in props:
-        raise ValueError('Expected the promoted v6.6-beta-1 prerelease metadata')
+    distribution_version(root)
     payloads = dict(previous.PAYLOADS)
     payloads.pop('native-control/provenance.json', None)
     # This candidate exposes only the ThePBone root app. Retire the prior
@@ -107,6 +117,11 @@ def build(output, root=ROOT):
     ):
         payloads.pop(retired, None)
     payloads.update({
+        'TEMP-ROOT-RELOAD.md': 0o100644,
+        'SAMSUNG-RECOVERY.md': 0o100644,
+        'audio-hal-recovery.sh': 0o100755,
+        'aidl-audio-recovery.sh': 0o100755,
+        'aidl-effect-mount.sh': 0o100755,
         'native-control.sh': 0o100755,
         MANIFEST: 0o100644,
         'native-control/v4-build-provenance.json': 0o100644,
@@ -141,7 +156,7 @@ def main():
             with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
                 output.write('ready=' + str(ready).lower() + '\n')
         return
-    output = ROOT / 'dist/JamesDSPManager-v6.6-beta-1.zip'
+    output = ROOT / ('dist/JamesDSPManager-' + distribution_version() + '.zip')
     print(build(output))
 
 if __name__ == '__main__':

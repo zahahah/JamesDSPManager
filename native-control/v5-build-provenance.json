@@ -1,0 +1,48 @@
+{
+  "iteration": 5,
+  "profile": "embedded-effect-v4-common-v5-arm64",
+  "controlProtocol": 3,
+  "state": "elf-validated-runtime-unverified",
+  "source": {
+    "commit": "8c70215c61676c2a3e0f2d570c0dc3d4255d5e74",
+    "aospManifestSha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131"
+  },
+  "embeddedCodeEvidence": {
+    "definedSymbolsVerified": true,
+    "loadSegmentsSha256": "7a9bf8fc7ab94580cd91e4346ef042085ecbb976989f84128001c0faa75d76bf",
+    "unstrippedSha256": "53cc0cc191a5021324e781f228d5ec79314b310c556e13aefe3de3efe9cb7c79"
+  },
+  "artifacts": {
+    "driver": {
+      "sha256": "f8148f22d7e606273205d3f8512c62ef89c3d80043771c1555c45c7b3eb77097",
+      "sizeBytes": 2235816,
+      "direct_dt_needed": [
+        "libbinder_ndk.so",
+        "libbase.so",
+        "libfmq.so",
+        "libcutils.so",
+        "liblog.so",
+        "libc.so",
+        "libm.so",
+        "libdl.so"
+      ],
+      "soname": [
+        "libjamesdspaidl_v5.so"
+      ],
+      "nodelete": true
+    },
+    "helper": {
+      "sha256": "e91bc9724a06eb65ffb88ba575b63760d026710d7a8376f0eb40d70b932b1521",
+      "sizeBytes": 307128,
+      "direct_dt_needed": [
+        "libbinder_ndk.so",
+        "liblog.so",
+        "libc.so",
+        "libm.so",
+        "libdl.so"
+      ],
+      "soname": [],
+      "nodelete": false
+    }
+  }
+}

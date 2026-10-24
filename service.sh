@@ -9,16 +9,42 @@ if [ -f "$MODPATH/native-control.sh" ]; then
 	sh "$MODPATH/native-control.sh" activate "$MODPATH" >"$MODPATH/logs/native-control-activation.log" 2>&1 &
 fi
 
+# Some vendor task profiles map the DSP thread into a scheduler group that
+# avoids the underruns observed on the Pixel. The helper validates the exact
+# vendor profile before changing anything and exits harmlessly elsewhere.
+if [ -x "$MODPATH/dsp-thread-profile.sh" ]; then
+	sh "$MODPATH/dsp-thread-profile.sh" --watch "$MODPATH" \
+		>>"$MODPATH/logs/dsp-thread-profile.log" 2>&1 </dev/null &
+fi
+
 start_jdsp_app_installer() {
 	[ -f "$MODPATH/jdsp_app.sh" ] || return 0
 	MODPATH="$MODPATH" sh "$MODPATH/jdsp_app.sh" >/dev/null 2>&1 &
 }
 
-if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ -f "$MODPATH/.late-load-reload-experimental" ]; then
+CURRENT_BOOT_ID=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+LATE_LOAD_READY_THIS_BOOT=false
+if [ -n "$CURRENT_BOOT_ID" ] && grep -q "^READY late_load=1 boot_id=$CURRENT_BOOT_ID " \
+	"$MODPATH/logs/late-load.status" 2>/dev/null; then
+	LATE_LOAD_READY_THIS_BOOT=true
+fi
+if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ] || \
+	[ -f "$MODPATH/.late-load-reload-experimental" ]; then
 	mkdir -p "$MODPATH/logs"
 	start_jdsp_app_installer
-	printf 'SKIPPED reason=automatic_audio_restart_disabled restart=not_requested processing=unverified\n' \
+	if { [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ]; } && \
+		[ -x "$MODPATH/audio-hal-recovery.sh" ]; then
+		(
+			"${JDSP_SLEEP_BIN:-/system/bin/sleep}" 10
+			sh "$MODPATH/audio-hal-recovery.sh" --auto-once \
+				>>"$MODPATH/logs/audio-hal-recovery.log" 2>&1
+		) </dev/null >/dev/null 2>&1 &
+		printf 'SCHEDULED reason=late_load_recovery delay_seconds=10 restart=one_shot processing=unverified\n' \
+			>"$MODPATH/logs/service.status"
+	else
+		printf 'SKIPPED reason=not_kernel_su_late_load restart=not_requested processing=unverified\n' \
 		>"$MODPATH/logs/service.status"
+	fi
 	exit 0
 fi
 if [ -f "$MODPATH/.late-load-no-effect" ] || [ -f "$MODPATH/.late-load-rootless" ]; then

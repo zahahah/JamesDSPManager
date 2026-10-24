@@ -1,3 +1,164 @@
+### v6.6
+
+* Bring the latest tested integration through the Samsung and Pixel branches
+  into the stable JamesDSP release. Keep package `james.dsp`, module
+  `ainur_jamesdsp`, the owner-signed 1.6.17/code 62 app, and `jdsp.control`.
+  The separate LightningDSP rebrand is not included.
+* Ship one ARM64 driver with embedded AIDL effect interfaces and the legacy
+  AELI adapter for HIDL loading, without replacing the device's audio HAL.
+* Keep capability-checked systemless mounting and guarded firmware recovery
+  for late-load and repeated Android soft reboots. Unknown restart targets
+  remain blocked; normal boot and enforcing SELinux are preserved.
+* Include reverb/convolution processing optimizations and the narrowly checked
+  vendor DSP-thread profile that improved combined-effects playback on Pixel.
+  Other vendor profiles are skipped, not replaced with generic RT scheduling.
+* Revise Soundstage to widen existing stereo while preserving the centre and
+  mono sum, with a 250 Hz side shelf, smooth transitions, and exact neutral/off
+  bypass. It is stereo width, not synthetic distance rendering for mono audio.
+* Preserve native -30..+30 dB post-gain support. This release's unchanged app UI
+  remains +/-15 dB; the LightningDSP Extra Post Gain app option is not included.
+
+### v6.6-beta-6.5-soundstage (experimental prerelease)
+
+* Keep centred voices and bass at unity while adjusting stereo side width.
+  The existing 30..75 controls now span a gentler 0.8..1.25x side width,
+  replacing beta 6.4's exaggerated centre attenuation. Width 50 stays bypass.
+* Keep the frequency-independent, stateless Soundstage path. No new crossover,
+  delay or virtual surround is added. Centre level can sound louder than 6.4;
+  start at a comfortable volume when comparing.
+* Prepare finite -30..+30 dB post-gain support in the DSP, legacy parameter,
+  global control and matching helper. The APK and its +/-15 dB UI are unchanged;
+  an explicit extended-range app option will follow separately. Positive boost
+  still reaches the existing limiter and is not guaranteed output loudness.
+* Add centre/hard-pan regressions and extended gain boundary checks. Preserve
+  AIDL/legacy loading, control protocol, other effects and scheduler recovery.
+  Host verification does not replace listening on the target device.
+
+### v6.6-beta-6.4-soundstage (experimental prerelease)
+
+* Replace Soundstage's fast nonlinear multiband centre extraction with a
+  frequency-independent linear mid/side matrix, addressing spectral components
+  reproduced by bass-plus-treble host tests without other effects or clipping.
+* Preserve the existing width controls and pure-mid/pure-side gain curves.
+  Width 50 is now an exact, zero-latency bypass; arbitrary stereo output is
+  intentionally different from the previous nonlinear effect.
+* Remove Soundstage filterbank/envelope work from the callback. Generic
+  filterbank users, the other effects, scheduler watcher and APK are unchanged.
+* Add spectral, neutral-bypass, bounded-parameter and matrix regression tests.
+  The frozen legacy algorithm must fail the spectral gate. Host measurements
+  are not a substitute for listening to this new build on Android.
+
+### v6.6-beta-6.3-dsp-scheduler (experimental prerelease)
+
+* Apply the vendor's `RealtimePerformance` profile to the JamesDSP processing
+  thread only when the vendor profile is a single, verified task-group mapping
+  to its own `ta` scheduler group. Generic AOSP `cpu/rt` behavior and unknown
+  vendor profiles are explicitly skipped.
+* Watch for the effect thread across late creation and HAL lifecycle changes;
+  only threads named `James Audio DS` currently in `fg` are eligible. No core
+  pinning, FIFO policy, governor changes, HAL restart, or audio-quality change.
+* Include bounded FFT-head selection for eligible short/medium stereo FIRs,
+  matrix-kernel iteration cleanup, and Soundstage block-call consolidation.
+  Reverb vectorization was rejected after exact state and timing tests failed.
+* Host strict/fast/sanitizer response tests passed. Pixel live playback showed
+  no audible interference during a temporary one-minute profile test, then the
+  original group was restored. This is promising device evidence, not a claim
+  that all devices or workloads are glitch-free.
+
+### v6.6-beta-5.3
+
+* Include the Pixel branch's soft-reboot lifecycle guard changes.
+* Stop treating a missing AIDL factory listing in the installer as definitive
+  incompatibility. Stage the shipped ARM64 AIDL candidate with an explicit
+  warning and transport diagnostic instead of aborting or selecting an absent
+  legacy payload.
+* Keep ABI, artifact integrity and runtime loading/recovery checks. No HIDL
+  adapter, driver rebuild or compatibility guarantee is added.
+
+### v6.6-beta-5-pixel-test
+
+* Bring the Pixel integration branch up to the reported-working Samsung test2
+  baseline, preserving that Samsung branch and release.
+* Allow one audited late-load recovery per verified Android framework session,
+  rather than exhausting recovery for the whole kernel boot. Repeated soft
+  reboots have no global attempt cap; HAL-only restarts and repeated Retry taps
+  do not re-arm the guard.
+* Preserve failed-request guards and recheck framework identity before recovery.
+  An old AIDL guard can be seeded without a restart only from a matching mapped
+  driver with a ready native context and no pending mount generation.
+* Keep the signed app, v5 driver and helper unchanged. The Pixel's authorized
+  recovery restored registration and processing; ten repeated soft reboots were
+  simulated in host tests, not validated unattended on physical hardware.
+
+### v6.6-beta-5-samsung-test2
+
+* Fix rejection of valid Samsung audio-effect XML with mixed CRLF/LF endings,
+  which blocked the mount plan before the new driver could be activated.
+* Preserve existing vendor lines and their original line endings; keep malformed
+  configuration rejection and all-before-mount validation intact.
+* Add the exact reported file as a byte-preserved regression fixture, plus CRLF
+  preservation and idempotence coverage.
+* Keep the v5 driver, matching helper and signed app unchanged. No app reinstall
+  or native rebuild is needed.
+* Follow-up: the Samsung temp-root collaborator reports test2 works. Record the
+  exact configuration and evidence limits in `SAMSUNG-RECOVERY.md`; fresh native
+  probe/frame telemetry was not supplied with that report.
+
+### v6.6-beta-5-samsung-test (published experimental prerelease)
+
+* Incorporate AIDL bindings, parcelables and the base effect implementation into
+  the new v5 driver, with internal symbols hidden and protocol 3 unchanged.
+* Validate the embedded runtime dependency profile without demanding versioned
+  audio libraries that should now be inside the driver.
+* Independently inspect matching stripped/unstripped artifacts before importing;
+  preserve existing payloads if verification fails.
+* Require v5-specific provenance and actual ELF checks before packaging, while
+  retaining the signed root app and guarded capability-driven late-load bridge.
+* Import the new driver and helper from native source `8c70215`, after local
+  ELF inspection reproduced the compiler report. The driver has eight direct
+  platform dependencies and no versioned audio AIDL DSOs.
+* Samsung factory compatibility and audio processing remain unverified.
+
+### v6.6-beta-4-samsung-test2 (published experimental prerelease)
+
+* Replace the model-selected primary recovery with a common AIDL late-load path.
+* Bind the driver and live vendor/ODM/system/product/SKU configs into init's
+  mount namespace, preserving existing effect entries and configuration labels.
+* Stop assuming Pixel stock library names when a vendor AIDL config is absent;
+  use a dedicated JamesDSP AIDL config in that case. Stock-effect regressions
+  remain a device-test requirement for this fallback.
+* Discover the factory owner and audit the firmware stop/start handler rather
+  than guessing process names or terminating audioserver.
+* Enable one automatic firmware request after the existing ten-second delay on
+  capable firmware, without the test1 opt-in requirement. Retry uses the same
+  once-per-boot guard. Unsupported handlers fail closed; disable markers work.
+* Track pending mount generations and observe mappings beyond the reported
+  five-second failure. Mapping is not effect registration or processed audio.
+* Keep the signed APK and native driver/helper unchanged; no hardware validation
+  is claimed for this candidate.
+
+### v6.6-beta-4-samsung-test1 (published experimental prerelease)
+
+* Add a manual, opt-in recovery path for the reported h8q firmware using its
+  audited multi-service stop/start handler, not a direct HAL restart.
+* Validate factory ownership, executable identities, current-boot preparation,
+  typed policy, namespace overlays, and the firmware handler before a request.
+* Replace dependence on Samsung's empty factory dump with a bounded library-load
+  check, leaving actual UUID discovery and attachment to the existing app.
+* Keep automatic Samsung recovery disabled and limit opted-in recovery to one
+  request per boot, including failed requests. No audio-processing claim is made.
+* Preserve beta-4's signed APK, native driver and helper without recompilation.
+
+### v6.6-beta-4
+
+* Schedule one validated audio-HAL recovery 10 seconds after KernelSU
+  late-load, after typed policy activation is ready.
+* Allow one additional user-triggered recovery from the app's Retry screen.
+* Keep normal boot unchanged, never restart `audioserver`, and fail closed on
+  devices without a verified HAL service/process mapping.
+* Bundle the updated root app as versionCode 62. The new automatic recovery
+  path requires device validation; Samsung remains unverified.
+
 ### v6.6-beta-1
 
 * Keep global jdsp.control primary and legacy control as fallback.

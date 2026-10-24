@@ -32,13 +32,13 @@ class PixelNativeControlPackageTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "V4 native build not imported"):
                 package.build(root / "candidate.zip", root=root)
 
-    def test_principal_and_integration_branches_package_identical_payloads(self):
+    def test_identical_sources_package_deterministically(self):
         with tempfile.TemporaryDirectory() as tmp:
             payloads = []
             for branch in ('master', 'pixel-test-new-aidl'):
                 output = Path(tmp) / (branch + '.zip')
                 with patch.object(package, 'verify_artifacts', return_value={}), \
-                     patch.object(package.subprocess, 'check_output', return_value=branch):
+                     patch.object(package, 'distribution_version', return_value='v6.6-beta-4'):
                     package.build(output)
                 payloads.append(output.read_bytes())
             self.assertEqual(payloads[0], payloads[1])
@@ -47,8 +47,33 @@ class PixelNativeControlPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             with patch.object(package, 'verify_artifacts', return_value={}), \
                  patch.object(package.subprocess, 'check_output', return_value='unrelated'):
-                with self.assertRaisesRegex(ValueError, 'requires master or pixel-test-new-aidl'):
+                with self.assertRaisesRegex(ValueError, 'requires an approved branch'):
                     package.build(Path(tmp) / 'candidate.zip')
+
+    def test_approved_branches_require_their_own_release_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            for branch, (version, code) in package.DISTRIBUTIONS.items():
+                (root / 'module.prop').write_text(f'version={version}\nversionCode={code}\n')
+                with patch.object(package.subprocess, 'check_output', return_value=branch):
+                    self.assertEqual(package.distribution_version(root), version)
+            (root / 'module.prop').write_text('version=v6.6-beta-4\nversionCode=137\n')
+            with patch.object(package.subprocess, 'check_output', return_value='samsung-test-new-aidl'):
+                with self.assertRaisesRegex(ValueError, 'samsung-test2'):
+                    package.distribution_version(root)
+
+    def test_common_aidl_scripts_replace_legacy_recovery_without_opt_in(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / 'candidate.zip'
+            with patch.object(package, 'verify_artifacts', return_value={}), \
+                    patch.object(package, 'distribution_version', return_value='v6.6-beta-4-samsung-test2'):
+                package.build(output)
+            with ZipFile(output) as archive:
+                for script in ('aidl-effect-mount.sh', 'aidl-audio-recovery.sh'):
+                    self.assertEqual(archive.getinfo(script).external_attr >> 16, 0o100755)
+                self.assertNotIn('samsung-audio-recovery.sh', archive.namelist())
+                self.assertNotIn('manual-audio-reload.sh', archive.namelist())
+                self.assertNotIn('.samsung-firmware-recovery-opt-in', archive.namelist())
 
     def test_retired_native_payloads_cannot_be_relabelled_as_v4(self):
         self.assertIn("cf6e202262dd7925c1245670f3e3e7aa5aacf321fdf8f71ad0378e6e81b33e4a", package.RETIRED_DRIVERS)
@@ -64,25 +89,30 @@ class PixelNativeControlPackageTests(unittest.TestCase):
         ):
             self.assertIn(repr(payload), source)
 
-    def test_v4_provenance_keeps_regular_boot_dependency_gate_active(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            (root / 'native-control').mkdir()
-            (root / 'native-control/v4-build-provenance.json').write_text('{}')
-            (root / 'patch.sh').write_text('return 1\n')
-            shutil.copy2(ROOT / 'post-fs-data.sh', root / 'post-fs-data.sh')
-            result = subprocess.run(['sh', str(root / 'post-fs-data.sh')],
-                env={**os.environ, 'KSU_LATE_LOAD': '0'}, capture_output=True, text=True)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertTrue((root / 'skip_mount').exists())
-            self.assertIn('native_control_dependency_mismatch', (root / 'logs/late-load.status').read_text())
+    def test_native_provenance_keeps_regular_boot_dependency_gate_active(self):
+        for iteration in (4, 5):
+            with self.subTest(iteration=iteration), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'native-control').mkdir()
+                (root / f'native-control/v{iteration}-build-provenance.json').write_text('{}')
+                (root / 'patch.sh').write_text('return 1\n')
+                shutil.copy2(ROOT / 'post-fs-data.sh', root / 'post-fs-data.sh')
+                result = subprocess.run(['sh', str(root / 'post-fs-data.sh')],
+                    env={**os.environ, 'KSU_LATE_LOAD': '0'}, capture_output=True, text=True)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertTrue((root / 'skip_mount').exists())
+                self.assertIn('native_control_dependency_mismatch', (root / 'logs/late-load.status').read_text())
 
-    def test_candidate_service_does_not_restart_audio_in_late_load(self):
+    def test_candidate_service_only_schedules_guarded_hal_recovery_for_late_load(self):
         service = (ROOT / "service.sh").read_text(encoding="utf-8")
+        self.assertIn('dsp-thread-profile.sh" --watch', service)
         late_branch = service.split('if [ "${KSU_LATE_LOAD:-0}"', 1)[1].split("fi", 1)[0]
         self.assertNotIn("audio-reload.sh", late_branch)
         self.assertNotIn("killall", late_branch)
-        self.assertIn("restart=not_requested", late_branch)
+        self.assertIn(':-/system/bin/sleep}" 10', late_branch)
+        self.assertIn('audio-hal-recovery.sh" --auto-once', late_branch)
+        self.assertIn('restart=one_shot', late_branch)
+        self.assertNotIn('audioserver', late_branch)
 
     def test_installer_restores_patchelf_executable_mode_after_permission_reset(self):
         installer = (ROOT / "common/functions.sh").read_text(encoding="utf-8")

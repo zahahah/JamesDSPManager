@@ -1,0 +1,48 @@
+{
+  "iteration": 6,
+  "profile": "dual-entry-effect-v4-legacy-arm64",
+  "controlProtocol": 3,
+  "state": "elf-validated-runtime-unverified",
+  "source": {
+    "commit": "e036d54c0b299e69e7e881068b803d44568f0e9b",
+    "aospManifestSha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131"
+  },
+  "embeddedCodeEvidence": {
+    "definedSymbolsVerified": true,
+    "loadSegmentsSha256": "e9a7f46ae614ffd88e4e9ff60b0af633829bdc551dd0634feaf2c4d1e0b58821",
+    "unstrippedSha256": "2a0330f486b2b4891b01f14ab83e7ad90dd004a70f8779dad4a1ca8c9aa39fe7"
+  },
+  "artifacts": {
+    "driver": {
+      "sha256": "dfa7e12983a0d923d1e4db7af1d6dcc5b86488eb4617045d33d1005403d61281",
+      "sizeBytes": 2252584,
+      "direct_dt_needed": [
+        "libbinder_ndk.so",
+        "libbase.so",
+        "libfmq.so",
+        "libcutils.so",
+        "liblog.so",
+        "libc.so",
+        "libm.so",
+        "libdl.so"
+      ],
+      "soname": [
+        "liblightningdsp_v6.so"
+      ],
+      "nodelete": true
+    },
+    "helper": {
+      "sha256": "6ad48651d0a6364e880b57a87644ac9695f3cab39fdc5527d3d71d7f0c50355e",
+      "sizeBytes": 307128,
+      "direct_dt_needed": [
+        "libbinder_ndk.so",
+        "liblog.so",
+        "libc.so",
+        "libm.so",
+        "libdl.so"
+      ],
+      "soname": [],
+      "nodelete": false
+    }
+  }
+}

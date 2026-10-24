@@ -34,15 +34,60 @@ if [ ! -z "$FILES" ] && [ ! "$(echo "$FILES" | grep '/aml/')" ]; then
   sleep 3
 fi
 
+# The v6 payload is already a single ARM64 ELF; lshal is not required for
+# choosing it (and can crash on some temp-root firmware environments).
+LIB=
+LIB2=
+if [ ! -f "$MODPATH/native-control/v6-candidate.json" ]; then
 #Lib detection
 LIB=$(lshal debug "$(lshal | grep -oE "android.hardware.audio.effect@[0-9]+\.[0-9]+::IEffectsFactory/default" | head -n 1)" | grep -E 'lib|lib64' | awk -F '/' 'NR==1{print $3}')
 
 LIB2=$(file /*/bin/hw/android.hardware.audio.service* 2>/dev/null | grep -oE "32-bit|64-bit" | head -n 1)
 
-if service list | grep -q "android.hardware.audio.effect.IFactory"; then
+fi
+
+if service list | grep -Fq "android.hardware.audio.effect.IFactory"; then
 AIDL=true
 else
 AIDL=false
+fi
+
+# Factory enumeration describes this installer's Binder view, not the payload
+# ABI or what a late-started HAL will discover. V5 ships only ARM64 AIDL: select
+# that candidate even when enumeration is inconclusive, never a missing legacy
+# driver. Actual loading/registration remain separate runtime checks.
+if [ -f "$MODPATH/native-control/v6-candidate.json" ]; then
+    case ",$(getprop ro.product.cpu.abilist64)," in
+        *,arm64-v8a,*) ;;
+        *) abort "! LightningDSP v6 contains one ARM64 driver; no matching device ABI found." ;;
+    esac
+    mkdir -p "$MODPATH/logs" || abort "! Cannot create installer diagnostics."
+    discovery=not_observed
+    [ "$AIDL" != true ] || discovery=aidl_observed
+    printf 'SELECTED payload=dual-entry-arm64 factory_discovery=%s compatibility=unverified processing=unverified\n' \
+        "$discovery" >"$MODPATH/logs/install-transport.status" || abort "! Cannot record transport diagnostics."
+    # .AIDL retains the existing embedded-profile overlay/dependency hooks. It
+    # is not a claim of the device's transport. Both ABIs use the SAME payload.
+    AIDL=true
+    touch "$MODPATH/.DUAL_ENTRY"
+fi
+if [ -f "$MODPATH/native-control/v5-candidate.json" ] && [ ! -f "$MODPATH/native-control/v6-candidate.json" ]; then
+    case ",$(getprop ro.product.cpu.abilist64)," in
+        *,arm64-v8a,*) ;;
+        *) abort "! Embedded v5 contains only the ARM64 driver; no matching device ABI found." ;;
+    esac
+    FACTORY_DISCOVERY=not_observed
+    if [ "$AIDL" = true ]; then
+        FACTORY_DISCOVERY=observed
+    else
+        ui_print "   ! AIDL effect factory was not visible to the installer."
+        ui_print "   ! Staging the AIDL candidate; runtime compatibility is unverified."
+        ui_print "   ! This ZIP contains no legacy/HIDL driver."
+    fi
+    AIDL=true
+    mkdir -p "$MODPATH/logs" || abort "! Cannot create installer diagnostics."
+    printf 'SELECTED payload=aidl-arm64 factory_discovery=%s compatibility=unverified processing=unverified\n' \
+        "$FACTORY_DISCOVERY" >"$MODPATH/logs/install-transport.status" || abort "! Cannot record installer transport selection."
 fi
 
 ui_print " "
@@ -50,7 +95,13 @@ ui_print "- Lib bit detection -"
 
 if [ "$AIDL" = "true" ]; then
 	QARCH="aidl"
-	ui_print "  AIDL libs detected "
+	if [ -f "$MODPATH/native-control/v6-candidate.json" ]; then
+		ui_print "   Installing one ARM64 dual-entry AIDL/legacy driver"
+	elif [ -f "$MODPATH/native-control/v5-candidate.json" ]; then
+		ui_print "   Installing embedded ARM64 AIDL candidate"
+	else
+		ui_print "  AIDL libs detected "
+	fi
 	touch "$MODPATH/.AIDL"
 	cp_ch "$MODPATH/common/files/$QARCH/libjamesdsp.so" "$MODPATH/system/lib64/soundfx/libjamesdsp.so"
 elif [ "$LIB" = "lib64" ] || [ "$LIB2" = "64-bit" ]; then
@@ -107,6 +158,8 @@ set -x
 # Audio effects patching 
 ui_print " "
 ui_print "   Patching existing audio_effects files..."
+CONFIG_LIBDIR=lib
+[ "$QARCH" != aidl ] || CONFIG_LIBDIR=lib64
 PARTITIONS="/system /vendor $PARTITIONS"
 # shellcheck disable=SC2086
 CFGS="$(find $PARTITIONS -type f -name "*audio_effects*.conf" -o -name "*audio_effects*.xml")"
@@ -121,7 +174,7 @@ if [ -f "$ORIGDIR$OFILE" ];then
 		*.conf) sed -i "/jamesdsp {/,/}/d" "$FILE"
 				sed -i "/jdsp {/,/}/d" "$FILE"
 				sed -i "s/^effects {/effects {\n  jamesdsp {\n    library jdsp\n    uuid f27317f4-c984-4de6-9a90-545759495bf2\n    type f98765f4-c321-5de6-9a45-123459495ab2\n  }/g" "$FILE"
-				sed -i "s/^libraries {/libraries {\n  jdsp {\n    path $LIBPATCH\/lib\/soundfx\/libjamesdsp.so\n  }/g" "$FILE";;
+				sed -i "s/^libraries {/libraries {\n  jdsp {\n    path $LIBPATCH\/$CONFIG_LIBDIR\/soundfx\/libjamesdsp.so\n  }/g" "$FILE";;
 		*.xml) sed -i "/jamesdsp/d" "$FILE"
 			   sed -i "/jdsp/d" "$FILE"
 			   sed -i "/<libraries>/ a\        <library name=\"jdsp\" path=\"libjamesdsp.so\"\/>" "$FILE"
@@ -132,7 +185,7 @@ if [ -f "$ORIGDIR$OFILE" ];then
 		*.conf) sed -i "/jamesdsp {/,/}/d" "$FILE"
 				sed -i "/jdsp {/,/}/d" "$FILE"
 				sed -i "s/^effects {/effects {\n  jamesdsp {\n    library jdsp\n    uuid f27317f4-c984-4de6-9a90-545759495bf2\n  }/g" "$FILE"
-				sed -i "s/^libraries {/libraries {\n  jdsp {\n    path $LIBPATCH\/lib\/soundfx\/libjamesdsp.so\n  }/g" "$FILE";;
+				sed -i "s/^libraries {/libraries {\n  jdsp {\n    path $LIBPATCH\/$CONFIG_LIBDIR\/soundfx\/libjamesdsp.so\n  }/g" "$FILE";;
 		*.xml) sed -i "/jamesdsp/d" "$FILE"
 			   sed -i "/jdsp/d" "$FILE"
 			   sed -i "/<libraries>/ a\        <library name=\"jdsp\" path=\"libjamesdsp.so\"\/>" "$FILE"

@@ -3,13 +3,13 @@ MODPATH=${0%/*}
 MODDIR="$MODPATH"
 LOGDIR="$MODPATH/logs"
 STATUS="$LOGDIR/late-load.status"
-NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v4-build-provenance.json"
-# Keep the historical baseline usable until the validated v4 import replaces it.
+NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v5-build-provenance.json"
+# Only imported artifacts have provenance. Keep the historical source baselines
+# usable, but do not treat an awaiting v5 manifest as an imported driver.
+[ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v4-build-provenance.json"
 [ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/provenance.json"
 JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
 JDSP_TYPE=f98765f4-c321-5de6-9a45-123459495ab2
-XML_LIB_ANCHOR=libbundleaidl.so
-XML_UUID_ANCHOR=ce772f20-847d-11df-bb17-0002a5d5c51b
 PIXEL_DUMP_UUID_ANCHOR=50deaa30-4a83-4b1f-bfe3-dec6d605ede0
 LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
 FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
@@ -50,17 +50,15 @@ if [ "${KSU_LATE_LOAD:-0}" != 1 ] && [ -f "$NATIVE_CONTROL_PROVENANCE" ]; then
 fi
 
 late_ready() {
-	printf 'READY late_load=1 vendor_config=%s lib=%s restart=not_requested processing=unverified\n' "$1" "$ABI_STATUS" \
+	boot_id=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
+	printf 'READY late_load=1 boot_id=%s vendor_config=%s lib=%s restart=not_requested processing=unverified\n' \
+		"${boot_id:-unknown}" "$1" "$ABI_STATUS" \
 		>"$STATUS"
 	exit 0
 }
 
 patch_jdsp_vendor_xml() {
 	xml="$1"
-	grep -qi "$XML_LIB_ANCHOR" "$xml" || \
-		late_block vendor_config_missing_xml_lib_anchor
-	grep -qi "$XML_UUID_ANCHOR" "$xml" || \
-		late_block vendor_config_missing_xml_uuid_anchor
 	grep -q '<libraries>' "$xml" || late_block vendor_config_missing_libraries_tag
 	grep -q '<effects>' "$xml" || late_block vendor_config_missing_effects_tag
 	tmp="$xml.tmp.$$"
@@ -74,32 +72,6 @@ patch_jdsp_vendor_xml() {
 ' "$xml" >"$tmp" || late_block vendor_config_patch_failed
 	mv -f "$tmp" "$xml" || late_block vendor_config_patch_failed
 	grep -qi "$JDSP_UUID" "$xml" || late_block vendor_config_patch_failed
-	grep -qi "$XML_UUID_ANCHOR" "$xml" || \
-		late_block vendor_config_xml_anchor_lost
-}
-
-legacy_xml_to_aidl_config() {
-	src="$1"
-	dst="$2"
-	[ -f "$src" ] || late_block system_legacy_config_missing
-	tmp="$dst.tmp.$$"
-	awk '
-	{
-		gsub(/path="libbundlewrapper[.]so"/, "path=\"libbundleaidl.so\"")
-		gsub(/path="libreverbwrapper[.]so"/, "path=\"libreverbaidl.so\"")
-		gsub(/path="libvisualizer[.]so"/, "path=\"libvisualizeraidl.so\"")
-		gsub(/path="libdownmix[.]so"/, "path=\"libdownmixaidl.so\"")
-		gsub(/path="libldnhncr[.]so"/, "path=\"libloudnessenhanceraidl.so\"")
-		gsub(/path="libdynproc[.]so"/, "path=\"libdynamicsprocessingaidl.so\"")
-		gsub(/path="libhapticgenerator[.]so"/, "path=\"libhapticgeneratoraidl.so\"")
-		# Mustang does not expose a separate AIDL preprocessing library.
-		# The stock factory already provides AEC/NS descriptors, so the
-		# legacy HIDL stanza would point the AIDL loader at the wrong ABI.
-		if ($0 ~ /<library name="pre_processing"/) next
-		if ($0 ~ /<effect name="(agc|aec|ns)"/) next
-		print
-	}' "$src" >"$tmp" || late_block system_legacy_config_translate_failed
-	mv -f "$tmp" "$dst" || late_block system_legacy_config_translate_failed
 }
 
 prepare_builtin_aidl_config() {
@@ -213,9 +185,22 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 			late_block vendor_config_copy_failed
 		vendor_config_source=patched_from_live_vendor
 	else
-		legacy_xml_to_aidl_config "$SOURCE_LEGACY_CONFIG" \
-			"$MOD_VENDOR/etc/audio_effects_config.xml"
-		vendor_config_source=generated_from_system_legacy
+		# Like the ViPER AIDL module, use a dedicated minimal AIDL config
+		# when that file is absent. Do not invent vendor library names by
+		# translating a legacy system XML using Pixel-specific aliases.
+		tmp="$MOD_VENDOR/etc/audio_effects_config.xml.tmp.$$"
+		cat >"$tmp" <<'XML'
+<?xml version="1.0" encoding="UTF-8"?>
+<audio_effects_conf version="2.0" xmlns="http://schemas.android.com/audio/audio_effects_conf/v2_0">
+    <libraries>
+    </libraries>
+    <effects>
+    </effects>
+</audio_effects_conf>
+XML
+		[ "$?" -eq 0 ] && mv -f "$tmp" "$MOD_VENDOR/etc/audio_effects_config.xml" || \
+			late_block dedicated_aidl_config_write_failed
+		vendor_config_source=dedicated_aidl_template
 	fi
 	patch_jdsp_vendor_xml "$MOD_VENDOR/etc/audio_effects_config.xml"
 	grep -q 'path="libaudiopreprocessing.so"' \

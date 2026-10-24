@@ -1,12 +1,12 @@
-name: Global native-control-v4 source and package
+name: Global native control source and package
 on:
   push:
-    branches: [pixel-test-new-aidl, master]
+    branches: [pixel-test-new-aidl, samsung-test-new-aidl, reverb-ring-index-optimization, master]
   workflow_dispatch:
 permissions:
   contents: read
 concurrency:
-  group: native-control-v4-${{ github.ref }}
+  group: native-control-${{ github.ref }}
   cancel-in-progress: true
 jobs:
   verify:
@@ -23,13 +23,27 @@ jobs:
         run: for file in *.sh common/*.sh; do sh -n "$file"; done
       - name: Check compiled candidate readiness (source-only is not a release)
         id: native
-        run: python3 tools/package_native_control_v4.py --check-source
+        run: |
+          if [ -f native-control/v6-candidate.json ]; then
+            python3 tools/package_native_control_v6.py --check-source
+          elif [ -f native-control/v5-candidate.json ]; then
+            python3 tools/package_native_control_v5.py --check-source
+          else
+            python3 tools/package_native_control_v4.py --check-source
+          fi
       - name: Package only a fully imported and verified candidate
         if: steps.native.outputs.ready == 'true'
-        run: python3 tools/package_native_control_v4.py
+        run: |
+          if [ -f native-control/v6-candidate.json ]; then
+            python3 tools/package_native_control_v6.py
+          elif [ -f native-control/v5-candidate.json ]; then
+            python3 tools/package_native_control_v5.py
+          else
+            python3 tools/package_native_control_v4.py
+          fi
       - uses: actions/upload-artifact@v4
         if: steps.native.outputs.ready == 'true'
         with:
-          name: JamesDSPManager-native-control-v4-${{ github.sha }}
+          name: JamesDSPManager-native-control-${{ github.sha }}
           if-no-files-found: error
-          path: dist/JamesDSPManager-v6.6-beta-1.zip*
+          path: dist/JamesDSPManager-v6.6*.zip*

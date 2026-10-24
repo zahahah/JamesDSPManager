@@ -1,5 +1,10 @@
 # Global native control v4 — source candidate, not a release
 
+> Historical v4 design record. JamesDSP 6.6 uses the dual-entry v6 profile;
+> follow [DUAL-ENTRY-CONTROL-V6.md](DUAL-ENTRY-CONTROL-V6.md) and the current
+> README for release packaging. The old branch/version references below are
+> not instructions for importing or replacing the current artifacts.
+
 Branches:
 - Module / RootJamesDSP: `pixel-test-native-control-v4`.
 - LightningDSP: `native/control-completion-v4`, based on global-control v3.
