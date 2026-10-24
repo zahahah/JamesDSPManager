@@ -18,21 +18,21 @@ LOGDIR="$MODPATH/logs"
 mkdir -p "$LOGDIR" || exit 1
 STATUS="$LOGDIR/manual-audio-reload.status"
 GUARD="$LOGDIR/audio-hal-reload-$MODE.boot-id"
-FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
-ID_BIN=${JDSP_ID_BIN:-/system/bin/id}
-PIDOF_BIN=${JDSP_PIDOF_BIN:-/system/bin/pidof}
-GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
-SETPROP_BIN=${JDSP_SETPROP_BIN:-/system/bin/setprop}
-SERVICE_BIN=${JDSP_SERVICE_BIN:-/system/bin/service}
-DUMPSYS_BIN=${JDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
-LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
-SLEEP_BIN=${JDSP_SLEEP_BIN:-/system/bin/sleep}
-PROC_ROOT=${JDSP_PROC_ROOT:-/proc}
-BOOT_ID_FILE=${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
+FLOCK_BIN=${LDSP_FLOCK_BIN:-/system/bin/flock}
+ID_BIN=${LDSP_ID_BIN:-/system/bin/id}
+PIDOF_BIN=${LDSP_PIDOF_BIN:-/system/bin/pidof}
+GETPROP_BIN=${LDSP_GETPROP_BIN:-/system/bin/getprop}
+SETPROP_BIN=${LDSP_SETPROP_BIN:-/system/bin/setprop}
+SERVICE_BIN=${LDSP_SERVICE_BIN:-/system/bin/service}
+DUMPSYS_BIN=${LDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
+LINKER_BIN=${LDSP_LINKER_BIN:-/system/bin/linker64}
+SLEEP_BIN=${LDSP_SLEEP_BIN:-/system/bin/sleep}
+PROC_ROOT=${LDSP_PROC_ROOT:-/proc}
+BOOT_ID_FILE=${LDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
 FACTORY=android.hardware.audio.effect.IFactory/default
-JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
-HAL_SERVICE=${JDSP_AUDIO_HAL_INIT_SERVICE:-}
-HAL_PROCESS=${JDSP_AUDIO_HAL_PROCESS:-}
+LDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
+HAL_SERVICE=${LDSP_AUDIO_HAL_INIT_SERVICE:-}
+HAL_PROCESS=${LDSP_AUDIO_HAL_PROCESS:-}
 
 finish() {
     printf '%s\n' "$1" >"$STATUS"
@@ -83,14 +83,14 @@ before_pid=$(hal_pid) || finish 'BLOCKED reason=hal_process_not_unique'
 [ -d "$PROC_ROOT/$before_pid" ] || finish 'BLOCKED reason=hal_process_missing'
 
 hal_root="$PROC_ROOT/$before_pid/root"
-effect_lib="$hal_root/vendor/lib64/soundfx/libjamesdsp.so"
+effect_lib="$hal_root/vendor/lib64/soundfx/lightningdsplib.so"
 effect_xml="$hal_root/vendor/etc/audio_effects_config.xml"
 [ -f "$effect_lib" ] && [ -f "$effect_xml" ] || \
     finish 'BLOCKED reason=overlay_not_visible_to_hal'
-cmp -s "$MODPATH/system/vendor/lib64/soundfx/libjamesdsp.so" "$effect_lib" || \
+cmp -s "$MODPATH/system/vendor/lib64/soundfx/lightningdsplib.so" "$effect_lib" || \
     finish 'BLOCKED reason=hal_sees_different_library'
-grep -qi "$JDSP_UUID" "$effect_xml" || \
-    finish 'BLOCKED reason=hal_config_missing_jamesdsp'
+grep -qi "$LDSP_UUID" "$effect_xml" || \
+    finish 'BLOCKED reason=hal_config_missing_lightningdsp'
 "$LINKER_BIN" --list "$effect_lib" >"$LOGDIR/manual-audio-reload-linker.txt" 2>&1 || \
     finish 'BLOCKED reason=linker_dependency_resolution_failed'
 "$SERVICE_BIN" check "$FACTORY" 2>/dev/null | grep -q ': found' || \
@@ -100,7 +100,7 @@ before_dump=$("$DUMPSYS_BIN" "$FACTORY" 2>/dev/null) || \
 printf '%s\n' "$before_dump" >"$LOGDIR/manual-audio-reload-before.txt"
 printf '%s\n' "$before_dump" | grep -q '^Effects ([0-9][0-9]*):' || \
     finish 'BLOCKED reason=factory_descriptor_list_unavailable'
-if printf '%s\n' "$before_dump" | grep -qi "$JDSP_UUID"; then
+if printf '%s\n' "$before_dump" | grep -qi "$LDSP_UUID"; then
     finish 'READY reason=effect_already_discovered restart=not_needed' 0
 fi
 
@@ -128,7 +128,7 @@ done
 count=0
 while [ "$count" -lt 10 ]; do
     after_dump=$("$DUMPSYS_BIN" "$FACTORY" 2>/dev/null) || after_dump=''
-    if printf '%s\n' "$after_dump" | grep -qi "$JDSP_UUID"; then
+    if printf '%s\n' "$after_dump" | grep -qi "$LDSP_UUID"; then
         printf '%s\n' "$after_dump" >"$LOGDIR/manual-audio-reload-after.txt"
         "$SLEEP_BIN" 2
         [ "$(hal_pid)" = "$new_pid" ] || \

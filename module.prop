@@ -1,8 +1,8 @@
-id=ainur_jamesdsp
-name=JamesDSP Manager (dual-entry native-control-v6 test)
-version=v6.6-beta-6.51
-versionCode=150
-banner=JDSP_banner.png
-author=lightningzahah, james34602, zackptg5, ahrion, anonymix007, ShadoV90
-description=Dual-entry AIDL/legacy driver; global jdsp.control protocol 3 with legacy fallback
+id=ainur_lightningdsp
+name=LightningDSP Manager (dual-entry native-control test)
+version=v6.6-beta-7-ldsp
+versionCode=151
+banner=LightningDSP_banner.png
+author=lightning zahah
+description=LightningDSP (previously JamesDSP), dual-entry AIDL/legacy driver; ldsp.control protocol 3 with legacy fallback
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970

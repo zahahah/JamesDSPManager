@@ -1,6 +1,6 @@
 #!/system/bin/sh
 # Apply the vendor's explicitly-defined RealtimePerformance task profile only
-# when it is the tested, single-action task-group mapping for the JamesDSP HAL
+# when it is the tested, single-action task-group mapping for the LightningDSP HAL
 # thread. Unsupported vendor configurations are left untouched.
 
 MODE=${1:---watch}
@@ -9,11 +9,11 @@ LOGDIR="$MODPATH/logs"
 LOCK="$MODPATH/.dsp-thread-profile.lock"
 APPLIED_TIDS=
 
-if [ -n "${JDSP_PROFILE_TEST_ROOT:-}" ]; then
-	PROC_ROOT="$JDSP_PROFILE_TEST_ROOT/proc"
-	PROFILE_JSON="$JDSP_PROFILE_TEST_ROOT/vendor_task_profiles.json"
-	SETTASKPROFILE="$JDSP_PROFILE_TEST_ROOT/settaskprofile"
-	SLEEP_BIN="$JDSP_PROFILE_TEST_ROOT/sleep"
+if [ -n "${LDSP_PROFILE_TEST_ROOT:-}" ]; then
+	PROC_ROOT="$LDSP_PROFILE_TEST_ROOT/proc"
+	PROFILE_JSON="$LDSP_PROFILE_TEST_ROOT/vendor_task_profiles.json"
+	SETTASKPROFILE="$LDSP_PROFILE_TEST_ROOT/settaskprofile"
+	SLEEP_BIN="$LDSP_PROFILE_TEST_ROOT/sleep"
 else
 	PROC_ROOT=/proc
 	PROFILE_JSON=/vendor/etc/task_profiles.json
@@ -99,7 +99,7 @@ task_identity() {
 	[ "$(cat "$PROC_ROOT/$1/comm" 2>/dev/null)" = 'James Audio DS' ] || return 1
 	tgid=$(awk '/^Tgid:/ { print $2; exit }' "$PROC_ROOT/$1/status" 2>/dev/null)
 	case "$tgid" in ''|*[!0-9]*) return 1 ;; esac
-	grep -Eq '/libjamesdsp\.so$' "$PROC_ROOT/$tgid/maps" 2>/dev/null || return 1
+	grep -Eq '/liblightningdsp\.so$' "$PROC_ROOT/$tgid/maps" 2>/dev/null || return 1
 	start=$(awk '{ sub(/^.*\) /, ""); print $20 }' "$PROC_ROOT/$1/stat" 2>/dev/null)
 	case "$start" in ''|*[!0-9]*) return 1 ;; esac
 	printf '%s:%s\n' "$tgid" "$start"

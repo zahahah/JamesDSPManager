@@ -52,14 +52,14 @@ class EmbeddedV6Tests(unittest.TestCase):
                     'nodelete': kind == 'driver'}
         self.report['embeddedCodeEvidence']['loadSegmentsSha256'] = package.gate.load_fingerprint(
             (self.root / package.EXPECTED_PATHS['driver']).read_bytes())
-        meta = self.root / 'common/files/JamesDSPManagerThePBone.apk.meta'
+        meta = self.root / 'common/files/LightningDSP.apk.meta'
         meta.write_text('versionCode=62\n')
         (self.root / 'native-control').mkdir()
         notices = b'license fixture for synthetic artifacts'
         (self.root / package.NOTICES).write_bytes(notices)
         self.value['notices'] = {'path': package.NOTICES, 'sha256': sha256(notices).hexdigest(),
                                  'sizeBytes': len(notices)}
-        (self.root / 'module.prop').write_text('id=ainur_jamesdsp\nversion=old\nversionCode=139\nname=old\ndescription=old\n')
+        (self.root / 'module.prop').write_text('id=ainur_lightningdsp\nversion=old\nversionCode=139\nname=old\ndescription=old\n')
         self.write_reports()
 
     def write_reports(self):
@@ -69,7 +69,7 @@ class EmbeddedV6Tests(unittest.TestCase):
     def inspector(self, command, text=True):
         if '--dyn-syms' in command:
             return '\n'.join('1: 0010 32 ' + ('OBJECT' if name == 'AELI' else 'FUNC') + ' GLOBAL DEFAULT 12 ' + name for name in package.gate.FACTORY)
-        driver = command[-1].endswith('libjamesdsp.so')
+        driver = command[-1].endswith('lightningdsplib.so')
         return '\n'.join(('(NEEDED) Shared library: [libbinder_ndk.so]', '(NEEDED) Shared library: [libc.so]',
                           '(SONAME) Library soname: [liblightningdsp_v6.so]' if driver else '',
                           '(FLAGS_1) NODELETE' if driver else ''))
@@ -144,11 +144,11 @@ class EmbeddedV6Tests(unittest.TestCase):
             self.assertIn(package.NOTICES, archive.namelist())
             self.assertNotIn('native-control/v4-candidate.json', archive.namelist())
             self.assertNotIn('native-control/provenance.json', archive.namelist())
-            self.assertNotIn('common/files/JamesDSPManager.apk', archive.namelist())
+            self.assertNotIn('common/files/LightningDSP.apk', archive.namelist())
             self.assertNotIn('update.json', archive.namelist())
             self.assertIn('dsp-thread-profile.sh', archive.namelist())
             self.assertEqual(archive.getinfo('dsp-thread-profile.sh').external_attr >> 16, 0o100755)
-            drivers = [name for name in archive.namelist() if name.endswith('/libjamesdsp.so')]
+            drivers = [name for name in archive.namelist() if name.endswith('/lightningdsplib.so')]
             self.assertEqual(drivers, [package.EXPECTED_PATHS['driver']])
             self.assertEqual(archive.getinfo(package.EXPECTED_PATHS['helper']).external_attr >> 16, 0o100755)
 

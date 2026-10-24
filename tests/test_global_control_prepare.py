@@ -12,10 +12,10 @@ class GlobalControlPrepareTests(unittest.TestCase):
         (module / 'native-control').mkdir(parents=True)
         (module / '.AIDL').touch()
         source = directory / 'vendor_service_contexts'
-        source.write_text('other.service u:object_r:other_service:s0\njdsp.control old_label\n')
+        source.write_text('other.service u:object_r:other_service:s0\nldsp.control old_label\n')
         for name in ('global-service.rule', 'default-label-opt-in.rule'):
             (module / 'native-control' / name).write_bytes((ROOT / 'native-control' / name).read_bytes())
-        helper = module / 'common/files/control/arm64-v8a/jdspctl'
+        helper = module / 'common/files/control/arm64-v8a/ldspctl'
         helper.parent.mkdir(parents=True)
         helper.write_text('fixture, not executed')
         fakebin = directory / 'bin'
@@ -24,9 +24,9 @@ class GlobalControlPrepareTests(unittest.TestCase):
         tool.write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> "$POLICY_CALLS"\n')
         tool.chmod(0o755)
         if opt_in:
-            (module / '.jdsp-control-default-label-opt-in').touch()
+            (module / '.ldsp-control-default-label-opt-in').touch()
         result = subprocess.run(['sh', str(ROOT / 'native-control.sh'), 'prepare', str(module)],
-            env={**os.environ, 'JDSP_SERVICE_CONTEXTS': str(source), 'KSU_LATE_LOAD': '1',
+            env={**os.environ, 'LDSP_SERVICE_CONTEXTS': str(source), 'KSU_LATE_LOAD': '1',
                  'PATH': str(fakebin) + ':' + os.environ['PATH'], 'POLICY_CALLS': str(directory / 'calls')},
             capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -37,12 +37,12 @@ class GlobalControlPrepareTests(unittest.TestCase):
             root = Path(tmp)
             module, source = self.prepare(root)
             staged = (module / 'system/vendor/etc/selinux/vendor_service_contexts').read_text()
-            self.assertEqual(staged.count('jdsp.control'), 1)
+            self.assertEqual(staged.count('ldsp.control'), 1)
             self.assertIn('other.service u:object_r:other_service:s0', staged)
-            self.assertIn('jdsp_control_service', staged)
+            self.assertIn('ldsp_control_service', staged)
             self.assertIn('old_label', source.read_text()) # no partition modification
             self.assertNotIn('default-label-opt-in', (root / 'calls').read_text())
-            self.assertTrue((module / 'system/vendor/bin/jdspctl').stat().st_mode & 0o111)
+            self.assertTrue((module / 'system/vendor/bin/ldspctl').stat().st_mode & 0o111)
             status = (module / 'logs/native-control.status').read_text()
             self.assertIn('label_cache=unverified', status)
             self.assertIn('restart=not_requested', status)
@@ -72,21 +72,21 @@ class GlobalControlActivationTests(unittest.TestCase):
         shutil_source = ROOT / 'native-control/global-service.rule'
         (module / 'native-control/global-service.rule').write_bytes(shutil_source.read_bytes())
         contexts = root / 'mounted_contexts'
-        contexts.write_text('jdsp.control u:object_r:jdsp_control_service:s0\n' if label else '')
+        contexts.write_text('ldsp.control u:object_r:ldsp_control_service:s0\n' if label else '')
         fakebin = root / 'bin'
         fakebin.mkdir()
         calls = root / 'calls'
         tool = fakebin / 'ksud'
         tool.write_text('#!/bin/sh\necho policy >> "$POLICY_CALLS"\nexit ' + ('0' if policy_ok else '1') + '\n')
         tool.chmod(0o755)
-        helper = fakebin / 'jdspctl'
-        reply = ('JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3'
-                 if ready else 'JDSPCTL:ERR:service-unavailable-or-find-denied')
+        helper = fakebin / 'ldspctl'
+        reply = ('LDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3'
+                 if ready else 'LDSPCTL:ERR:service-unavailable-or-find-denied')
         helper.write_text('#!/bin/sh\necho probe >> "$POLICY_CALLS"\necho "' + reply + '"\n')
         helper.chmod(0o755)
         result = subprocess.run(['sh', str(ROOT / 'native-control.sh'), 'activate', str(module)],
-            env={**os.environ, 'JDSP_MANAGER_CONTEXTS': str(contexts),
-                 'JDSP_CONTROL_HELPER': str(helper), 'JDSP_ACTIVATION_ATTEMPTS': '1',
+            env={**os.environ, 'LDSP_MANAGER_CONTEXTS': str(contexts),
+                 'LDSP_CONTROL_HELPER': str(helper), 'LDSP_ACTIVATION_ATTEMPTS': '1',
                  'PATH': str(fakebin) + ':' + os.environ['PATH'], 'POLICY_CALLS': str(calls)},
             capture_output=True, text=True)
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -98,7 +98,7 @@ class GlobalControlActivationTests(unittest.TestCase):
             status, calls = self.activate(Path(tmp))
             self.assertEqual(calls, ['policy', 'probe'])
             self.assertIn('READY', status)
-            self.assertIn('control=jdsp.control', status)
+            self.assertIn('control=ldsp.control', status)
             self.assertIn('processing=unverified', status)
 
     def test_unmounted_label_cannot_trigger_policy_or_claim_success(self):

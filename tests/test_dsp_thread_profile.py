@@ -32,7 +32,7 @@ class DspThreadProfileTests(unittest.TestCase):
         (task / "stat").write_text("30362 (James Audio DS) S " + "0 " * 18 + "12345 0\n")
         host = self.root / "proc/2913"
         host.mkdir()
-        (host / "maps").write_text("1000-2000 r-xp 00000000 00:01 1 /vendor/lib64/soundfx/libjamesdsp.so\n")
+        (host / "maps").write_text("1000-2000 r-xp 00000000 00:01 1 /vendor/lib64/soundfx/lightningdsplib.so\n")
         profile = {
             "Profiles": [{
                 "Name": "RealtimePerformance",
@@ -62,7 +62,7 @@ class DspThreadProfileTests(unittest.TestCase):
     def run_once(self):
         env = {
             **os.environ,
-            "JDSP_PROFILE_TEST_ROOT": str(self.root),
+            "LDSP_PROFILE_TEST_ROOT": str(self.root),
         }
         return subprocess.run(
             ["sh", str(SCRIPT), "--once", str(self.module)],
@@ -133,7 +133,7 @@ class DspThreadProfileTests(unittest.TestCase):
 
     def test_same_thread_name_without_a_live_dsp_mapping_is_not_targeted(self):
         (self.root / "proc/2913/maps").write_text(
-            "1000-2000 r-xp 00000000 00:01 1 /vendor/lib64/soundfx/libjamesdsp.so (deleted)\n"
+            "1000-2000 r-xp 00000000 00:01 1 /vendor/lib64/soundfx/lightningdsplib.so (deleted)\n"
         )
         result = self.run_once()
         self.assertEqual(result.returncode, 0, result.stderr)

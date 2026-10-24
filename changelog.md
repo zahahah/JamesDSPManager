@@ -30,7 +30,7 @@
 
 ### v6.6-beta-6.3-dsp-scheduler (experimental prerelease)
 
-* Apply the vendor's `RealtimePerformance` profile to the JamesDSP processing
+* Apply the vendor's `RealtimePerformance` profile to the LightningDSP processing
   thread only when the vendor profile is a single, verified task-group mapping
   to its own `ta` scheduler group. Generic AOSP `cpu/rt` behavior and unknown
   vendor profiles are explicitly skipped.
@@ -105,7 +105,7 @@
 * Bind the driver and live vendor/ODM/system/product/SKU configs into init's
   mount namespace, preserving existing effect entries and configuration labels.
 * Stop assuming Pixel stock library names when a vendor AIDL config is absent;
-  use a dedicated JamesDSP AIDL config in that case. Stock-effect regressions
+  use a dedicated LightningDSP AIDL config in that case. Stock-effect regressions
   remain a device-test requirement for this fallback.
 * Discover the factory owner and audit the firmware stop/start handler rather
   than guessing process names or terminating audioserver.
@@ -141,17 +141,17 @@
 
 ### v6.6-beta-1
 
-* Keep global jdsp.control primary and legacy control as fallback.
+* Keep global ldsp.control primary and legacy control as fallback.
 * Refresh dedicated service-label policy after the overlay is mounted, without
   generic service grants, SELinux permissive mode or audio restarts.
 * Queue native app controls off the UI thread and preserve fallback on failure.
 * Require a published protocol-3 service and one writable context for readiness.
-* Bundle root app v1.6.17 code 60; retain the existing v4 library and jdspctl.
+* Bundle root app v1.6.17 code 60; retain the existing v4 library and ldspctl.
 
 ### native-control-v4 source candidate (not released)
 
 * Retire the effect-bound parameter transport and v6.5.14 package.
-* Restore global jdsp.control and add a root-only vendor-native client.
+* Restore global ldsp.control and add a root-only vendor-native client.
 * Prepare typed policy/helper overlays without automatic audio restarts.
 * Block ZIP creation pending newly compiled native artifacts and verified APK.
 
@@ -169,12 +169,12 @@
 
 ### v6.5.11-pixel-native-control-v3-test
 
-* Bundle the native-control-v3 library and a signed experimental RootJamesDSP
+* Bundle the native-control-v3 library and a signed experimental RootLightningDSP
   AIDL-client APK from branch `pixel-test-new-aidl` (1.6.15, versionCode 57).
 * Remove the module's SDK 36+ hard gate; try the systemless overlay on other
   Android/AIDL versions while logging linker mismatches. No ABI rewriting or
   compatibility claim is added; the binary still directly depends on AIDL V4.
-* Keep the app on the legacy `AudioEffect` path unless `jdsp.control` reports
+* Keep the app on the legacy `AudioEffect` path unless `ldsp.control` reports
   direct app authorization; the provider remains root-authorized by default.
 * Test candidate only: no on-device proof of service discovery, app write
   authorization, audio processing, or audible control changes.
@@ -193,12 +193,12 @@
 
 ### v6.5.10-pixel-builtin-aidl-beta.2
 
-* Update an existing `james.dsp` installation in place when Android accepts
+* Update an existing `com.lightning.dsp` installation in place when Android accepts
   the module APK's signing certificate, preserving the app data.
 * If Android reports a signer mismatch, ask through a system notification and
   wait 30 seconds for Volume Up (remove and replace) or Volume Down (keep).
 * Treat timeout as No by default; keep the existing app, copy the new APK to
-  `/sdcard/Download/JamesDSPManager.apk`, and avoid repeating the prompt for
+  `/sdcard/Download/LightningDSP.apk`, and avoid repeating the prompt for
   the same module APK on every boot.
 * Host-test both choices, the timeout default, matching-signature update, and
   the one-time decline behavior. Device validation is still pending.
@@ -210,7 +210,7 @@
 * Keep late-load preparation, locking, linker validation, and reload behavior
   unchanged.
 * Stage the config and effect through systemless module overlays only.
-* Bundle the Zahah-signed JamesDSP 1.6.15 integration APK (version code 56).
+* Bundle the Zahah-signed LightningDSP 1.6.15 integration APK (version code 56).
   The APK is built from the local 1.6.14 source snapshot with the Volume
   Manager integration, not from upstream 1.6.15 source.
 * Host tests pass; this specific regular-boot package has not yet been flashed
@@ -218,7 +218,7 @@
 
 ### v6.5.9
 
-* JamesDSP works through Android's default effect factory and does not require
+* LightningDSP works through Android's default effect factory and does not require
   PIXAML. PIXAML remains an optional companion for setups that need AML-specific
   compatibility or other AML-based effects.
 * Serialize repeated KernelSU late-load preparation callbacks and replace the
@@ -229,11 +229,11 @@
 
 ### v6.5.8
 
-* Make PIXAML optional for late-load. JamesDSP uses `IFactory/default`; the
+* Make PIXAML optional for late-load. LightningDSP uses `IFactory/default`; the
   guarded refresh no longer depends on PIXAML's standalone AML factory or
   process.
 * Start the app installer from the late-load service path before the guarded
-  audio refresh. It installs the selected APK only when the exact `james.dsp`
+  audio refresh. It installs the selected APK only when the exact `com.lightning.dsp`
   package is missing; it never updates, uninstalls, or wipes the user's app
   data.
 * Keep everything systemless: the built-in early-boot path stays separate, and
@@ -255,14 +255,14 @@
 
 * v6.5.5-mustang-late-load: when the physical vendor AIDL effect XML is absent,
   translate the observed stock `/system/etc/audio_effects.xml` library paths to
-  the Pixel's AIDL libraries before adding JamesDSP. The guarded refresh now
+  the Pixel's AIDL libraries before adding LightningDSP. The guarded refresh now
   requires the complete observed stock UUID set before and after it.
 * v6.5.5-mustang-late-load: set script modes during installation and invoke the
   reload through `sh` so installers that normalize module files to `0644` do
   not suppress the guarded late-load action.
 
 * v6.5.4-late-load-reload-exp: add an experimental KernelSU late-load path that
-  requires PIXAML v0.9.5 private-config, mounts the systemless JamesDSP effect,
+  requires PIXAML v0.9.5 private-config, mounts the systemless LightningDSP effect,
   patches AIDL NDK dependencies before Magic Mount-rs consumes the tree,
   validates linker resolution, then performs one guarded
   `ctl.restart vendor.audio-hal-aidl` from `service.sh` so `IFactory/default`
@@ -278,7 +278,7 @@
 * Re-sign both unchanged root APKs with the maintainer key. Existing APKs with
   another certificate cannot be updated in place and are never uninstalled by
   the module; back up app data before manual migration.
-* Keep existing `james.dsp` installation and data when updating or removing
+* Keep existing `com.lightning.dsp` installation and data when updating or removing
   the module. The ThePBone APK remains v1.6.15; only its signature changed.
 
 ### v6.5 RC- 12.29.2025
@@ -321,12 +321,12 @@
 
 * mmtex v3.6 update
 * Update pbone apk
-* Update jdsp app/libs
+* Update ldsp app/libs
 
 ### v5.8 - 9.11.2023
 
 * Update pbone apk
-* Update jdsp app/libs
+* Update ldsp app/libs
 * mmtex v3.5 update
 
 ### v5.7 - 9.3.2023
@@ -348,7 +348,7 @@
 ### v5.4 - 8.13.2023
 
 * Update to mmtex v3.3
-* Update the thepbone jdsp app
+* Update the thepbone ldsp app
 
 ### v5.3 - 8.11.2023
 
@@ -388,11 +388,11 @@
 
 ### v4.6 - 8.4.2022
 
-* Update jdsp libs
+* Update ldsp libs
 
 ### v4.5 - 6.25.2022
 
-* Update jdsp libs
+* Update ldsp libs
 
 ### v4.4 - 1.31.2022
 
@@ -603,7 +603,7 @@
 
 ### v1.6.5 - 8.26.2018
 
-* New JamesDSP build (Now supports HTC devices)
+* New LightningDSP build (Now supports HTC devices)
 * Fixed bit depth problem from HTC and Android Pie
 * Upgraded Fast Fourier Transform libraryand  Android NDK
 
@@ -677,7 +677,7 @@
 
 ### v1.4.1 - 2.16.2018
 
-* Updated jdsp to new version
+* Updated ldsp to new version
 
 ### v1.4 - 2.16.2018
 
@@ -709,6 +709,6 @@
 
 ## Source Code
 
-* Module [GitHub](https://github.com/therealahrion/JamesDSPManager)
+* Module [GitHub](https://github.com/therealahrion/LightningDSPManager)
 
-App [GitHub](https://github.com/james34602/JamesDSPManager)
+App [GitHub](https://github.com/james34602/LightningDSPManager)

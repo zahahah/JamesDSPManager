@@ -12,7 +12,7 @@ Samsung firmware, root manager, output route or Audio Effect AIDL version.
 
 ## Pin the actual working release
 
-Use the [test2 prerelease](https://github.com/zahahah/JamesDSPManager/releases/tag/v6.6-beta-5-samsung-test2),
+Use the [test2 prerelease](https://github.com/zahahah/LightningDSPManager/releases/tag/v6.6-beta-5-samsung-test2),
 not an older ZIP with a similar branch or test name.
 
 | Component | Identity |
@@ -22,16 +22,16 @@ not an older ZIP with a similar branch or test name.
 | XML parser fix | `1a1dcb02be5f0082c44923b0d122872c3ee6f040` |
 | ZIP SHA-256 | `a0cf48bcf2a8a641306539da43bc1e83737789bda1a1093c452991c98c59daa9` |
 | Native source | `8c70215c61676c2a3e0f2d570c0dc3d4255d5e74` |
-| Driver installed as | `/vendor/lib64/soundfx/libjamesdsp.so` |
+| Driver installed as | `/vendor/lib64/soundfx/lightningdsplib.so` |
 | Driver SHA-256 | `f8148f22d7e606273205d3f8512c62ef89c3d80043771c1555c45c7b3eb77097` |
-| Matching helper | `/vendor/bin/jdspctl` |
+| Matching helper | `/vendor/bin/ldspctl` |
 | Helper SHA-256 | `e91bc9724a06eb65ffb88ba575b63760d026710d7a8376f0eb40d70b932b1521` |
-| Root app | `james.dsp`, **1.6.17 / code 62**, unchanged from the first beta-5 test |
+| Root app | `com.lightning.dsp`, **1.6.17 / code 62**, unchanged from the first beta-5 test |
 
 The APK identity, signer and complete artifact hashes remain pinned in
 [`native-control/v5-candidate.json`](native-control/v5-candidate.json).
 The compiled source uses embedded **Effect AIDL V4 / media common V5** bindings;
-our independent `jdsp.control` protocol is still **3**. These are different version
+our independent `ldsp.control` protocol is still **3**. These are different version
 numbers. A working report does not prove general Effect V3 factory compatibility.
 
 ## The pieces that need to stay together
@@ -90,14 +90,14 @@ Normal-boot handling is separate. A reboot can lose temp-root.
 ## What actually explained the last failure
 
 The first beta-5 test reported module code **140**, but the root Termux view of
-`/vendor/lib64/soundfx/libjamesdsp.so` still had the old v4 hash
+`/vendor/lib64/soundfx/lightningdsplib.so` still had the old v4 hash
 `05b034cda6cf4b17d89d00efd612d01da3897b07f544d7e266ddca570ea1ae5a`.
 Its recovery status was:
 
 ```text
 BLOCKED reason=effect_mount_failed restart=not_requested
 BLOCKED reason=config_structure_not_supported target=/vendor/etc/audio_effects.xml
-JDSPCTL:ERR:service-unavailable-or-find-denied
+LDSPCTL:ERR:service-unavailable-or-find-denied
 ```
 
 The supplied XML was well-formed, with **25 CRLF records and two LF records**.
@@ -127,10 +127,10 @@ or a post-fix HAL trace establishing the entire causal chain.
   stock-byte preservation, idempotence and fail-closed staging tests.
 - **Verified before release:** independent ELF inspection, signed APK identity,
   deterministic ZIP, and **124 passing CI tests** on the released source
-  ([run 39705935441](https://github.com/zahahah/JamesDSPManager/actions/runs/39705935441)).
+  ([run 39705935441](https://github.com/zahahah/LightningDSPManager/actions/runs/39705935441)).
 - **Reported after release:** the same collaborator said test2 works.
 - **Not newly collected:** active driver/helper hashes in the factory namespace,
-  factory UUID discovery, `jdsp.control` probe/status, accepted/applied generations,
+  factory UUID discovery, `ldsp.control` probe/status, accepted/applied generations,
   processed frames, a specific audible adjustment, playback route, Global mode
   setting, calls, stock-effect behavior or repeated boots.
 

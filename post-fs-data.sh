@@ -3,19 +3,20 @@ MODPATH=${0%/*}
 MODDIR="$MODPATH"
 LOGDIR="$MODPATH/logs"
 STATUS="$LOGDIR/late-load.status"
-NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v5-build-provenance.json"
-# Only imported artifacts have provenance. Keep the historical source baselines
-# usable, but do not treat an awaiting v5 manifest as an imported driver.
+NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/ldsp-build-provenance.json"
+# Older artifacts are retained only in the source tree for historical tests;
+# the distributable package contains the verified LightningDSP provenance.
+[ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v5-build-provenance.json"
 [ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/v4-build-provenance.json"
 [ -f "$NATIVE_CONTROL_PROVENANCE" ] || NATIVE_CONTROL_PROVENANCE="$MODPATH/native-control/provenance.json"
-JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
-JDSP_TYPE=f98765f4-c321-5de6-9a45-123459495ab2
+LDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
+LDSP_TYPE=f98765f4-c321-5de6-9a45-123459495ab2
 PIXEL_DUMP_UUID_ANCHOR=50deaa30-4a83-4b1f-bfe3-dec6d605ede0
-LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
-FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
-SOURCE_VENDOR_CONFIG=${JDSP_SOURCE_VENDOR_CONFIG:-/vendor/etc/audio_effects_config.xml}
-SOURCE_LEGACY_CONFIG=${JDSP_SOURCE_LEGACY_CONFIG:-/system/etc/audio_effects.xml}
-GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
+LINKER_BIN=${LDSP_LINKER_BIN:-/system/bin/linker64}
+FLOCK_BIN=${LDSP_FLOCK_BIN:-/system/bin/flock}
+SOURCE_VENDOR_CONFIG=${LDSP_SOURCE_VENDOR_CONFIG:-/vendor/etc/audio_effects_config.xml}
+SOURCE_LEGACY_CONFIG=${LDSP_SOURCE_LEGACY_CONFIG:-/system/etc/audio_effects.xml}
+GETPROP_BIN=${LDSP_GETPROP_BIN:-/system/bin/getprop}
 
 mkdir -p "$LOGDIR"
 
@@ -57,21 +58,21 @@ late_ready() {
 	exit 0
 }
 
-patch_jdsp_vendor_xml() {
+patch_lightningdsp_vendor_xml() {
 	xml="$1"
 	grep -q '<libraries>' "$xml" || late_block vendor_config_missing_libraries_tag
 	grep -q '<effects>' "$xml" || late_block vendor_config_missing_effects_tag
 	tmp="$xml.tmp.$$"
 	awk \
-		-v lib='        <library name="jdsp" path="libjamesdsp.so"/>' \
-		-v effect="        <effect name=\"jamesdsp\" library=\"jdsp\" uuid=\"$JDSP_UUID\" type=\"$JDSP_TYPE\"/>" '
-/jamesdsp/ || /name="jdsp"/ { next }
+		-v lib='        <library name="ldsp" path="lightningdsplib.so"/>' \
+		-v effect="        <effect name=\"lightningdsp\" library=\"ldsp\" uuid=\"$LDSP_UUID\" type=\"$LDSP_TYPE\"/>" '
+/lightningdsp/ || /name="ldsp"/ { next }
 { print }
 /<libraries>/ && !lib_done { print lib; lib_done = 1 }
 /<effects>/ && !effect_done { print effect; effect_done = 1 }
 ' "$xml" >"$tmp" || late_block vendor_config_patch_failed
 	mv -f "$tmp" "$xml" || late_block vendor_config_patch_failed
-	grep -qi "$JDSP_UUID" "$xml" || late_block vendor_config_patch_failed
+	grep -qi "$LDSP_UUID" "$xml" || late_block vendor_config_patch_failed
 }
 
 prepare_builtin_aidl_config() {
@@ -128,12 +129,12 @@ prepare_builtin_aidl_config() {
 		return 1
 	fi
 	awk \
-		-v lib='        <library name="jdsp" path="libjamesdsp.so"/>' \
-		-v effect="        <effect name=\"jamesdsp\" library=\"jdsp\" uuid=\"$JDSP_UUID\" type=\"$JDSP_TYPE\"/>" '
+		-v lib='        <library name="ldsp" path="lightningdsplib.so"/>' \
+		-v effect="        <effect name=\"lightningdsp\" library=\"ldsp\" uuid=\"$LDSP_UUID\" type=\"$LDSP_TYPE\"/>" '
 	/<!--/ { comment=1 }
 	comment { print; if (/-->/) comment=0; next }
-	/^[[:space:]]*<library[[:space:]][^>]*name="jdsp"/ { next }
-	/^[[:space:]]*<effect[[:space:]][^>]*name="jamesdsp"/ { next }
+	/^[[:space:]]*<library[[:space:]][^>]*name="ldsp"/ { next }
+	/^[[:space:]]*<effect[[:space:]][^>]*name="lightningdsp"/ { next }
 	{ print }
 	/<libraries>/ && !lib_done { print lib; lib_done = 1 }
 	/<effects>/ && !effect_done { print effect; effect_done = 1 }
@@ -144,7 +145,7 @@ prepare_builtin_aidl_config() {
 			>"$LOGDIR/builtin-aidl-config.status"
 		return 1
 	}
-	if ! grep -qi "$JDSP_UUID" "$tmp.patched" || ! grep -qi 'name="jdsp"' "$tmp.patched"; then
+	if ! grep -qi "$LDSP_UUID" "$tmp.patched" || ! grep -qi 'name="ldsp"' "$tmp.patched"; then
 		rm -f "$tmp" "$tmp.patched"
 		printf 'BLOCKED reason=vendor_config_validation_failed\n' \
 			>"$LOGDIR/builtin-aidl-config.status"
@@ -174,8 +175,8 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ]; then
 	rm -f "$MODPATH/skip_mount" "$MODPATH/.late-load-no-effect" \
 		"$MODPATH/.late-load-rootless"
 	[ -f "$MODPATH/.AIDL" ] || late_block aidl_marker_missing
-	[ -f "$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" ] || \
-		late_block jamesdsp_lib_missing
+	[ -f "$MOD_VENDOR/lib64/soundfx/lightningdsplib.so" ] || \
+		late_block lightningdsp_lib_missing
 	mkdir -p "$MOD_VENDOR/etc"
 	if [ -f "$SOURCE_VENDOR_CONFIG" ]; then
 		tmp="$MOD_VENDOR/etc/audio_effects_config.xml.tmp.$$"
@@ -202,7 +203,7 @@ XML
 			late_block dedicated_aidl_config_write_failed
 		vendor_config_source=dedicated_aidl_template
 	fi
-	patch_jdsp_vendor_xml "$MOD_VENDOR/etc/audio_effects_config.xml"
+	patch_lightningdsp_vendor_xml "$MOD_VENDOR/etc/audio_effects_config.xml"
 	grep -q 'path="libaudiopreprocessing.so"' \
 		"$MOD_VENDOR/etc/audio_effects_config.xml" && \
 		late_block system_legacy_preprocessing_not_removed
@@ -215,7 +216,7 @@ XML
 	fi
 
 	if ! "$LINKER_BIN" --list \
-		"$MOD_VENDOR/lib64/soundfx/libjamesdsp.so" \
+		"$MOD_VENDOR/lib64/soundfx/lightningdsplib.so" \
 		>"$LOGDIR/late-load-linker.txt" 2>&1; then
 		late_block linker_dependency_resolution_failed
 	fi

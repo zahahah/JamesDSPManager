@@ -22,7 +22,7 @@ class AidlAudioRecoveryTests(unittest.TestCase):
         (logs / 'late-load.status').write_text('READY late_load=1 boot_id=boot-1 lib=validated\n')
         (logs / 'native-control.status').write_text('WAITING policy=typed_rules_refreshed\n')
         (root / 'boot-id').write_text('boot-1\n')
-        lib = module / 'system/vendor/lib64/soundfx/libjamesdsp.so'
+        lib = module / 'system/vendor/lib64/soundfx/lightningdsplib.so'
         lib.parent.mkdir(parents=True)
         lib.write_bytes(b'expected-library')
         script = module / 'aidl-audio-recovery.sh'
@@ -36,15 +36,15 @@ class AidlAudioRecoveryTests(unittest.TestCase):
             (p / 'root/vendor/lib64/soundfx').mkdir(parents=True)
             (p / 'root/vendor/etc').mkdir()
             (p / 'exe').symlink_to(exe)
-            (p / 'root/vendor/lib64/soundfx/libjamesdsp.so').write_bytes(lib.read_bytes())
+            (p / 'root/vendor/lib64/soundfx/lightningdsplib.so').write_bytes(lib.read_bytes())
             (p / 'root/vendor/etc/audio_effects_config.xml').write_text(f'<effect uuid="{UUID}"/>\n')
-            (p / 'maps').write_text('/vendor/lib64/soundfx/libjamesdsp.so\n' if pid == 201 else '')
+            (p / 'maps').write_text('/vendor/lib64/soundfx/lightningdsplib.so\n' if pid == 201 else '')
         self.framework_processes(proc)
         init = root / 'init'
         (init / 'vendor/etc/init').mkdir(parents=True)
         (init / 'system/etc/init').mkdir(parents=True)
         (init / 'vendor/lib64/soundfx').mkdir(parents=True)
-        (init / 'vendor/lib64/soundfx/libjamesdsp.so').write_bytes(lib.read_bytes())
+        (init / 'vendor/lib64/soundfx/lightningdsplib.so').write_bytes(lib.read_bytes())
         (init / 'vendor/etc/audio_effects_config.xml').write_text(f'<effect uuid="{UUID}"/>\n')
         (init / 'vendor/etc/init/audio.rc').write_text(
             f'service vendor.audio-hal-aidl {owner_exe}\n    user audioserver\n    onrestart restart audioserver\n'
@@ -80,10 +80,10 @@ esac
         self.executable(bin_dir / 'linker', 'exit "${MOCK_LINKER_FAILURE:-0}"\n')
         self.executable(bin_dir / 'sleep', 'exit 0\n')
         self.executable(bin_dir / 'logcat', 'echo bounded-loader-evidence\n')
-        env = {**os.environ, 'JDSP_PROC_ROOT': str(proc), 'JDSP_INIT_ROOT': str(init),
-               'JDSP_BOOT_ID_FILE': str(root / 'boot-id')}
+        env = {**os.environ, 'LDSP_PROC_ROOT': str(proc), 'LDSP_INIT_ROOT': str(init),
+               'LDSP_BOOT_ID_FILE': str(root / 'boot-id')}
         for name in ('id', 'flock', 'getprop', 'pidof', 'dumpsys', 'setprop', 'linker', 'sleep', 'logcat'):
-            env['JDSP_' + name.upper() + '_BIN'] = str(bin_dir / name)
+            env['LDSP_' + name.upper() + '_BIN'] = str(bin_dir / name)
         return module, script, calls, rc, env
 
     def framework_processes(self, proc, zstart=100, sstart=110):
@@ -147,7 +147,7 @@ esac
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, script, calls, _, env = self.fixture(root)
-            prop = Path(env['JDSP_GETPROP_BIN'])
+            prop = Path(env['LDSP_GETPROP_BIN'])
             prop.write_text(prop.read_text().replace(
                 'sys.audio.restart.hal)',
                 f'''sys.audio.restart.hal) n=$(cat "{root}/property.reads" 2>/dev/null || echo 0); n=$((n+1)); echo $n >"{root}/property.reads"; [ $n -lt 2 ] || rm -f "{root}/proc/301/stat";''' ))
@@ -169,12 +169,12 @@ esac
             root = Path(tmp)
             module, script, calls, _, env = self.fixture(root)
             (module / 'logs/audio-hal-reload-aidl.boot-id').write_text('boot-1\n')
-            (root / 'proc/101/maps').write_text('/vendor/lib64/soundfx/libjamesdsp.so\n')
-            helper = module / 'common/files/control/arm64-v8a/jdspctl'
+            (root / 'proc/101/maps').write_text('/vendor/lib64/soundfx/lightningdsplib.so\n')
+            helper = module / 'common/files/control/arm64-v8a/ldspctl'
             helper.parent.mkdir(parents=True)
-            self.executable(helper, 'echo JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3\n')
+            self.executable(helper, 'echo LDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3\n')
             timeout = self.executable(root / 'bin/timeout', 'shift; exec "$@"\n')
-            env.update(JDSP_CONTROL_HELPER=str(helper), JDSP_TIMEOUT_BIN=str(timeout))
+            env.update(LDSP_CONTROL_HELPER=str(helper), LDSP_TIMEOUT_BIN=str(timeout))
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertFalse(calls.exists())
@@ -230,7 +230,7 @@ esac
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, script, calls, _, env = self.fixture(root)
-            (root / 'proc/101/root/vendor/lib64/soundfx/libjamesdsp.so').unlink()
+            (root / 'proc/101/root/vendor/lib64/soundfx/lightningdsplib.so').unlink()
             (root / 'proc/101/root/vendor/etc/audio_effects_config.xml').write_text('<old/>\n')
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -282,12 +282,12 @@ esac
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             module, script, calls, _, env = self.fixture(root)
-            (root / 'proc/101/maps').write_text('/vendor/lib64/soundfx/libjamesdsp.so\n')
-            helper = module / 'common/files/control/arm64-v8a/jdspctl'
+            (root / 'proc/101/maps').write_text('/vendor/lib64/soundfx/lightningdsplib.so\n')
+            helper = module / 'common/files/control/arm64-v8a/ldspctl'
             helper.parent.mkdir(parents=True)
-            self.executable(helper, 'echo JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3\n')
+            self.executable(helper, 'echo LDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3\n')
             timeout = self.executable(root / 'bin/timeout', 'shift; exec "$@"\n')
-            env.update(JDSP_CONTROL_HELPER=str(helper), JDSP_TIMEOUT_BIN=str(timeout))
+            env.update(LDSP_CONTROL_HELPER=str(helper), LDSP_TIMEOUT_BIN=str(timeout))
             skip = self.run_script(script, env)
             self.assertEqual(skip.returncode, 0, skip.stdout + skip.stderr)
             self.assertIn('native_context_already_ready', skip.stdout)
@@ -309,7 +309,7 @@ esac
             self.assertTrue((module / 'logs/audio-hal-reload-aidl.boot-id').exists())
 
     def test_missing_deleted_or_unrelated_map_cannot_be_reported_as_loaded(self):
-        for mapping in ('', '/vendor/lib64/soundfx/libjamesdsp.so (deleted)\n', '/other/module/libjamesdsp.so\n'):
+        for mapping in ('', '/vendor/lib64/soundfx/lightningdsplib.so (deleted)\n', '/other/module/lightningdsplib.so\n'):
             with self.subTest(mapping=mapping), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 _, script, calls, _, env = self.fixture(root)
@@ -333,7 +333,7 @@ esac
                 elif case == 'policy':
                     (module / 'logs/native-control.status').write_text('BLOCKED policy=missing\n')
                 elif case == 'overlay':
-                    (root / 'init/vendor/lib64/soundfx/libjamesdsp.so').write_bytes(b'other')
+                    (root / 'init/vendor/lib64/soundfx/lightningdsplib.so').write_bytes(b'other')
                 elif case == 'exe':
                     (root / 'proc/101/exe').unlink()
                     (root / 'proc/101/exe').symlink_to('/data/unknown/audio')
@@ -354,7 +354,7 @@ esac
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, script, calls, _, env = self.fixture(root)
-            self.executable(Path(env['JDSP_SLEEP_BIN']), f'''n=$(cat "{root}/samples" 2>/dev/null || echo 0)
+            self.executable(Path(env['LDSP_SLEEP_BIN']), f'''n=$(cat "{root}/samples" 2>/dev/null || echo 0)
 n=$((n + 1)); echo "$n" >"{root}/samples"
 [ "$n" -lt 5 ] || : >"{root}/proc/201/maps"
 ''')
@@ -374,10 +374,10 @@ n=$((n + 1)); echo "$n" >"{root}/samples"
             self.executable(root / 'bin/chcon', 'exit 0\n')
             self.executable(root / 'bin/nsenter', 'shift 4; [ "$1" != /system/bin/true ] || exit 0; exec "$@"\n')
             self.executable(root / 'bin/mount', f'echo "$*" >>"{root}/mount.calls"\ncp "$2" "{root}/init$3"\n')
-            self.executable(Path(env['JDSP_SETPROP_BIN']),
+            self.executable(Path(env['LDSP_SETPROP_BIN']),
                 f'grep -q "{UUID}" "{config}" && test -f "{root}/mount.calls" || exit 1\necho "$*" >>"{calls}"\n')
             for name in ('ls', 'chcon', 'nsenter', 'mount'):
-                env['JDSP_' + name.upper() + '_BIN'] = str(root / 'bin' / name)
+                env['LDSP_' + name.upper() + '_BIN'] = str(root / 'bin' / name)
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual(calls.read_text(), 'sys.audio.restart.hal 1\n')

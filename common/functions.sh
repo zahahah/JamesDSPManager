@@ -164,7 +164,7 @@ $KSU && { [ $KSU_VER_CODE -lt 11184 ] && require_new_ksu; }
 [ "$APATCH" == "true" ] && KSU=true
 
 # Start debug
-exec 2>/data/adb/jdsp_install_log.txt
+exec 2>/data/adb/ldsp_install_log.txt
 set -x
 
 # Set variables
@@ -321,9 +321,9 @@ set_permissions
 set +x
 exec 2>&-
 mkdir "$MODPATH/logs"
-mv -f /data/adb/jdsp_install_log.txt "$MODPATH/logs/jdsp_install_log.txt"
-chmod 755 "$MODPATH/jdsp_app_handle.sh"
-mv -f "$MODPATH/jdsp_app_handle.sh" /data/adb/service.d/jdsp_app_handle.sh
+mv -f /data/adb/ldsp_install_log.txt "$MODPATH/logs/ldsp_install_log.txt"
+chmod 755 "$MODPATH/lightningdsp_app_handle.sh"
+mv -f "$MODPATH/lightningdsp_app_handle.sh" /data/adb/service.d/lightningdsp_app_handle.sh
 
 # Complete install
 cleanup

@@ -27,8 +27,8 @@ class DualEntryHostTests(unittest.TestCase):
         od = root / 'od'
         od.write_text('#!/bin/sh\necho "7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00 03 00 b7 00"\n')
         od.chmod(0o755)
-        return script, proc, manifest, od, {**os.environ, 'JDSP_PROC_ROOT': str(proc),
-            'JDSP_INIT_ROOT': str(init), 'JDSP_OD_BIN': str(od)}
+        return script, proc, manifest, od, {**os.environ, 'LDSP_PROC_ROOT': str(proc),
+            'LDSP_INIT_ROOT': str(init), 'LDSP_OD_BIN': str(od)}
 
     def process(self, proc, pid):
         path = proc / str(pid)
@@ -94,7 +94,7 @@ class DualEntryHostTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             module, script, calls, _, env = harness.fixture(root)
-            Path(env['JDSP_DUMPSYS_BIN']).write_text('#!/bin/sh\nexit 1\n')
+            Path(env['LDSP_DUMPSYS_BIN']).write_text('#!/bin/sh\nexit 1\n')
             harness.executable(module / 'effect-host.sh',
                 f'if [ -e "{calls}" ]; then echo 201; else echo 101; fi\n')
             result = harness.run_script(script, env)

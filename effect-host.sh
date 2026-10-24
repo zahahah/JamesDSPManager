@@ -4,9 +4,9 @@
 # every effect is registered. The recovery script separately verifies init.
 [ "${1:-}" = --hidl-pid ] || exit 2
 MODPATH=${0%/*}
-[ -f "$MODPATH/native-control/v6-candidate.json" ] || exit 1
-PROC_ROOT=${JDSP_PROC_ROOT:-/proc}
-INIT_ROOT=${JDSP_INIT_ROOT:-/proc/1/root}
+[ -f "$MODPATH/native-control/ldsp-candidate.json" ] || exit 1
+PROC_ROOT=${LDSP_PROC_ROOT:-/proc}
+INIT_ROOT=${LDSP_INIT_ROOT:-/proc/1/root}
 # Firmware files are parsed as data. System compatibility matrices are NOT
 # manifests and must never be evidence of an implemented vendor interface.
 manifest=false
@@ -31,7 +31,7 @@ for path in "$PROC_ROOT"/[0-9]*; do
     case "$exe" in /vendor/bin/*audio*|/odm/bin/*audio*) ;; *) continue ;; esac
     [ "$(tr -d '\000\n' <"$path/attr/current" 2>/dev/null)" = u:r:hal_audio_default:s0 ] || continue
     grep -qE '/(vendor|odm)/lib64/libeffects[.]so$' "$path/maps" 2>/dev/null || continue
-    header=$("${JDSP_OD_BIN:-/system/bin/od}" -An -tx1 -N20 "$path/exe" 2>/dev/null | tr -d ' \n')
+    header=$("${LDSP_OD_BIN:-/system/bin/od}" -An -tx1 -N20 "$path/exe" 2>/dev/null | tr -d ' \n')
     case "$header" in 7f454c460201*0300b700) ;; *) continue ;; esac
     hwbinder=false
     for fd in "$path"/fd/*; do

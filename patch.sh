@@ -4,9 +4,9 @@
 # compiled AIDL versions so separate V3 and V4 builds can be tested honestly.
 [ "${AIDL:-false}" = true ] || return 0
 
-MY_LIB="$MOD_VENDOR/lib64/soundfx/libjamesdsp.so"
-PATCHELF_BIN=${JDSP_PATCHELF_BIN:-$MODPATH/tools/patchelf}
-LIB_ROOTS=${JDSP_SYSTEM_LIB_DIRS:-"/system/lib64 /system/lib64/bootstrap /apex/*/lib64 /apex/*/lib64/bionic /vendor/lib64"}
+MY_LIB="$MOD_VENDOR/lib64/soundfx/lightningdsplib.so"
+PATCHELF_BIN=${LDSP_PATCHELF_BIN:-$MODPATH/tools/patchelf}
+LIB_ROOTS=${LDSP_SYSTEM_LIB_DIRS:-"/system/lib64 /system/lib64/bootstrap /apex/*/lib64 /apex/*/lib64/bionic /vendor/lib64"}
 
 [ -f "$MY_LIB" ] || {
 	echo "AIDL driver missing: $MY_LIB" >&2
@@ -25,9 +25,9 @@ NEEDED_LIST=$("$PATCHELF_BIN" --print-needed "$MY_LIB") || {
 # An imported embedded profile must not demand the shared AIDL libraries it
 # compiled into the driver. Keep a strict runtime allowlist and still check
 # every direct system dependency; this is not an ABI or linker-namespace proof.
-if [ -f "$MODPATH/native-control/v5-candidate.json" ] || [ -f "$MODPATH/native-control/v6-candidate.json" ]; then
+if [ -f "$MODPATH/native-control/v5-candidate.json" ] || [ -f "$MODPATH/native-control/ldsp-candidate.json" ]; then
     embedded_profile=v5
-    [ ! -f "$MODPATH/native-control/v6-candidate.json" ] || embedded_profile=v6
+    [ ! -f "$MODPATH/native-control/ldsp-candidate.json" ] || embedded_profile=LightningDSP
     [ -n "$NEEDED_LIST" ] || { echo "embedded $embedded_profile driver has no runtime dependencies" >&2; return 1; }
     has_binder=false
     has_libc=false

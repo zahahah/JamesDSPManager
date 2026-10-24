@@ -8,9 +8,9 @@
 	# Extra buffer to be sure
 	sleep 5
 
-	MODID="ainur_jamesdsp"
+	MODID="ainur_lightningdsp"
 	MODPATH="/data/adb/modules/$MODID"
-	PKG="james.dsp"
+	PKG="com.lightning.dsp"
 
 	# The app belongs to the user, not to the module lifecycle. Removing the
 	# module must never erase app data or uninstall the package.

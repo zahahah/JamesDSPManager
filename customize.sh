@@ -45,7 +45,7 @@ REPLACE="
 ##########################################################################################
 
 set_permissions() {
-  [ ! -f "$MODPATH/system/vendor/bin/jdspctl" ] || set_perm "$MODPATH/system/vendor/bin/jdspctl" 0 0 0755
+  [ ! -f "$MODPATH/system/vendor/bin/ldspctl" ] || set_perm "$MODPATH/system/vendor/bin/ldspctl" 0 0 0755
   [ -f "$MODPATH/post-fs-data.sh" ] && set_perm "$MODPATH/post-fs-data.sh" 0 0 0755
   [ -f "$MODPATH/native-control.sh" ] && set_perm "$MODPATH/native-control.sh" 0 0 0755
   [ -f "$MODPATH/service.sh" ] && set_perm "$MODPATH/service.sh" 0 0 0755
@@ -55,7 +55,7 @@ set_permissions() {
   [ -f "$MODPATH/aidl-audio-recovery.sh" ] && set_perm "$MODPATH/aidl-audio-recovery.sh" 0 0 0755
   [ -f "$MODPATH/aidl-effect-mount.sh" ] && set_perm "$MODPATH/aidl-effect-mount.sh" 0 0 0755
   [ -f "$MODPATH/dsp-thread-profile.sh" ] && set_perm "$MODPATH/dsp-thread-profile.sh" 0 0 0755
-  [ -f "$MODPATH/jdsp_app.sh" ] && set_perm "$MODPATH/jdsp_app.sh" 0 0 0755
+  [ -f "$MODPATH/lightningdsp_app.sh" ] && set_perm "$MODPATH/lightningdsp_app.sh" 0 0 0755
 
   # Note that all files/folders in magisk module directory have the $MODPATH prefix - keep this prefix on all of your files/folders
   # Some examples:
