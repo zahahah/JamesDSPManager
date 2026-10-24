@@ -1,7 +1,7 @@
 name: Global native control source and package
 on:
   push:
-    branches: [pixel-test-new-aidl, samsung-test-new-aidl, reverb-ring-index-optimization, master]
+    branches: [pixel-test-new-aidl, samsung-test-new-aidl, reverb-ring-index-optimization, master, ldsp-rebrand]
   workflow_dispatch:
 permissions:
   contents: read
@@ -24,7 +24,13 @@ jobs:
       - name: Check compiled candidate readiness (source-only is not a release)
         id: native
         run: |
-          if [ -f native-control/v6-candidate.json ]; then
+          if [ -f native-control/ldsp-candidate.json ]; then
+            export LDSP_READELF="$(command -v llvm-readelf || command -v readelf)"
+            echo "LDSP_READELF=$LDSP_READELF" >> "$GITHUB_ENV"
+            PYTHONPATH=tools python3 -c 'import package_lightningdsp as p; p.verify_candidate()'
+            echo 'ready=true' >> "$GITHUB_OUTPUT"
+            echo 'LightningDSP packaging ready=true'
+          elif [ -f native-control/v6-candidate.json ]; then
             python3 tools/package_native_control_v6.py --check-source
           elif [ -f native-control/v5-candidate.json ]; then
             python3 tools/package_native_control_v5.py --check-source
@@ -34,7 +40,9 @@ jobs:
       - name: Package only a fully imported and verified candidate
         if: steps.native.outputs.ready == 'true'
         run: |
-          if [ -f native-control/v6-candidate.json ]; then
+          if [ -f native-control/ldsp-candidate.json ]; then
+            python3 tools/package_lightningdsp.py
+          elif [ -f native-control/v6-candidate.json ]; then
             python3 tools/package_native_control_v6.py
           elif [ -f native-control/v5-candidate.json ]; then
             python3 tools/package_native_control_v5.py
@@ -44,6 +52,8 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: steps.native.outputs.ready == 'true'
         with:
-          name: JamesDSPManager-native-control-${{ github.sha }}
+          name: native-control-${{ github.sha }}
           if-no-files-found: error
-          path: dist/JamesDSPManager-v6.6-beta-*.zip*
+          path: |
+            dist/JamesDSPManager-v6.6*.zip*
+            dist/LightningDSP-v*.zip*

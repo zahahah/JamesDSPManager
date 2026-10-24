@@ -1,3 +1,21 @@
+### v6.7-beta-1 (LightningDSP rebrand prerelease)
+
+* Start the 6.7 beta series as LightningDSP, previously JamesDSP. Preserve the
+  original JamesDSP lineage, contributor credits and licenses.
+* Include the blue app theme and launcher icon, root package `com.lightning.dsp`
+  (1.6.18/code 63), module `ainur_lightningdsp`, library `lightningdsplib.so`,
+  helper `ldspctl` and global `ldsp.control` service as a matched bundle.
+* Keep the existing DSP effects, effect UUIDs, dual AIDL/legacy entrypoints,
+  protocol 3 and guarded late-load recovery. This version change does not
+  rebuild the current app or native artifacts or establish new device support.
+* Include the opt-in Extra Post Gain setting for +/-30 dB, off by default with
+  the warning "Use it cautiously". The normal range remains +/-15 dB.
+* During module flash, identity-check and remove the old `ainur_jamesdsp` module
+  and remove the old `james.dsp` package before installing the rebranded app.
+  Private data from the old app is not migrated; export important presets first.
+* Align documentation with that migration and verify/package LightningDSP in CI.
+  The stable JamesDSP 6.6 release remains separate and available.
+
 ### v6.6-beta-6.5-soundstage (experimental prerelease)
 
 * Keep centred voices and bass at unity while adjusting stereo side width.
