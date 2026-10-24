@@ -7,7 +7,7 @@
   "nativeSource": {
     "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "8f80739614c681efacea3375fb7077e2ddb59ad2"
+    "commit": "20669939bc8ce8a503abaada07b3035192743e74"
   },
   "artifacts": {
     "app": {
@@ -23,8 +23,8 @@
     },
     "driver": {
       "path": "common/files/aidl/libjamesdsp.so",
-      "sha256": "41bd6e843e15fcffaa91716aacbdee0de2d65e84aee32d53fbe6392781c07432",
-      "sizeBytes": 2252656
+      "sha256": "3a31f430b5ec02570de7151b0839ab6660f732137835efa910efd215bdbe9329",
+      "sizeBytes": 2252544
     },
     "helper": {
       "path": "common/files/control/arm64-v8a/jdspctl",
@@ -36,9 +36,9 @@
     "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
     "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
     "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
-    "Eligible short/medium stereo FIR heads and the Soundstage block path are specialized; matrix convolution accumulation retains tested response/state. Reverb source is unchanged from e92d60.",
-    "The module capability-gates its vendor DSP thread scheduler watcher; unknown profiles remain unchanged. A temporary Pixel listening experiment is not packaged-build runtime validation.",
-    "APK and control protocol are unchanged; five/six-effect live playback and callback deadlines remain pending device testing."
+    "Soundstage now uses a stateless linear mid/side matrix instead of nonlinear multiband centre extraction. Parameter scale and pure-mid/pure-side gains are retained, while mixed stereo response intentionally changes.",
+    "Width 50 is exact bypass. Strict/fast-math/sanitizer spectral tests pass; the frozen previous Soundstage fails the same bass-plus-treble gate as an expected diagnostic control.",
+    "Other effects, generic filterbank users, scheduler watcher and APK are unchanged. This new build still requires Android listening validation, including bass-heavy music and Dynamic Bass Boost."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
   "notices": {
@@ -49,6 +49,6 @@
   "buildArtifactSource": {
     "repository": "https://github.com/zahahah/LightningDSP-builds",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "95ccab8763f43014d8735b95729b36db3d917c3e"
+    "commit": "b2b95ada60102bf9fd4ffaa18f3722395d231197"
   }
 }

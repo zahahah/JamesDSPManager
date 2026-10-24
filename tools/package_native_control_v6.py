@@ -18,8 +18,8 @@ MANIFEST = 'native-control/v6-candidate.json'
 PROVENANCE = 'native-control/v6-build-provenance.json'
 NOTICES = 'native-control/v6-NOTICES.txt'
 EXPECTED_PATHS = baseline.EXPECTED_PATHS
-VERSION = 'v6.6-beta-6.3-dsp-scheduler'
-VERSION_CODE = 147
+VERSION = 'v6.6-beta-6.4-soundstage'
+VERSION_CODE = 148
 PROFILE = json.loads(gate.PROFILE.read_text())
 
 

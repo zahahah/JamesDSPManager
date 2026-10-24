@@ -1,3 +1,17 @@
+### v6.6-beta-6.4-soundstage (experimental prerelease)
+
+* Replace Soundstage's fast nonlinear multiband centre extraction with a
+  frequency-independent linear mid/side matrix, addressing spectral components
+  reproduced by bass-plus-treble host tests without other effects or clipping.
+* Preserve the existing width controls and pure-mid/pure-side gain curves.
+  Width 50 is now an exact, zero-latency bypass; arbitrary stereo output is
+  intentionally different from the previous nonlinear effect.
+* Remove Soundstage filterbank/envelope work from the callback. Generic
+  filterbank users, the other effects, scheduler watcher and APK are unchanged.
+* Add spectral, neutral-bypass, bounded-parameter and matrix regression tests.
+  The frozen legacy algorithm must fail the spectral gate. Host measurements
+  are not a substitute for listening to this new build on Android.
+
 ### v6.6-beta-6.3-dsp-scheduler (experimental prerelease)
 
 * Apply the vendor's `RealtimePerformance` profile to the JamesDSP processing

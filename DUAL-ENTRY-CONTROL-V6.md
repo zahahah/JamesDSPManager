@@ -121,3 +121,16 @@ Android standalone runs; full-chain timings were variable. This remains
 experimental: live Android playback with five/six effects and the actual IR /
 presets must verify processing margin and audible continuity. The earlier
 beta-6.1 and original Samsung branch remain available for rollback.
+
+
+## Soundstage tonal-transparency candidate
+
+`v6.6-beta-6.4-soundstage` replaces only the width algorithm: a linear mid/side
+matrix takes the place of fast multiband centre extraction. A bass-plus-treble
+host signal exposed new components in the former implementation even without
+other effects or clipping. The new stage retains the parameter scale and
+pure-mid/pure-side gain curves, but intentionally changes mixed stereo output.
+Width 50 is exact bypass; there is no Soundstage filterbank, envelope or delay
+in the callback. Other effects, dual-entry loading, helper, scheduler watcher
+and APK are unchanged. This needs listening validation on the packaged build;
+previous releases remain available for comparison and rollback.
