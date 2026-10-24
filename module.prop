@@ -1,8 +1,7 @@
 id=ainur_lightningdsp
 name=LightningDSP Manager (dual-entry native-control test)
-version=v6.6-beta-7-ldsp
-versionCode=151
-banner=LightningDSP_banner.png
+version=v6.6-beta-7.1-ldsp
+versionCode=152
 author=lightning zahah
 description=LightningDSP (previously JamesDSP), dual-entry AIDL/legacy driver; ldsp.control protocol 3 with legacy fallback
 support=https://forum.xda-developers.com/android/apps-games/app-reformed-dsp-manager-t3607970

@@ -15,8 +15,8 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import package_6511_pixel_native_control_v3 as baseline
 from ldsp import validate_ldsp_elf as elf_gate
 
-VERSION = 'v6.6-beta-7-ldsp'
-VERSION_CODE = 151
+VERSION = 'v6.6-beta-7.1-ldsp'
+VERSION_CODE = 152
 APP_PACKAGE = 'com.lightning.dsp'
 APP_VERSION = '1.6.18'
 APP_CODE = 63
@@ -74,7 +74,7 @@ def verify_candidate(root=ROOT, readelf=None):
         raise ValueError('Unexpected LightningDSP service/profile contract')
     source = manifest.get('nativeSource', {})
     if (source.get('branch') != 'ldsp-rebrand' or
-            source.get('commit') != '7610cade0096846295f1d7f3ea89784a98b676b3' or
+            source.get('commit') != '4971a4d6619c22c40ca341c659bd579eb1d8f06a' or
             provenance.get('source', {}).get('commit') != source.get('commit')):
         raise ValueError('Native source/provenance pin mismatch')
     if provenance.get('state') != 'elf-validated-runtime-unverified':
@@ -130,13 +130,12 @@ def payloads():
     modes = dict(baseline.PAYLOADS)
     result = {}
     rename = {
-        'JDSP_banner.png': 'LightningDSP_banner.png',
         'jdsp_app.sh': 'lightningdsp_app.sh',
         'jdsp_app_handle.sh': 'lightningdsp_app_handle.sh',
         'common/files/JamesDSPManagerThePBone.apk': APP,
         'common/files/JamesDSPManagerThePBone.apk.meta': 'common/files/LightningDSP.apk.meta',
     }
-    excluded = {'common/app_migration.sh', 'update.json', 'NATIVE-CONTROL.md', 'native-control/provenance.json',
+    excluded = {'JDSP_banner.png', 'common/app_migration.sh', 'update.json', 'NATIVE-CONTROL.md', 'native-control/provenance.json',
                 'native-control/v4-candidate.json', 'native-control/v5-candidate.json',
                 'native-control/v5-build-provenance.json', 'native-control/v5-NOTICES.txt',
                 'common/files/JamesDSPManager.apk', 'common/files/JamesDSPManager.apk.meta'}

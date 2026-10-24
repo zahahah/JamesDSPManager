@@ -6,7 +6,7 @@
   "source": {
     "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
     "branch": "ldsp-rebrand",
-    "commit": "7610cade0096846295f1d7f3ea89784a98b676b3",
+    "commit": "4971a4d6619c22c40ca341c659bd579eb1d8f06a",
     "aospManifestSha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131"
   },
   "build": {
@@ -14,7 +14,21 @@
     "abi": "arm64-v8a",
     "mode": "SOONG_INCREMENTAL_ANALYSIS=false; SOONG_ONLY=true; -j2",
     "memoryLimitGiB": 24,
-    "hostMemoryMarginGiB": 1.3
+    "hostMemoryMarginGiB": 1.3,
+    "sourceCheckoutState": "clean; 750 tracked files; before/after source inventory matched",
+    "manifestTag": "android-17.0.0_r1",
+    "product": "mini_arm64-userdebug / arm64-v8a",
+    "targets": [
+      "lightningdsplib",
+      "ldspctl",
+      "9 host regression tests"
+    ],
+    "targetBuildResult": "PASS; 488 Ninja/SISO target steps; exit 0",
+    "sourceHostSuite": "PASS; exit 0",
+    "soongHostRegressionTests": "9 PASS; 1 expected skip (Binder test exit 77: dedicated Binder environment unavailable); runner exit 0",
+    "elfValidation": "PASS using pinned AOSP LLVM tools; stripped/unstripped load segments matched",
+    "deviceValidation": "NOT RUN",
+    "reportSha256": "0fa83d871c32fefd07d76a6e584cdfce4a2a54f539d8669a6fcbdc0ce183a32f"
   },
   "artifacts": {
     "driver": {
@@ -57,7 +71,7 @@
     "controlProtocol": 3,
     "state": "elf-validated-runtime-unverified",
     "source": {
-      "commit": "7610cade0096846295f1d7f3ea89784a98b676b3",
+      "commit": "4971a4d6619c22c40ca341c659bd579eb1d8f06a",
       "aospManifestSha256": "bf899d1468b31536794c54d4ef680102a7eb8a162af84daf6879a63bab79d131"
     },
     "artifacts": {

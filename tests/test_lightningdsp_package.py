@@ -31,8 +31,15 @@ class LightningDSPPackageTests(unittest.TestCase):
                 self.assertNotIn('common/files/JamesDSPManager.apk', names)
                 self.assertNotIn('common/files/dual-entry-arm64/libjamesdsp.so', names)
                 self.assertNotIn('common/files/JamesDSP/', '\n'.join(names))
+                self.assertNotIn('LightningDSP_banner.png', names)
+                self.assertNotIn('JDSP_banner.png', names)
                 self.assertEqual(archive.getinfo(package.DRIVER).external_attr >> 16, 0o100644)
                 self.assertEqual(archive.getinfo(package.HELPER).external_attr >> 16, 0o100755)
+
+    def test_module_manager_does_not_advertise_obsolete_banner(self):
+        self.assertNotRegex((ROOT / 'module.prop').read_text(), r'(?m)^banner=')
+        self.assertNotIn('JDSP_banner.png', package.payloads())
+        self.assertNotIn('LightningDSP_banner.png', package.payloads())
 
 
 if __name__ == '__main__':
