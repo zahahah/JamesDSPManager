@@ -151,3 +151,24 @@ unchanged. The app still exposes its existing +/-15 dB range; enabling the
 extended range is a separate app task. +30 dB means about 31.62x before the
 existing limiter, not a promise of a 30 dB output increase. No live gain boost
 is applied as part of build validation.
+
+## Response-shaped Soundstage (beta 6.51)
+
+The beta 6.5 listening test found its width change too weak. Beta 6.51 replaces
+that nearly-neutral matrix with a 250 Hz side shelf: the existing slider
+30/50/60/75 selects upper-band side gain 0.6/1.0/1.4/2.0. Only the added stereo
+component is filtered; the centre and mono sum stay intact and original bass
+stereo is retained. This widens existing stereo, not mono synthesis or an HRTF
+externalizer. No new APK, parameter IDs, service protocol or app setting.
+
+Changes to width and the enable switch ramp over 20 ms. Both DSP paths finish
+the ramp to exact dry on disable; repeated writes of the same target do not
+restart it. New response tests reject the former weak implementation and cover
+four sample rates, bass protection, mono sum, channel symmetry and callback
+partitioning, alongside spectral and combined-effect regressions. The native
+source document `SOUNDSTAGE-LINEARITY.md` records research and design tradeoffs.
+
+This build needs listening verification: broader sides can use more headroom,
+and the unchanged limiter can act. A host test or a successful build does not
+prove the audible result on a particular Android output. The +/-30 dB native
+post-gain preparation remains; the signed APK and its existing UI are unchanged.

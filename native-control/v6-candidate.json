@@ -7,7 +7,7 @@
   "nativeSource": {
     "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "9ad4415670a7b97e28330c69ba6acf581f1c4be9"
+    "commit": "e036d54c0b299e69e7e881068b803d44568f0e9b"
   },
   "artifacts": {
     "app": {
@@ -23,8 +23,8 @@
     },
     "driver": {
       "path": "common/files/aidl/libjamesdsp.so",
-      "sha256": "8d175494156ce72923e9887ed09ffa297a8f09b64ada3589ee43f46e7d4375a7",
-      "sizeBytes": 2252536
+      "sha256": "dfa7e12983a0d923d1e4db7af1d6dcc5b86488eb4617045d33d1005403d61281",
+      "sizeBytes": 2252584
     },
     "helper": {
       "path": "common/files/control/arm64-v8a/jdspctl",
@@ -36,10 +36,10 @@
     "The v6 driver and matching helper passed independent ELF and embedded-code inspection before import.",
     "Embedded AIDL Effect V4/common V5 and legacy AELI share one driver; control protocol remains 3.",
     "Android factory compatibility, SELinux behavior and real audio processing remain unverified for this build.",
-    "Soundstage preserves unity mid while side width spans 0.8..1.25x across the unchanged UI 30..75; width 50 is exact bypass, with no filter, delay or nonlinear envelope.",
-    "The DSP setter, legacy parameter 1500, global service and matching helper support finite -30..+30 dB post-gain. APK/client/UI remain unchanged for a later app-specific update; no user preference or live gain was changed.",
-    "Strict/fast-math/sanitizer suites and real DSP host gain tests passed. The isolated kernel Binder test was skipped because its dedicated host environment was not provisioned; this does not validate Android transport or listening.",
-    "The centre attenuation in beta 6.4 is deliberately removed. Compare at comfortable volume; unchanged limiting can still affect boosted or high-level output."
+    "Soundstage now uses a 250 Hz side shelf and 20 ms target ramps; UI 30/50/60/75 selects upper-band side gain 0.6/1.0/1.4/2.0, preserving centre and mono sum. This widens existing stereo, not mono synthesis or HRTF distance rendering.",
+    "Width/enable/disable transitions settle to exact dry at neutral/off; both DSP controller paths continue the fade after disable. Repeated preference writes do not restart the ramp.",
+    "Strict, fast-math, ASan/UBSan, combined-chain and Soong host tests passed, including live EffectDSPMain parameters 137/1204 and controller fade-to-dry. The isolated kernel Binder test was skipped (77) because its dedicated host environment was unavailable.",
+    "Native post-gain support remains -30..+30 dB. The signed APK, its current UI, other effects, scheduler and transport are unchanged. New-build Android listening remains pending; wider sides can use more headroom with the existing limiter."
   ],
   "profile": "dual-entry-effect-v4-legacy-arm64",
   "notices": {
@@ -50,6 +50,6 @@
   "buildArtifactSource": {
     "repository": "https://github.com/zahahah/LightningDSP-builds",
     "branch": "native/reverb-ring-index-optimization",
-    "commit": "6780c3e76f10ca3c9db8e139c41685cca2c7b66b"
+    "commit": "b677b45c3c3ffccfb930ca8eb24470ec96f3c396"
   }
 }

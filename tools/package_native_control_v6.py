@@ -18,8 +18,8 @@ MANIFEST = 'native-control/v6-candidate.json'
 PROVENANCE = 'native-control/v6-build-provenance.json'
 NOTICES = 'native-control/v6-NOTICES.txt'
 EXPECTED_PATHS = baseline.EXPECTED_PATHS
-VERSION = 'v6.6-beta-6.5-soundstage'
-VERSION_CODE = 149
+VERSION = 'v6.6-beta-6.51'
+VERSION_CODE = 150
 PROFILE = json.loads(gate.PROFILE.read_text())
 
 
