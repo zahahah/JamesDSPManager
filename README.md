@@ -11,7 +11,7 @@ inspired by the original JamesDSP work. The rebrand updates the product identity
 not the history: original contributors and license notices remain credited below
 and in the source repositories.
 
-The prerelease target is **v6.6-beta-7-ldsp**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
+The prerelease target is **v6.6-beta-7.1-ldsp**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
 [App source](https://github.com/zahahah/RootJamesDSP) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
@@ -111,7 +111,7 @@ LDSP_READELF=llvm-readelf ANDROID_HOME="$ANDROID_HOME" python3 tools/package_lig
 
 The LightningDSP packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. Historical JamesDSP v4/v5 packagers remain separate and are not used for this prerelease.
 
-Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [RootLightningDSP](https://github.com/zahahah/RootLightningDSP). For historical release notes, see [changelog.md](changelog.md).
+Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [RootJamesDSP](https://github.com/zahahah/RootJamesDSP). For historical release notes, see [changelog.md](changelog.md).
 
 ## Contributors
 

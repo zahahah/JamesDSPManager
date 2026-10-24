@@ -13,11 +13,16 @@
   `AELI` entry point. This does not make a V4 AIDL dependency equivalent to a
   V3 ABI; it means the legacy loader path is also present in this binary.
 
-The module ID is `ainur_lightningdsp`. During installation, an existing
-`ainur_jamesdsp` module is disabled rather than deleted, so the previous setup
-can be restored from the root manager. The app uses the new application ID
-`com.lightning.dsp`; an existing `james.dsp` app is removed by the installer
-before installing the rebranded app.
+The module ID is `ainur_lightningdsp`. During installation, the installer checks
+that an existing `ainur_jamesdsp` directory has the expected module ID, writes
+its disable marker, and removes that directory so its payload cannot compete
+with LightningDSP. This is not a reversible disable-only migration; already
+active mounts are replaced on the normal reboot after installation. The app
+uses `com.lightning.dsp`; during an explicit module flash, the installer removes
+the old `james.dsp` package for its Android users before installing the new app.
+The old package's private data is not migrated. Same-package signature changes
+continue to use the separate volume-key confirmation and best-effort backup
+flow. The boot service does not silently uninstall an installed app.
 
 ## Data and control flow
 
