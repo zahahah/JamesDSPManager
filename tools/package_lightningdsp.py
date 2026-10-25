@@ -15,12 +15,12 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import package_6511_pixel_native_control_v3 as baseline
 from ldsp import validate_ldsp_elf as elf_gate
 
-VERSION = 'v6.7-beta-2'
-VERSION_CODE = 155
+VERSION = 'v6.7-beta-3'
+VERSION_CODE = 156
 APP_PACKAGE = 'com.lightning.dsp'
-APP_VERSION = '1.7-beta-3'
-APP_CODE = 72
-APP_SOURCE_COMMIT = '3075bfea9df5910ab831cc6fcc55fd78ecf51336'
+APP_VERSION = '1.7-beta-6'
+APP_CODE = 75
+APP_SOURCE_COMMIT = 'ab82783f7ad22df723518ce898feb89cb864f578'
 TRUSTED_APK_SIGNER = 'c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357'
 CANDIDATE = 'native-control/ldsp-candidate.json'
 PROVENANCE = 'native-control/ldsp-build-provenance.json'
@@ -59,6 +59,17 @@ def verify_apk(path):
     match = re.search(r"package: name='([^']+)' versionCode='([^']+)' versionName='([^']+)'", badging)
     if not match or match.groups() != (APP_PACKAGE, str(APP_CODE), APP_VERSION):
         raise ValueError('APK package/version mismatch')
+    # This module now sends a private startup command. Do not ship it with the
+    # previous signed APK, which has no handler for that action.
+    startup_action = b'com.lightning.dsp.root.service.START_BACKGROUND'
+    with ZipFile(path) as archive:
+        supports_startup = any(
+            startup_action in archive.read(name)
+            for name in archive.namelist()
+            if re.fullmatch(r'classes[0-9]*\.dex', name))
+    if not supports_startup:
+        raise ValueError('Root APK lacks background startup support; integrate the new signed app before packaging')
+
 
 
 def digest(path):
@@ -161,6 +172,7 @@ def payloads():
         'aidl-effect-mount.sh': 0o100755,
         'manual-audio-reload.sh': 0o100755,
         'native-control.sh': 0o100755,
+        'lightningdsp-app-start.sh': 0o100755,
         'dsp-thread-profile.sh': 0o100755,
         'native-control/ldsp-candidate.json': 0o100644,
         'native-control/ldsp-build-provenance.json': 0o100644,

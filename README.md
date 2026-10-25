@@ -11,7 +11,7 @@ inspired by the original JamesDSP work. The rebrand updates the product identity
 not the history: original contributors and license notices remain credited below
 and in the source repositories.
 
-The prerelease target is **v6.7-beta-2**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
+The prerelease target is **v6.7-beta-3**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
 [App source](https://github.com/zahahah/RootJamesDSP/tree/ldsp-rebrand) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
@@ -32,11 +32,19 @@ It's a collection of tools, not a preset that automatically makes everything sou
 
 Added per-app volume manager inspired in VolumeManager app.
 
-The module includes the signed **LightningDSP 1.7-beta-3 (code 72)** root app, the same APK available in the [app prerelease](https://github.com/zahahah/RootJamesDSP/releases/tag/LightningDSPManager-1.7-beta-3). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
+The module includes the signed **LightningDSP 1.7-beta-6 (code 75)** root app, the same APK available in the [app prerelease](https://github.com/zahahah/RootJamesDSP/releases/tag/LightningDSPManager-1.7-beta-6). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
 
 The mixer includes built-in stream sliders, per-app volume, mute, stereo balance and app visibility controls. Per-app settings can be edited while a player is inactive. Its settings let you toggle per-app volume control and the LightningDSP card separately, hide system apps, and select a light, dark or system-following floating-panel theme. App search lives below the built-in sliders in the full mixer, not in the floating panel.
 
-The floating panel has compact round DSP buttons and global post-gain controls. It stays open while you interact with it, then waits 2.5 seconds before a 0.5-second fade-out. Opening LightningDSP alone does not show the panel. Root and the relevant Android overlay/volume-key setup are still needed; firmware-specific Modes controls and the updated visual layout have not received fresh device validation.
+The floating panel has compact round DSP buttons and global post-gain controls. It stays open while you interact with it, then waits 3.3 seconds before a 0.5-second fade-out. Opening LightningDSP alone does not show the panel. The floating-panel shortcut now sits at the bottom right of the full manager, beside its central enable/disable control.
+
+Use the manager's Edit mode to drag app and built-in stream rows and hide or pin apps. DSP buttons can also be reordered horizontally in the full manager. Active and Inactive share one saved app order. Pins lead each group; inactive pin moves keep already-active pins ahead. Editing is disabled in the floating panel.
+
+Grouped stream controls can expand below Media. An optional setting lets you toggle the floating group by tapping the Media icon. Settings are grouped into sections in a wider, scrollable dialog. The LightningDSP track stays blue in both themes, with an optional monochrome setting; other app tracks remain neutral.
+
+Full LightningDSP backups now include portable mixer rules, order, pins, visibility, theme and enable/startup settings. Android permissions and live system volume/ringer/DND state are not transferred. DSP preset exports remain DSP-only. Extra Post Gain is now under Audio processing in the app settings.
+
+The app's boot receiver and the module initialize the existing root service in the background without opening the app or forcing processing or the mixer on. Module startup waits ten seconds after normal activation, or follows the existing guarded recovery in verified late-load. Root and overlay authorization are still required. Persistent DSP and mixer notifications share a lightning status icon; each notification opens its corresponding page. Firmware-specific root controls and background startup still need fresh runtime validation.
 
 ## What's different in this fork?
 

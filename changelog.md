@@ -1,3 +1,24 @@
+### v6.7-beta-3 (mixer organization and background startup prerelease)
+
+* Include the exact owner-signed LightningDSP 1.7-beta-6/code 75 APK from the
+  app prerelease. The ARM64 native driver and matching helper are unchanged.
+* Add edit-mode dragging for app/stream rows, horizontal DSP button ordering,
+  a shared Active/Inactive order, and Pin/Unpin with pinned-first ordering.
+* Include portable mixer settings and per-app rules in full app backups.
+* Refine grouped stream controls, optional tap-to-expand Media, neutral app
+  tracks and a blue DSP track in both themes with an optional monochrome bar.
+* Add a manager power footer, move the floating shortcut to its right, and
+  reorganize settings in a wider dialog capped at 80% of app height.
+* Wait 3.3 seconds after interaction before the existing 0.5-second panel fade.
+* Correct root volume-button adjustment registration, notification status
+  icons and page destinations, and return navigation.
+* Start the existing app service silently on boot and after the module's
+  ten-second activation delay. Verified late-load startup follows the existing
+  guarded recovery. Never open the UI or force saved enable settings on.
+* Move Extra Post Gain to Audio processing and update project links/credits.
+* Keep native algorithms, UUIDs, protocol 3, migration and recovery safeguards.
+  Background startup and firmware-specific controls still need fresh runtime checks.
+
 ### v6.7-beta-2 (integrated volume manager prerelease)
 
 * Added per-app volume manager inspired in VolumeManager app.

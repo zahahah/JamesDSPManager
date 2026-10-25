@@ -22,6 +22,12 @@ start_lightningdsp_app_installer() {
 	MODPATH="$MODPATH" sh "$MODPATH/lightningdsp_app.sh" >/dev/null 2>&1 &
 }
 
+schedule_lightningdsp_background_start() {
+	[ -f "$MODPATH/lightningdsp-app-start.sh" ] || return 0
+	sh "$MODPATH/lightningdsp-app-start.sh" "$MODPATH" "${1:-10}" \
+		>"$MODPATH/logs/app-start.log" 2>&1 </dev/null &
+}
+
 CURRENT_BOOT_ID=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
 LATE_LOAD_READY_THIS_BOOT=false
 if [ -n "$CURRENT_BOOT_ID" ] && grep -q "^READY late_load=1 boot_id=$CURRENT_BOOT_ID " \
@@ -38,10 +44,15 @@ if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ] || \
 			"${LDSP_SLEEP_BIN:-/system/bin/sleep}" 10
 			sh "$MODPATH/audio-hal-recovery.sh" --auto-once \
 				>>"$MODPATH/logs/audio-hal-recovery.log" 2>&1
+			# The ten-second delay has elapsed. Do not attach just before recovery.
+			schedule_lightningdsp_background_start 0
 		) </dev/null >/dev/null 2>&1 &
 		printf 'SCHEDULED reason=late_load_recovery delay_seconds=10 restart=one_shot processing=unverified\n' \
 			>"$MODPATH/logs/service.status"
 	else
+		if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ]; then
+			schedule_lightningdsp_background_start
+		fi
 		printf 'SKIPPED reason=not_kernel_su_late_load restart=not_requested processing=unverified\n' \
 		>"$MODPATH/logs/service.status"
 	fi
@@ -177,3 +188,6 @@ set +x
 
 # launching lightningdsp_app.sh
 start_lightningdsp_app_installer
+
+# Initialize the app service silently after mounts, without launching its UI.
+schedule_lightningdsp_background_start

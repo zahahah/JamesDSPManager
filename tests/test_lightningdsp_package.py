@@ -94,6 +94,33 @@ class LightningDSPPackageTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, 'app source/provenance pin mismatch'):
                     package.verify_candidate(root)
 
+    def test_previous_signed_app_cannot_package_new_background_start_script(self):
+        signer = f'Signer #1 certificate SHA-256 digest: {package.TRUSTED_APK_SIGNER}'
+        badging = f"package: name='{package.APP_PACKAGE}' versionCode='{package.APP_CODE}' versionName='{package.APP_VERSION}'"
+        # An otherwise signed/versioned APK must still implement the startup action.
+        with tempfile.TemporaryDirectory() as tmp:
+            apk = Path(tmp) / 'previous.apk'
+            with ZipFile(apk, 'w') as archive:
+                archive.writestr('classes.dex', b'previous app without the startup handler')
+            with patch.object(package.subprocess, 'check_output', side_effect=[signer, badging]):
+                with self.assertRaisesRegex(ValueError, 'lacks background startup support'):
+                    package.verify_apk(apk)
+
+    def test_background_start_action_must_be_in_executable_dex_not_an_asset(self):
+        signer = f'Signer #1 certificate SHA-256 digest: {package.TRUSTED_APK_SIGNER}'
+        badging = f"package: name='{package.APP_PACKAGE}' versionCode='{package.APP_CODE}' versionName='{package.APP_VERSION}'"
+        for entry, supported in [('assets/startup.txt', False), ('classes2.dex', True)]:
+            with self.subTest(entry=entry), tempfile.TemporaryDirectory() as tmp:
+                apk = Path(tmp) / 'fixture.apk'
+                with ZipFile(apk, 'w') as archive:
+                    archive.writestr(entry, b'com.lightning.dsp.root.service.START_BACKGROUND')
+                with patch.object(package.subprocess, 'check_output', side_effect=[signer, badging]):
+                    if supported:
+                        package.verify_apk(apk)
+                    else:
+                        with self.assertRaisesRegex(ValueError, 'lacks background startup support'):
+                            package.verify_apk(apk)
+
     def test_master_cannot_package_the_separate_rebrand(self):
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.object(package, 'verify_candidate', return_value={}), \
