@@ -2,7 +2,7 @@
 
 **Your music, with a little more say in how it sounds.**
 
-This is our root-only LightningDSP module, paired with a modified version of ThePBone's LightningDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. LightningDSP handles the processing underneath.
+This is our root-only LightningDSP module, paired with a modified ThePBone-based JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. LightningDSP handles the processing underneath.
 
 This is the **`ldsp-rebrand` experimental branch**. The module, app integration and native control service use the LightningDSP names. The app package is `com.lightning.dsp` and the module ID is `ainur_lightningdsp`. On installation, the previous `ainur_jamesdsp` module is identity-checked, disabled, and removed so its payload cannot compete with LightningDSP. The old `james.dsp` app is removed before installing the new package; its private app data is not migrated.
 
@@ -11,7 +11,7 @@ inspired by the original JamesDSP work. The rebrand updates the product identity
 not the history: original contributors and license notices remain credited below
 and in the source repositories.
 
-The prerelease target is **v6.7-beta-1**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
+The prerelease target is **v6.7-beta-2**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
 [App source](https://github.com/zahahah/RootJamesDSP/tree/ldsp-rebrand) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
@@ -27,6 +27,16 @@ LightningDSP gives you more than a few bass and treble sliders:
 - **Live programmable processing** if you enjoy going beyond the built-in controls.
 
 It's a collection of tools, not a preset that automatically makes everything sound better. Start with a small adjustment, listen, then decide what actually helps. Turning every switch on is a valid experiment, but not necessarily a good listening strategy.
+
+### Built-in volume manager
+
+Added per-app volume manager inspired in VolumeManager app.
+
+The module includes the signed **LightningDSP 1.7-beta-3 (code 72)** root app, the same APK available in the [app prerelease](https://github.com/zahahah/RootJamesDSP/releases/tag/LightningDSPManager-1.7-beta-3). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
+
+The mixer includes built-in stream sliders, per-app volume, mute, stereo balance and app visibility controls. Per-app settings can be edited while a player is inactive. Its settings let you toggle per-app volume control and the LightningDSP card separately, hide system apps, and select a light, dark or system-following floating-panel theme. App search lives below the built-in sliders in the full mixer, not in the floating panel.
+
+The floating panel has compact round DSP buttons and global post-gain controls. It stays open while you interact with it, then waits 2.5 seconds before a 0.5-second fade-out. Opening LightningDSP alone does not show the panel. Root and the relevant Android overlay/volume-key setup are still needed; firmware-specific Modes controls and the updated visual layout have not received fresh device validation.
 
 ## What's different in this fork?
 

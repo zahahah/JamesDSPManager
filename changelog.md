@@ -1,3 +1,22 @@
+### v6.7-beta-2 (integrated volume manager prerelease)
+
+* Added per-app volume manager inspired in VolumeManager app.
+* Bundle the owner-signed LightningDSP 1.7-beta-3/code 72 root app, identical to
+  the standalone app prerelease. Enable the built-in mixer from the top-right
+  button instead of connecting a separate app through the old API option.
+* Include per-app volume, mute, stereo balance, visibility settings, system-app
+  filtering and full-panel search, plus independent per-app and DSP-card toggles.
+* Add light/dark/system floating themes, compact DSP buttons with corrected
+  names and abbreviations, aligned post-gain and theme-aware volume tracks.
+* Keep the panel visible during interaction, then wait 2.5 seconds before a
+  0.5-second fade-out. Opening LightningDSP alone does not open the panel.
+* Retain the app's root-backed ringer, vibration and Do Not Disturb controls
+  without automatically granting a persistent Modes permission.
+* Preserve the native driver/helper pair, control protocol 3, DSP algorithms,
+  migration and guarded recovery. This is app integration, not a native rebuild.
+* Updated layout, firmware-specific Modes behavior and the new module bundle
+  still need fresh device validation.
+
 ### v6.7-beta-1 (LightningDSP rebrand prerelease)
 
 * Start the 6.7 beta series as LightningDSP, previously JamesDSP. Preserve the

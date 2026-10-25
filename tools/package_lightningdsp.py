@@ -15,11 +15,12 @@ sys.path.insert(0, str(ROOT / 'tools'))
 import package_6511_pixel_native_control_v3 as baseline
 from ldsp import validate_ldsp_elf as elf_gate
 
-VERSION = 'v6.7-beta-1'
-VERSION_CODE = 154
+VERSION = 'v6.7-beta-2'
+VERSION_CODE = 155
 APP_PACKAGE = 'com.lightning.dsp'
-APP_VERSION = '1.6.18'
-APP_CODE = 63
+APP_VERSION = '1.7-beta-3'
+APP_CODE = 72
+APP_SOURCE_COMMIT = '3075bfea9df5910ab831cc6fcc55fd78ecf51336'
 TRUSTED_APK_SIGNER = 'c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357'
 CANDIDATE = 'native-control/ldsp-candidate.json'
 PROVENANCE = 'native-control/ldsp-build-provenance.json'
@@ -77,6 +78,9 @@ def verify_candidate(root=ROOT, readelf=None):
             source.get('commit') != '4971a4d6619c22c40ca341c659bd579eb1d8f06a' or
             provenance.get('source', {}).get('commit') != source.get('commit')):
         raise ValueError('Native source/provenance pin mismatch')
+    if (manifest.get('appSource', {}).get('commit') != APP_SOURCE_COMMIT or
+            manifest.get('artifacts', {}).get('app', {}).get('sourceCommit') != APP_SOURCE_COMMIT):
+        raise ValueError('Signed app source/provenance pin mismatch')
     if provenance.get('state') != 'elf-validated-runtime-unverified':
         raise ValueError('Native artifact has not passed static ELF validation')
     notice = manifest.get('notices', {})

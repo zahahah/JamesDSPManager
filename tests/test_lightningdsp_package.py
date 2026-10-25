@@ -1,5 +1,6 @@
 from pathlib import Path
 from fnmatch import fnmatch
+from hashlib import sha256
 import json
 import tempfile
 import unittest
@@ -55,6 +56,43 @@ class LightningDSPPackageTests(unittest.TestCase):
         pattern = next(line.strip() for line in workflow.splitlines()
                        if line.strip().startswith('dist/LightningDSP-'))
         self.assertTrue(fnmatch(f'dist/LightningDSP-{package.VERSION}.zip', pattern))
+
+    def test_integrated_app_metadata_matches_the_published_root_release(self):
+        manifest = json.loads((ROOT / package.CANDIDATE).read_text())
+        app = manifest['artifacts']['app']
+        apk = ROOT / package.APP
+        self.assertEqual(app['versionName'], package.APP_VERSION)
+        self.assertEqual(app['versionCode'], package.APP_CODE)
+        self.assertEqual(app['sha256'], sha256(apk.read_bytes()).hexdigest())
+        self.assertEqual(app['sizeBytes'], apk.stat().st_size)
+        self.assertEqual(app['signerSha256'], package.TRUSTED_APK_SIGNER)
+        self.assertEqual(manifest['appSource']['commit'], package.APP_SOURCE_COMMIT)
+        self.assertEqual(app['sourceCommit'], package.APP_SOURCE_COMMIT)
+        self.assertEqual((ROOT / 'common/files/LightningDSP.apk.meta').read_text(),
+                         f'versionCode={package.APP_CODE}\n')
+        self.assertIn(f'Installing LightningDSP {package.APP_VERSION} root app',
+                      (ROOT / 'common/install.sh').read_text())
+        # App integration must not silently substitute the matched native pair.
+        self.assertEqual(manifest['artifacts']['driver']['sha256'],
+                         '5689d5bbb027f176c266095852826f1712c22d17c5955780a393089ac0cb84d9')
+        self.assertEqual(manifest['artifacts']['helper']['sha256'],
+                         '0e96f2e69e6e94395f77190b8a753eb056a778b4f73e09dc3617e7e80cee2880')
+
+    def test_packager_rejects_inconsistent_app_source_provenance(self):
+        original = json.loads((ROOT / package.CANDIDATE).read_text())
+        for field in ('appSource', 'artifact'):
+            with self.subTest(field=field), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                (root / 'native-control').mkdir()
+                manifest = json.loads(json.dumps(original))
+                if field == 'appSource':
+                    manifest['appSource']['commit'] = '0' * 40
+                else:
+                    manifest['artifacts']['app']['sourceCommit'] = '0' * 40
+                (root / package.CANDIDATE).write_text(json.dumps(manifest))
+                (root / package.PROVENANCE).write_bytes((ROOT / package.PROVENANCE).read_bytes())
+                with self.assertRaisesRegex(ValueError, 'app source/provenance pin mismatch'):
+                    package.verify_candidate(root)
 
     def test_master_cannot_package_the_separate_rebrand(self):
         with tempfile.TemporaryDirectory() as tmp, \
