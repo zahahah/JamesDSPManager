@@ -11,7 +11,7 @@ inspired by the original JamesDSP work. The rebrand updates the product identity
 not the history: original contributors and license notices remain credited below
 and in the source repositories.
 
-The prerelease target is **v6.7-beta-3**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
+The prerelease target is **v6.7-beta-4**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
 [App source](https://github.com/zahahah/RootJamesDSP/tree/ldsp-rebrand) · [Native library source (currently private)](https://github.com/zahahah/LibLightningDSP-OSS)
 
@@ -32,7 +32,7 @@ It's a collection of tools, not a preset that automatically makes everything sou
 
 Added per-app volume manager inspired in VolumeManager app.
 
-The module includes the signed **LightningDSP 1.7-beta-6 (code 75)** root app, the same APK available in the [app prerelease](https://github.com/zahahah/RootJamesDSP/releases/tag/LightningDSPManager-1.7-beta-6). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
+The module includes the signed **LightningDSP 1.7-beta-7 (code 76)** root app, the same APK available in the [app prerelease](https://github.com/zahahah/RootJamesDSP/releases/tag/LightningDSPManager-1.7-beta-7). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
 
 The mixer includes built-in stream sliders, per-app volume, mute, stereo balance and app visibility controls. Per-app settings can be edited while a player is inactive. Its settings let you toggle per-app volume control and the LightningDSP card separately, hide system apps, and select a light, dark or system-following floating-panel theme. App search lives below the built-in sliders in the full mixer, not in the floating panel.
 

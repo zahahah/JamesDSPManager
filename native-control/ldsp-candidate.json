@@ -13,22 +13,22 @@
   "appSource": {
     "repository": "https://github.com/zahahah/RootJamesDSP",
     "branch": "ldsp-rebrand",
-    "commit": "ab82783f7ad22df723518ce898feb89cb864f578",
-    "buildBaseCommit": "3075bfea9df5910ab831cc6fcc55fd78ecf51336",
-    "builtFromWorkingTree": true,
-    "buildNote": "The approved APK was built before committing the release source. Its embedded BuildConfig Git SHA records buildBaseCommit; the source snapshot is recorded by commit. Only plugin-flavor backup adapter and test coverage were added afterward; root runtime sources are unchanged."
+    "commit": "277b010dbac48e477e354f45bface0a13261d1dc",
+    "buildBaseCommit": "277b010dbac48e477e354f45bface0a13261d1dc",
+    "builtFromWorkingTree": false,
+    "buildNote": "The owner-signed APK was assembled from the committed app source at appSource.commit; no local tracked edits were present."
   },
   "artifacts": {
     "app": {
       "path": "common/files/LightningDSP.apk",
-      "sha256": "342248953b523bc72f7aabcab37f181af1253905e6ebf849348c6a2c13351b8b",
-      "sizeBytes": 35937741,
+      "sha256": "f4f852363956b1429d3446e72533f25971541e4e3aa48191c7c7aa0d6d986123",
+      "sizeBytes": 35970509,
       "packageId": "com.lightning.dsp",
-      "versionName": "1.7-beta-6",
-      "versionCode": 75,
+      "versionName": "1.7-beta-7",
+      "versionCode": 76,
       "signatureVerified": true,
       "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
-      "sourceCommit": "ab82783f7ad22df723518ce898feb89cb864f578"
+      "sourceCommit": "277b010dbac48e477e354f45bface0a13261d1dc"
     },
     "driver": {
       "path": "common/files/dual-entry-arm64/lightningdsplib.so",
@@ -51,6 +51,6 @@
     "One ARM64 dual-entry effect driver supports the embedded AIDL Effect V4 interface and the legacy AELI factory entry.",
     "Global Binder control is ldsp.control protocol 3. Audio effect UUIDs remain unchanged for effect attachment compatibility.",
     "Android factory, Binder authorization, audio processing, and device compatibility remain unverified for this build.",
-    "Native driver and helper are reused unchanged. The approved owner-signed root app is updated to 1.7-beta-6/code 75, including mixer ordering, pins, full backups, presentation and background startup."
+    "Native driver and helper are reused unchanged. The approved owner-signed root app is updated to 1.7-beta-7/code 76, including named volume profiles, explicit effect-slider targeting, persisted settings refresh and mixer lifecycle refinements."
   ]
 }

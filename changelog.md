@@ -1,3 +1,23 @@
+### v6.7-beta-4 (mixer profiles and effect-control update)
+
+* Include the exact owner-signed LightningDSP 1.7-beta-7/code 76 APK from the
+  matching app prerelease. The ARM64 native driver and helper are unchanged.
+* Add named per-app volume profiles, with create, select and rename actions.
+  Profile-specific volume, mute and balance choices are saved as the user edits.
+* Separate the LightningDSP Volume Manager enable switch from the global DSP
+  power control, and make the manager's boot-start option enabled by default
+  when the manager is first enabled.
+* Keep app-effect sliders attached to their selected effect parameter; update
+  the main effect controls from saved values instead of falling back to
+  post-gain. Preserve existing AudioEffect parameter transport.
+* Refine mixer ordering, stream groups, footer controls, floating-panel
+  interactions, theme presentation, settings and profile persistence.
+* Preserve the existing native driver/helper pair, control protocol 3,
+  algorithms, UUIDs, migration and guarded Audio HAL recovery. This is an app
+  and module integration update, not a native rebuild.
+* Verify local host tests, shell syntax, package provenance, APK identity and
+  release checksums. Native audio discovery and processing remain device-specific.
+
 ### v6.7-beta-3 (mixer organization and background startup prerelease)
 
 * Include the exact owner-signed LightningDSP 1.7-beta-6/code 75 APK from the
