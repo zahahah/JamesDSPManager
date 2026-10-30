@@ -199,8 +199,8 @@ def payloads():
 def build(output, root=ROOT):
     manifest = verify_candidate(root)
     branch = subprocess.check_output(['git', 'branch', '--show-current'], cwd=root, text=True).strip()
-    if branch != 'ldsp-rebrand':
-        raise ValueError('LightningDSP prerelease packaging is limited to ldsp-rebrand')
+    if branch not in ('master', 'ldsp-rebrand'):
+        raise ValueError('LightningDSP packaging is limited to master or ldsp-rebrand')
     output.parent.mkdir(parents=True, exist_ok=True)
     entries = payloads()
     with ZipFile(output, 'w', compression=ZIP_STORED) as archive:

@@ -19,7 +19,7 @@ class LightningDSPPackageTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             outputs = [Path(tmp) / 'one.zip', Path(tmp) / 'two.zip']
             with patch.object(package, 'verify_candidate', return_value={}), \
-                    patch.object(package.subprocess, 'check_output', return_value='ldsp-rebrand'):
+                    patch.object(package.subprocess, 'check_output', return_value='master'):
                 hashes = [package.build(output, ROOT) for output in outputs]
 
             self.assertEqual(outputs[0].read_bytes(), outputs[1].read_bytes())
@@ -123,12 +123,12 @@ class LightningDSPPackageTests(unittest.TestCase):
                         with self.assertRaisesRegex(ValueError, 'lacks background startup support'):
                             package.verify_apk(apk)
 
-    def test_master_cannot_package_the_separate_rebrand(self):
+    def test_unrelated_branch_cannot_package_lightningdsp(self):
         with tempfile.TemporaryDirectory() as tmp, \
                 patch.object(package, 'verify_candidate', return_value={}), \
-                patch.object(package.subprocess, 'check_output', return_value='master'):
+                patch.object(package.subprocess, 'check_output', return_value='unrelated-feature'):
             output = Path(tmp) / 'candidate.zip'
-            with self.assertRaisesRegex(ValueError, 'limited to ldsp-rebrand'):
+            with self.assertRaisesRegex(ValueError, 'limited to master or ldsp-rebrand'):
                 package.build(output, ROOT)
             self.assertFalse(output.exists())
 
