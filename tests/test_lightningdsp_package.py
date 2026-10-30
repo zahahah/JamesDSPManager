@@ -47,7 +47,8 @@ class LightningDSPPackageTests(unittest.TestCase):
         update = json.loads((ROOT / 'update.json').read_text())
         self.assertEqual(update['version'], package.VERSION)
         self.assertEqual(update['versionCode'], package.VERSION_CODE)
-        self.assertTrue(update['zipUrl'].endswith(f'/{package.VERSION}/LightningDSP-{package.VERSION}.zip'))
+        self.assertTrue(update['zipUrl'].endswith(
+            f'/{package.VERSION}/LightningDSP-{package.VERSION}.zip'))
         workflow = (ROOT / '.github/workflows/pixel-native-control-v4.yml').read_text()
         self.assertIn('ldsp-rebrand]', workflow)
         self.assertLess(workflow.index('native-control/ldsp-candidate.json'),
@@ -57,7 +58,7 @@ class LightningDSPPackageTests(unittest.TestCase):
                        if line.strip().startswith('dist/LightningDSP-'))
         self.assertTrue(fnmatch(f'dist/LightningDSP-{package.VERSION}.zip', pattern))
 
-    def test_integrated_app_metadata_matches_the_published_root_release(self):
+    def test_integrated_app_metadata_matches_the_signed_release_build(self):
         manifest = json.loads((ROOT / package.CANDIDATE).read_text())
         app = manifest['artifacts']['app']
         apk = ROOT / package.APP
@@ -67,6 +68,7 @@ class LightningDSPPackageTests(unittest.TestCase):
         self.assertEqual(app['sizeBytes'], apk.stat().st_size)
         self.assertEqual(app['signerSha256'], package.TRUSTED_APK_SIGNER)
         self.assertEqual(manifest['appSource']['commit'], package.APP_SOURCE_COMMIT)
+        self.assertFalse(manifest['appSource']['builtFromWorkingTree'])
         self.assertEqual(app['sourceCommit'], package.APP_SOURCE_COMMIT)
         self.assertEqual((ROOT / 'common/files/LightningDSP.apk.meta').read_text(),
                          f'versionCode={package.APP_CODE}\n')

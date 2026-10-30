@@ -1,3 +1,21 @@
+### v6.7-beta-5 (playback recovery and prompt startup)
+
+* Bundle the updated owner-signed LightningDSP 1.7-beta-8/code 77 root APK,
+  built from committed app source for the matching app prerelease.
+* Keep recently active apps visible in a separate Recent mixer group, and keep
+  active playback visible even when its volume is zero or its player handle is
+  not writable.
+* Verify prior playback-owner process identities before clearing cleanup state
+  after framework restarts; ambiguous evidence keeps the manager safely blocked.
+* Use root to grant overlay access where the firmware allows it, and include the
+  optional Vector/Xposed Audio Focus hook. Keep its switch gated on a live,
+  PID-verified System Framework hook; a saved preference alone has no effect.
+* Start the existing DSP app service promptly after boot and user unlock, with
+  bounded retries for transient failures. Preserve guarded late-load recovery.
+* Reuse the validated native driver and helper unchanged. No native rebuild.
+* Host tests, root release build, APK signature and package checks passed.
+  Audio processing and this module package have not been revalidated on-device.
+
 ### v6.7-beta-4 (mixer profiles and effect-control update)
 
 * Include the exact owner-signed LightningDSP 1.7-beta-7/code 76 APK from the
