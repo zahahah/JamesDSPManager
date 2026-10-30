@@ -11,7 +11,7 @@
     "commit": "4971a4d6619c22c40ca341c659bd579eb1d8f06a"
   },
   "appSource": {
-    "repository": "https://github.com/zahahah/RootJamesDSP",
+    "repository": "https://github.com/zahahah/LightningDSP-App",
     "branch": "ldsp-rebrand",
     "commit": "c98399a86d7da337828862e5fa763ab198d74ea8",
     "buildBaseCommit": "c98399a86d7da337828862e5fa763ab198d74ea8",
