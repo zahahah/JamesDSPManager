@@ -12,23 +12,23 @@
   },
   "appSource": {
     "repository": "https://github.com/zahahah/LightningDSP-App",
-    "branch": "ldsp-rebrand",
-    "commit": "c98399a86d7da337828862e5fa763ab198d74ea8",
-    "buildBaseCommit": "c98399a86d7da337828862e5fa763ab198d74ea8",
+    "branch": "master",
+    "commit": "fef5024955800080e20a27a76d063df7f3d0db64",
+    "buildBaseCommit": "fef5024955800080e20a27a76d063df7f3d0db64",
     "builtFromWorkingTree": false,
     "buildNote": "Owner-signed root APK built from the clean, committed app source at appSource.commit."
   },
   "artifacts": {
     "app": {
       "path": "common/files/LightningDSP.apk",
-      "sha256": "8126599e5e7b86c9a154a56945df65fbee0112daa006cd87ac9b69d94ebe6ad6",
-      "sizeBytes": 35995232,
+      "sha256": "b13ae8e1dfe2a8df8c104480cddbd9a9557a72b5142ded8e8c586946f213c608",
+      "sizeBytes": 35991136,
       "packageId": "com.lightning.dsp",
-      "versionName": "1.7-beta-8",
-      "versionCode": 77,
+      "versionName": "1.7",
+      "versionCode": 78,
       "signatureVerified": true,
       "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
-      "sourceCommit": "c98399a86d7da337828862e5fa763ab198d74ea8"
+      "sourceCommit": "fef5024955800080e20a27a76d063df7f3d0db64"
     },
     "driver": {
       "path": "common/files/dual-entry-arm64/lightningdsplib.so",
@@ -51,6 +51,6 @@
     "One ARM64 dual-entry effect driver supports the embedded AIDL Effect V4 interface and the legacy AELI factory entry.",
     "Global Binder control is ldsp.control protocol 3. Audio effect UUIDs remain unchanged for effect attachment compatibility.",
     "Android factory, Binder authorization, audio processing, and device compatibility remain unverified for this build.",
-    "Native driver and helper are reused unchanged. The owner-signed root app is rebuilt as 1.7-beta-8/code 77 from committed app source, with the live System Framework hook readiness gate restored for Disable App Audio Focus."
+    "Native driver and helper are reused unchanged. The owner-signed root app is built as stable 1.7/code 78 from committed app source."
   ]
 }

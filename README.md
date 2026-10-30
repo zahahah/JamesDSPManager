@@ -11,7 +11,7 @@ inspired by the original JamesDSP work. The rebrand updates the product identity
 not the history: original contributors and license notices remain credited below
 and in the source repositories.
 
-The current published prerelease is **v6.7-beta-5**. The stable v6.7 release is being prepared and should only be described as published after its artifacts are verified. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
+The current stable release is **v6.7**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
 
 [LightningDSP app](https://github.com/zahahah/LightningDSP-App) · [Native library source](https://github.com/zahahah/LibLightningDSP-OSS) · [JamesDSPManager-Classic](https://github.com/zahahah/JamesDSPManager-Classic) · [RootJamesDSP-Classic](https://github.com/zahahah/RootJamesDSP-Classic)
 
@@ -34,7 +34,7 @@ It's a collection of tools, not a preset that automatically makes everything sou
 
 Added per-app volume manager inspired in VolumeManager app.
 
-This beta includes a freshly built and owner-signed **LightningDSP 1.7-beta-8 (code 77)** root app from the matching [beta-8 app prerelease](https://github.com/zahahah/LightningDSP-App/releases/tag/LightningDSPManager-1.7-beta-8). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
+This release includes the owner-signed **LightningDSP 1.7 (code 78)** root app from the matching [stable app release](https://github.com/zahahah/LightningDSP-App/releases/tag/LightningDSPManager-1.7). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
 
 The mixer includes built-in stream sliders, per-app volume, mute, stereo balance and app visibility controls. Per-app settings can be edited while a player is inactive. Its settings let you toggle per-app volume control and the LightningDSP card separately, hide system apps, and select a light, dark or system-following floating-panel theme. App search lives below the built-in sliders in the full mixer, not in the floating panel.
 
@@ -78,7 +78,7 @@ The native service currently accepts writes from **root only**. Installing the m
 
 ## Compatibility: what we've actually checked
 
-This rebrand build packages one ARM64 **dual-entry** effect driver: it contains both the embedded Audio Effect AIDL V4 implementation and the legacy effect-factory entry point. The native artifact passed host tests and static ELF checks. Those checks do **not** prove that a device's factory discovers the effect, loads it, or processes audio. No physical-device validation has been completed for this build.
+This rebrand build packages one ARM64 **dual-entry** effect driver: it contains both the embedded Audio Effect AIDL V4 implementation and the legacy effect-factory entry point. The native artifact passed host tests and static ELF checks. Those checks do **not** prove that a device's factory discovers the effect, loads it, or processes audio. The owner has reported working audio on a Pixel setup; this does not establish universal device compatibility.
 
 The control protocol version is **3**; that is separate from Android's Audio Effect AIDL version. Root-manager mount behavior, firmware, output routing and other audio modules can all affect whether audio reaches the effect. A visible module or settings screen is not proof of processing.
 
@@ -129,9 +129,13 @@ PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
 LDSP_READELF=llvm-readelf ANDROID_HOME="$ANDROID_HOME" python3 tools/package_lightningdsp.py
 ```
 
-The LightningDSP packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. Historical JamesDSP v4/v5 packagers remain separate and are not used for this prerelease.
+The LightningDSP packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. Historical JamesDSP v4/v5 packagers remain separate and are not used for this release.
 
 Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [LightningDSP-App](https://github.com/zahahah/LightningDSP-App). For historical release notes, see [changelog.md](changelog.md).
+
+## Roadmap
+
+I am considering script-level debugging tools for Live Programmable DSP, an optional SBC XQ Bluetooth audio-stack patch for compatible devices, and a Loudness Controller inspired by existing rootless JamesDSP implementations. These are ideas, not features included in v6.7.
 
 ## Contributors
 
