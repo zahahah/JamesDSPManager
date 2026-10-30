@@ -27,6 +27,7 @@ class BackgroundAppStartTests(unittest.TestCase):
         env['LDSP_SLEEP_BIN'] = tool('sleep', f'echo "sleep:$*" >>"{calls}"\n')
         env['LDSP_TIMEOUT_BIN'] = tool('timeout', 'shift\nexec "$@"\n')
         env['LDSP_GETPROP_BIN'] = tool('getprop', f'echo {boot}\n')
+        env['LDSP_START_MAX_ATTEMPTS'] = '30'
         env['LDSP_PM_BIN'] = tool('pm', 'echo package:/data/app/lightning/base.apk\n' if package else 'exit 1\n')
         env['LDSP_AM_BIN'] = tool('am', f'''case "$1" in
 get-current-user) echo 10 ;;
@@ -38,9 +39,20 @@ esac
 ''')
         return module, calls, env
 
-    def run_start(self, module, env):
-        return subprocess.run(['sh', str(ROOT / 'lightningdsp-app-start.sh'), str(module)],
+    def run_start(self, module, env, delay=None):
+        command = ['sh', str(ROOT / 'lightningdsp-app-start.sh'), str(module)]
+        if delay is not None:
+            command.append(str(delay))
+        return subprocess.run(command,
                               env=env, text=True, capture_output=True, timeout=15)
+
+    def test_normal_boot_dispatch_has_no_fixed_delay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            module, calls, env = self.fixture(Path(tmp))
+            result = self.run_start(module, env, delay=0)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertNotIn('sleep:', calls.read_text())
+            self.assertIn('DISPATCHED', (module / 'logs/app-start.status').read_text())
 
     def test_ten_second_delay_targets_current_user_service_without_ui(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -69,7 +81,7 @@ esac
                 module, calls, env = self.fixture(Path(tmp), boot=boot, package=package)
                 self.assertNotEqual(self.run_start(module, env).returncode, 0)
                 self.assertNotIn('am:start-foreground-service', calls.read_text())
-                self.assertEqual(calls.read_text().count('sleep:2\n'), 29)
+                self.assertEqual(calls.read_text().count('sleep:1\n'), 29)
                 self.assertIn('DEFERRED', (module / 'logs/app-start.status').read_text())
 
     def test_failed_dispatch_never_claims_ready_or_restarts_audio(self):
@@ -78,6 +90,51 @@ esac
             self.assertNotEqual(self.run_start(module, env).returncode, 0)
             self.assertEqual(calls.read_text().count('am:start-foreground-service'), 1)
             self.assertIn('FAILED', (module / 'logs/app-start.status').read_text())
+
+    def test_transient_dispatch_failure_retries_without_extra_initial_delay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module, calls, env = self.fixture(root)
+            attempts = root / 'attempts'
+            am = root / 'am-transient'
+            am.write_text(f'''#!/bin/sh
+case "$1" in
+get-current-user) echo 10 ;;
+start-foreground-service)
+    echo attempt >>"{attempts}"
+    if [ "$(wc -l <"{attempts}")" -eq 1 ]; then echo 'Error: service not ready'; exit 255; fi
+    echo 'Starting service' ;;
+esac
+''')
+            am.chmod(0o755)
+            env['LDSP_AM_BIN'] = str(am)
+            result = self.run_start(module, env)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(attempts.read_text().count('attempt'), 2)
+            self.assertEqual(calls.read_text().splitlines(), ['sleep:10', 'sleep:1'])
+            self.assertIn('DISPATCHED', (module / 'logs/app-start.status').read_text())
+
+    def test_dispatches_immediately_after_unlock_without_fixed_extra_delay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            module, calls, env = self.fixture(root)
+            checks = root / 'unlock-checks'
+            prop = root / 'getprop-unlock'
+            prop.write_text(f'''#!/bin/sh
+case "$1" in
+sys.boot_completed) echo 1 ;;
+sys.user.10.ce_available)
+    echo check >>"{checks}"
+    if [ "$(wc -l <"{checks}")" -lt 3 ]; then echo false; else echo true; fi ;;
+esac
+''')
+            prop.chmod(0o755)
+            env['LDSP_GETPROP_BIN'] = str(prop)
+            result = self.run_start(module, env, delay=0)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(checks.read_text().count('check'), 3)
+            self.assertEqual(calls.read_text().splitlines().count('sleep:1'), 2)
+            self.assertIn('DISPATCHED', (module / 'logs/app-start.status').read_text())
 
     def test_verified_late_load_dispatch_waits_for_recovery_completion(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -110,6 +167,7 @@ esac
         service = (ROOT / 'service.sh').read_text()
         self.assertEqual(service.count('sh "$MODPATH/audio-hal-recovery.sh" --auto-once'), 1)
         self.assertIn('schedule_lightningdsp_background_start', service)
+        self.assertTrue(service.rstrip().endswith('schedule_lightningdsp_background_start 0'))
         self.assertIn('lightningdsp-app-start.sh', (ROOT / 'tools/package_lightningdsp.py').read_text())
         script = (ROOT / 'lightningdsp-app-start.sh').read_text()
         self.assertNotIn('setEnabled', script)

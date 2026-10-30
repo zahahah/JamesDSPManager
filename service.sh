@@ -190,4 +190,4 @@ set +x
 start_lightningdsp_app_installer
 
 # Initialize the app service silently after mounts, without launching its UI.
-schedule_lightningdsp_background_start
+schedule_lightningdsp_background_start 0
