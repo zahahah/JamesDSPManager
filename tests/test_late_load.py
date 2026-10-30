@@ -737,8 +737,9 @@ exit 1
         self.assertNotIn('not deleted', installer)
 
         readme = (ROOT / "README.md").read_text()
-        self.assertIn('disabled, and removed', readme)
-        self.assertIn('then removes its directory', readme)
+        self.assertIn('marks that module disabled, and removes its directory', readme)
+        self.assertIn('JamesDSPManager-Classic 6.6', readme)
+        self.assertIn('RootJamesDSP-Classic 1.6.17', readme)
 
     def test_late_load_reload_script_has_no_restart_loop_or_killall(self):
         combined = (ROOT / "audio-reload.sh").read_text()

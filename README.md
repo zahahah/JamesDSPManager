@@ -1,157 +1,58 @@
-# LightningDSP Manager
+# LightningDSP
 
 **Your music, with a little more say in how it sounds.**
 
-This is our root-only LightningDSP module, paired with a modified ThePBone-based JamesDSP app and our native audio library. It brings equalization, headphone correction, convolution and other DSP tools into Android's audio effects chain. You keep using your music player. LightningDSP handles the processing underneath.
+I maintain LightningDSP as an audio pocket knife for Android: a root audio-effects module, a companion app, and a collection of tools for shaping sound and controlling volume. Keep your favorite music player. LightningDSP works alongside it.
 
-This is the maintained LightningDSP line. The module, app integration and native control service use the LightningDSP names. The app package is `com.lightning.dsp` and the module ID is `ainur_lightningdsp`. On installation, the previous `ainur_jamesdsp` module is identity-checked, disabled, and removed so its payload cannot compete with LightningDSP. The old `james.dsp` app is removed before installing the new package; its private app data is not migrated.
+The current stable releases are **LightningDSP module 6.7** and **LightningDSP app 1.7**. The module includes the signed root app. You can also download the APK separately, but the APK alone does not install the audio driver.
 
-LightningDSP is the new name for our maintained JamesDSP-based project,
-inspired by the original JamesDSP work. The rebrand updates the product identity,
-not the history: original contributors and license notices remain credited below
-and in the source repositories.
+[Download the module](https://github.com/zahahah/LightningDSP/releases/tag/v6.7) · [App source and release](https://github.com/zahahah/LightningDSP-App) · [Native library source](https://github.com/zahahah/LibLightningDSP-OSS)
 
-The current stable release is **v6.7**. It carries one ARM64 dual-entry native effect driver and `ldspctl`; both the AIDL effect implementation and the legacy effect-factory adapter are included in the same binary. Static ELF and host-test results are recorded in the module. Actual Android factory discovery, audio processing and device compatibility remain unverified for this build.
-
-[LightningDSP app](https://github.com/zahahah/LightningDSP-App) · [Native library source](https://github.com/zahahah/LibLightningDSP-OSS) · [JamesDSPManager-Classic](https://github.com/zahahah/JamesDSPManager-Classic) · [RootJamesDSP-Classic](https://github.com/zahahah/RootJamesDSP-Classic)
-
-I maintain LightningDSP as an audio pocket knife: one app for DSP, per-app volume and practical audio controls. JamesDSP 6.6 remains available in the Classic repositories above, including the matching root app 1.6.17. LightningDSP continues that history rather than replacing the original authors or their licenses.
-
-## What can it do?
+## Make the sound yours
 
 LightningDSP gives you more than a few bass and treble sliders:
 
-- **FIR and IIR equalization** to shape the frequency response.
-- **Convolution** to apply impulse responses, including headphone or speaker correction profiles.
-- **DDC/VDC correction** for compatible headphone profiles.
-- **Dynamics processing and output controls**, including a compander, limiter and post-gain.
-- **Crossfeed, stereo enhancement, bass boost, reverb and tube-style effects** for more specific adjustments.
-- **Live programmable processing** if you enjoy going beyond the built-in controls.
+- **FIR and IIR equalization** for shaping the frequency response.
+- **Convolution and DDC/VDC correction** for impulse responses and compatible headphone profiles.
+- **Dynamics and output controls** including compander, limiter and post-gain.
+- **Crossfeed, stereo enhancement, bass boost, reverb and tube-style effects** for different listening preferences.
+- **Live Programmable DSP** for your own EEL scripts.
 
-It's a collection of tools, not a preset that automatically makes everything sound better. Start with a small adjustment, listen, then decide what actually helps. Turning every switch on is a valid experiment, but not necessarily a good listening strategy.
+It's a collection of tools, not a preset that automatically makes everything sound better. Start with a small adjustment, listen at a comfortable volume, and keep what works for you.
 
-### Built-in volume manager
+### LightningDSP Volume Manager
 
-Added per-app volume manager inspired in VolumeManager app.
+Added per-app volume manager inspired in VolumeManager app. It is part of the root app, not a separate installation, and stays **off by default** until you choose to enable it from the mixer button on the main screen.
 
-This release includes the owner-signed **LightningDSP 1.7 (code 78)** root app from the matching [stable app release](https://github.com/zahahah/LightningDSP-App/releases/tag/LightningDSPManager-1.7). Open the mixer button at the top right of LightningDSP to enable **LightningDSP Volume Manager**. It is off by default on a fresh installation; updates preserve your existing choice. You no longer need a separate volume-manager app or its API connection.
+Control each app's volume, mute and stereo balance, including saved settings for apps that are not playing right now. See Active, Recent and Inactive apps; pin, hide and reorder them. The manager also includes system streams, a LightningDSP effects card, a floating panel, themes, and backup and restore of portable settings. The per-app controls and DSP card have separate switches.
 
-The mixer includes built-in stream sliders, per-app volume, mute, stereo balance and app visibility controls. Per-app settings can be edited while a player is inactive. Its settings let you toggle per-app volume control and the LightningDSP card separately, hide system apps, and select a light, dark or system-following floating-panel theme. App search lives below the built-in sliders in the full mixer, not in the floating panel.
+An optional **Disable App Audio Focus (Requires Xposed)** setting is available only after LightningDSP verifies its active System Framework hook. It does not change system files. **Extra Post Gain** is a separate, off-by-default setting under Audio processing.
 
-The floating panel has compact round DSP buttons and global post-gain controls. It stays open while you interact with it, then waits 3.3 seconds before a 0.5-second fade-out. Opening LightningDSP alone does not show the panel. The floating-panel shortcut now sits at the bottom right of the full manager, beside its central enable/disable control.
+## Get started
 
-Use the manager's Edit mode to drag app and built-in stream rows and hide or pin apps. DSP buttons can also be reordered horizontally in the full manager. Active and Inactive share one saved app order. Pins lead each group; inactive pin moves keep already-active pins ahead. Editing is disabled in the floating panel.
+1. Download the [LightningDSP 6.7 ZIP](https://github.com/zahahah/LightningDSP/releases/tag/v6.7) and install it with a compatible root manager. The module is root-only and includes an ARM64 audio-effect driver.
+2. Follow your root manager's activation or reboot procedure. Temp-root/late-load setups need their own activation flow; a reboot may not preserve temp root.
+3. Open LightningDSP and grant **the app itself** root access. Root granted to ADB or another app is not a grant to LightningDSP.
+4. Enable processing, play music, and try an obvious EQ adjustment at a comfortable volume.
 
-Grouped stream controls can expand below Media. An optional setting lets you toggle the floating group by tapping the Media icon. Settings are grouped into sections in a wider, scrollable dialog. The LightningDSP track stays blue in both themes, with an optional monochrome setting; other app tracks remain neutral.
+The module installs its library and effect configuration systemlessly. It does not permanently rewrite your system or vendor partitions. Device firmware, effect host, root mounts and audio route still affect compatibility. The native library supports Android's AIDL effect entry and a legacy effect entry in one ARM64 binary; the app keeps the AudioEffect lifecycle and uses native control where supported.
 
-Full LightningDSP backups now include portable mixer rules, order, pins, visibility, theme and enable/startup settings. Android permissions and live system volume/ringer/DND state are not transferred. DSP preset exports remain DSP-only. Extra Post Gain is now under Audio processing in the app settings.
+### Coming from JamesDSP?
 
-The app's boot receiver and the module initialize the existing root service in the background without opening the app or forcing processing or the mixer on. Module startup waits ten seconds after normal activation, or follows the existing guarded recovery in verified late-load. Root and overlay authorization are still required. Persistent DSP and mixer notifications share a lightning status icon; each notification opens its corresponding page. Firmware-specific root controls and background startup still need fresh runtime validation.
+This project continues my JamesDSP-based work under the LightningDSP name. The last pre-rebrand stable releases remain available as [JamesDSPManager-Classic 6.6](https://github.com/zahahah/JamesDSPManager-Classic/releases/tag/v6.6) and [RootJamesDSP-Classic 1.6.17](https://github.com/zahahah/RootJamesDSP-Classic/releases/tag/v1.6.17).
 
-## What's different in this fork?
+During an **explicit module flash**, the installer verifies the old `ainur_jamesdsp` identity, marks that module disabled, and removes its directory before installing LightningDSP. It removes the old `james.dsp` app and installs `com.lightning.dsp`. Those are different Android packages: private app data is not migrated, so export presets you want to keep first. Updating an existing `com.lightning.dsp` with the same certificate preserves its data; a certificate mismatch still uses the existing confirmation and best-effort backup flow. Boot does not silently uninstall apps, and removing the module does not remove the LightningDSP app.
 
-We're keeping the familiar ThePBone-based interface while changing how the app talks to the audio engine. The main control path is now **`ldsp.control`**, a global **Binder service** provided by `lightningdsplib.so`.
+## If something doesn't work
 
-There are three parts to the setup:
-
-1. **The module** makes the native library and audio configuration available through a systemless mount overlay. It doesn't permanently rewrite your physical `/system` or `/vendor` partitions.
-2. **Android's audio HAL** loads LightningDSP as an audio effect. This is where the native engine processes audio, rather than inside the settings screen.
-3. **The app** changes the engine's settings. For supported native controls, it uses the root helper `ldspctl` to communicate with `ldsp.control`.
-
-The short version:
-
-```text
-App settings → ldspctl (root) → ldsp.control → LightningDSP in the audio HAL
-                                                        ↓
-                                                  Processed audio
-```
-
-That diagram describes the control path. Audio samples aren't being sent through the root helper. Android's `AudioEffect` mechanism still handles effect attachment and lifecycle.
-
-### Native first, legacy when needed
-
-The app checks the native control path first. **Power, post-gain and FIR EQ** can use `ldsp.control`; features outside that contract still use the existing Android effect-parameter path. If native control isn't available or a supported operation fails, the legacy path remains a fallback.
-
-So this isn't “we removed everything old and hoped for the best.” We're moving the controls we support to the new path while keeping the rest of LightningDSP usable.
-
-The native service currently accepts writes from **root only**. Installing the module isn't enough: you also need to grant the **LightningDSP app** root access in your root manager. Granting root to Termux or ADB doesn't grant it to LightningDSP.
-
-## Compatibility: what we've actually checked
-
-This rebrand build packages one ARM64 **dual-entry** effect driver: it contains both the embedded Audio Effect AIDL V4 implementation and the legacy effect-factory entry point. The native artifact passed host tests and static ELF checks. Those checks do **not** prove that a device's factory discovers the effect, loads it, or processes audio. The owner has reported working audio on a Pixel setup; this does not establish universal device compatibility.
-
-The control protocol version is **3**; that is separate from Android's Audio Effect AIDL version. Root-manager mount behavior, firmware, output routing and other audio modules can all affect whether audio reaches the effect. A visible module or settings screen is not proof of processing.
-
-**PIXAML isn't required for LightningDSP's basic effect path on the tested Pixel setup.** This module supplies the library and registers it with Android's default effect factory. PIXAML provides a separate AML service and may matter for other effects or device-specific setups, but installing it alone won't make LightningDSP work.
-
-The common late-load path mounts first, then uses a validated firmware stop/start handler, at most once per verified Android session. Repeated soft reboots are supported without a kernel-boot attempt cap; a HAL-only restart does not re-arm recovery. See [lifecycle guards](TEMP-ROOT-RELOAD.md#retry-disable-and-diagnostics). There is no model-based preference or hidden opt-in requirement in this path. It never directly requests an `audioserver` restart, but vendor actions or Binder disconnections can still cause one. Normal boot remains separate, and SELinux stays enforcing.
-
-## Installation
-
-1. Download the module ZIP from [Releases](https://github.com/zahahah/LightningDSP/releases).
-2. Install it through your compatible root manager. For normal-boot root, follow its reboot procedure. For temp-root/late-load, use its activation flow; do not assume reboot preserves root.
-3. Open LightningDSP and **grant it root access**. After late-load activation, allow at least 30 seconds and reopen the app if its initial check ran too early.
-4. Enable processing, play some music and try an obvious EQ adjustment at a comfortable volume.
-
-The module includes only our modified **ThePBone-based root app**, package `com.lightning.dsp`. There is no classic-app selection or Rootless APK in the ZIP. The signed APK is also attached to the release if you want to download it separately.
-
-### Migrating from JamesDSP
-
-The installer verifies the module ID, marks the old `ainur_jamesdsp` module disabled, then removes its directory. Any already-active mounts are replaced on the normal reboot after installation. It also removes the old `james.dsp` app and installs `com.lightning.dsp`. The package ID changed, so Android keeps their app data separate; this migration does not copy the old app's private data. Export or back up presets before installing if you need them. The normal update path for an already-installed `com.lightning.dsp` remains unchanged: matching signatures update in place; a signature mismatch still requires the existing volume-key confirmation and best-effort backup flow.
-
-The boot service won't silently uninstall an existing app. Removing the module also leaves the installed LightningDSP app alone.
-
-## Checking the native path
-
-With music playing and LightningDSP enabled, run these commands in a root-capable terminal:
-
-```sh
-su -c '/vendor/bin/ldspctl probe'
-su -c '/vendor/bin/ldspctl status'
-```
-
-A ready native path reports `ready=1`, `protocol=3`, `publication=3` and a writable context. In the status output, accepted and applied generations tell you whether a control update reached the DSP. Increasing processed-frame counters show that the context is processing audio.
-
-Those checks are more useful than simply finding the app in your launcher. They still don't replace listening to a specific adjustment, and the absence of the native service doesn't, by itself, tell you why it failed.
-
-If something goes wrong, include your device model, Android build, root manager, module/app versions and the helper output. Mention whether you're using normal boot or temp-root/late-load, plus any other audio modules. That gives us something to investigate instead of asking the audio stack to confess.
-
-For the deeper contract, authorization and mounting details, see [LIGHTNINGDSP-CONTROL.md](LIGHTNINGDSP-CONTROL.md).
-
-## Building the module ZIP
-
-This repository packages the app and native artifacts. It doesn't compile the native audio library as part of ZIP generation.
-
-Use Python 3, trusted `llvm-readelf`/`readelf` through `PATH` or `LDSP_READELF`, and Android SDK build tools through `ANDROID_HOME`, `ANDROID_SDK_ROOT` or `PATH`:
-
-```sh
-PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s tests -v
-LDSP_READELF=llvm-readelf ANDROID_HOME="$ANDROID_HOME" python3 tools/package_lightningdsp.py
-```
-
-The LightningDSP packager verifies native hashes, provenance, APK package/version and the authorized signing certificate before producing the ZIP in `dist/`. Historical JamesDSP v4/v5 packagers remain separate and are not used for this release.
-
-Native development belongs in [LibLightningDSP-OSS](https://github.com/zahahah/LibLightningDSP-OSS). That repository is currently private, but I plan to make it public in the future. App development belongs in [LightningDSP-App](https://github.com/zahahah/LightningDSP-App). For historical release notes, see [changelog.md](changelog.md).
+Tell me your device and Android build, root manager, module and app versions, audio route, and whether you used normal boot or late-load. Other audio modules can matter too. For native-path diagnostics, mounting, lifecycle and control details, see [LIGHTNINGDSP-CONTROL.md](LIGHTNINGDSP-CONTROL.md) and [TEMP-ROOT-RELOAD.md](TEMP-ROOT-RELOAD.md). The [changelog](changelog.md) records release changes.
 
 ## Roadmap
 
-I am considering script-level debugging tools for Live Programmable DSP, an optional SBC XQ Bluetooth audio-stack patch for compatible devices, and a Loudness Controller inspired by existing rootless JamesDSP implementations. These are ideas, not features included in v6.7.
-
-## Contributors
-
-Previously JamesDSP. Maintained by **lightning zahah**. Contributors to the earlier project and module: james34602, zackptg5, ahrion, anonymix007 and ShadoV90.
+I am considering script-level debugging tools for Live Programmable DSP, an optional SBC XQ Bluetooth audio-stack patch for compatible devices, and a Loudness Controller inspired by existing rootless JamesDSP implementations. These are ideas, not features included in 6.7.
 
 ## Credits and licensing
 
-This work builds on the original JamesDSP project and the people who made it
-possible. LightningDSP is the current name of our maintained project; the
-rebrand does not replace or erase that JamesDSP lineage. Our thanks go to:
+LightningDSP is based on JamesDSP. Renaming my maintained project does not replace the people who built its foundations or their licenses. Thank you to [James Fung (james34602)](https://github.com/james34602/JamesDSPManager), [ThePBone](https://github.com/ThePBone/RootlessJamesDSP), the [original JamesDSPManager module](https://github.com/therealahrion/JamesDSPManager), [ShadoV90](https://github.com/ShadoV90/JamesDSPManager), zackptg5, ahrion and anonymix007, alongside the contributors credited in those projects.
 
-- [JamesDSP by James Fung (james34602)](https://github.com/james34602/JamesDSPManager),
-  the original audio-processing project behind this work.
-- [ThePBone's RootlessJamesDSP](https://github.com/ThePBone/RootlessJamesDSP), the original upstream basis of our modified root app.
-- [The original JamesDSPManager module](https://github.com/therealahrion/JamesDSPManager)
-  and [ShadoV90's JamesDSPManager fork](https://github.com/ShadoV90/JamesDSPManager),
-  along with the contributors credited in those projects.
-
-The native library's GPL-2.0 license is included in [native-control/LightningDSP-Main-LICENSE.txt](native-control/LightningDSP-Main-LICENSE.txt). See the linked source repositories for their respective licenses and attribution. Our changes don't replace those credits or terms.
+The native library's GPL-2.0 license is included in [native-control/LightningDSP-Main-LICENSE.txt](native-control/LightningDSP-Main-LICENSE.txt). Other notices and attribution remain in the source and companion repositories. The [Classic repositories](https://github.com/zahahah/JamesDSPManager-Classic) preserve the pre-rebrand releases and history.
