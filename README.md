@@ -24,7 +24,7 @@ It's a collection of tools, not a preset that automatically makes everything sou
 
 Added per-app volume manager inspired in VolumeManager app. It is part of the root app, not a separate installation, and stays **off by default** until you choose to enable it from the mixer button on the main screen.
 
-Control each app's volume, mute and stereo balance, including saved settings for apps that are not playing right now. See Active, Recent and Inactive apps; pin, hide and reorder them. The manager also includes system streams, a LightningDSP effects card, a floating panel, themes, and backup and restore of portable settings. The per-app controls and DSP card have separate switches.
+Control each app's volume, mute and stereo balance, including saved settings for apps that are not playing right now. See Active, Recent and Inactive apps; pin, hide and reorder them. The manager also includes system streams, a LightningDSP effects card, a floating panel, themes, and backup and restore of portable settings. In the floating panel, tap the LightningDSP card icon to open its effect controls. Press and hold an effect name to select it, then use the slider to lower or raise its intensity. The per-app controls and DSP card have separate switches.
 
 An optional **Disable App Audio Focus (Requires Xposed)** setting is available only after LightningDSP verifies its active System Framework hook. It does not change system files. **Extra Post Gain** is a separate, off-by-default setting under Audio processing.
 
