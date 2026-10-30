@@ -1,7 +1,7 @@
 ### v6.7 (LightningDSP stable)
 
 * Rebrand the maintained JamesDSP-based module and root app as LightningDSP while preserving credits, licenses, and the Classic 6.6 archives.
-* Bundle the owner-signed LightningDSP app 1.7/code 78 with the integrated opt-in Volume Manager, per-app controls, recent apps, floating panel, backups, and optional Xposed-gated audio-focus control.
+* Bundle the signed LightningDSP app 1.7/code 78 with the integrated opt-in Volume Manager, per-app controls, recent apps, floating panel, backups, and optional Xposed-gated audio-focus control.
 * Keep the existing dual-entry AIDL/legacy native driver and ldsp.control helper unchanged; the app continues to use AudioEffect fallback for controls outside the native contract.
 * Migrate the old module and package only during an explicit flash, with the existing signature-mismatch confirmation for same-package updates.
 * Start the app background service after boot and user unlock without conflating it with guarded late-load audio recovery.
