@@ -1,22 +1,98 @@
-### v6.6
+### v6.7-beta-5 (playback recovery and prompt startup)
 
-* Bring the latest tested integration through the Samsung and Pixel branches
-  into the stable JamesDSP release. Keep package `james.dsp`, module
-  `ainur_jamesdsp`, the owner-signed 1.6.17/code 62 app, and `jdsp.control`.
-  The separate LightningDSP rebrand is not included.
-* Ship one ARM64 driver with embedded AIDL effect interfaces and the legacy
-  AELI adapter for HIDL loading, without replacing the device's audio HAL.
-* Keep capability-checked systemless mounting and guarded firmware recovery
-  for late-load and repeated Android soft reboots. Unknown restart targets
-  remain blocked; normal boot and enforcing SELinux are preserved.
-* Include reverb/convolution processing optimizations and the narrowly checked
-  vendor DSP-thread profile that improved combined-effects playback on Pixel.
-  Other vendor profiles are skipped, not replaced with generic RT scheduling.
-* Revise Soundstage to widen existing stereo while preserving the centre and
-  mono sum, with a 250 Hz side shelf, smooth transitions, and exact neutral/off
-  bypass. It is stereo width, not synthetic distance rendering for mono audio.
-* Preserve native -30..+30 dB post-gain support. This release's unchanged app UI
-  remains +/-15 dB; the LightningDSP Extra Post Gain app option is not included.
+* Bundle the updated owner-signed LightningDSP 1.7-beta-8/code 77 root APK,
+  built from committed app source for the matching app prerelease.
+* Keep recently active apps visible in a separate Recent mixer group, and keep
+  active playback visible even when its volume is zero or its player handle is
+  not writable.
+* Verify prior playback-owner process identities before clearing cleanup state
+  after framework restarts; ambiguous evidence keeps the manager safely blocked.
+* Use root to grant overlay access where the firmware allows it, and include the
+  optional Vector/Xposed Audio Focus hook. Keep its switch gated on a live,
+  PID-verified System Framework hook; a saved preference alone has no effect.
+* Start the existing DSP app service promptly after boot and user unlock, with
+  bounded retries for transient failures. Preserve guarded late-load recovery.
+* Reuse the validated native driver and helper unchanged. No native rebuild.
+* Host tests, root release build, APK signature and package checks passed.
+  Audio processing and this module package have not been revalidated on-device.
+
+### v6.7-beta-4 (mixer profiles and effect-control update)
+
+* Include the exact owner-signed LightningDSP 1.7-beta-7/code 76 APK from the
+  matching app prerelease. The ARM64 native driver and helper are unchanged.
+* Add named per-app volume profiles, with create, select and rename actions.
+  Profile-specific volume, mute and balance choices are saved as the user edits.
+* Separate the LightningDSP Volume Manager enable switch from the global DSP
+  power control, and make the manager's boot-start option enabled by default
+  when the manager is first enabled.
+* Keep app-effect sliders attached to their selected effect parameter; update
+  the main effect controls from saved values instead of falling back to
+  post-gain. Preserve existing AudioEffect parameter transport.
+* Refine mixer ordering, stream groups, footer controls, floating-panel
+  interactions, theme presentation, settings and profile persistence.
+* Preserve the existing native driver/helper pair, control protocol 3,
+  algorithms, UUIDs, migration and guarded Audio HAL recovery. This is an app
+  and module integration update, not a native rebuild.
+* Verify local host tests, shell syntax, package provenance, APK identity and
+  release checksums. Native audio discovery and processing remain device-specific.
+
+### v6.7-beta-3 (mixer organization and background startup prerelease)
+
+* Include the exact owner-signed LightningDSP 1.7-beta-6/code 75 APK from the
+  app prerelease. The ARM64 native driver and matching helper are unchanged.
+* Add edit-mode dragging for app/stream rows, horizontal DSP button ordering,
+  a shared Active/Inactive order, and Pin/Unpin with pinned-first ordering.
+* Include portable mixer settings and per-app rules in full app backups.
+* Refine grouped stream controls, optional tap-to-expand Media, neutral app
+  tracks and a blue DSP track in both themes with an optional monochrome bar.
+* Add a manager power footer, move the floating shortcut to its right, and
+  reorganize settings in a wider dialog capped at 80% of app height.
+* Wait 3.3 seconds after interaction before the existing 0.5-second panel fade.
+* Correct root volume-button adjustment registration, notification status
+  icons and page destinations, and return navigation.
+* Start the existing app service silently on boot and after the module's
+  ten-second activation delay. Verified late-load startup follows the existing
+  guarded recovery. Never open the UI or force saved enable settings on.
+* Move Extra Post Gain to Audio processing and update project links/credits.
+* Keep native algorithms, UUIDs, protocol 3, migration and recovery safeguards.
+  Background startup and firmware-specific controls still need fresh runtime checks.
+
+### v6.7-beta-2 (integrated volume manager prerelease)
+
+* Added per-app volume manager inspired in VolumeManager app.
+* Bundle the owner-signed LightningDSP 1.7-beta-3/code 72 root app, identical to
+  the standalone app prerelease. Enable the built-in mixer from the top-right
+  button instead of connecting a separate app through the old API option.
+* Include per-app volume, mute, stereo balance, visibility settings, system-app
+  filtering and full-panel search, plus independent per-app and DSP-card toggles.
+* Add light/dark/system floating themes, compact DSP buttons with corrected
+  names and abbreviations, aligned post-gain and theme-aware volume tracks.
+* Keep the panel visible during interaction, then wait 2.5 seconds before a
+  0.5-second fade-out. Opening LightningDSP alone does not open the panel.
+* Retain the app's root-backed ringer, vibration and Do Not Disturb controls
+  without automatically granting a persistent Modes permission.
+* Preserve the native driver/helper pair, control protocol 3, DSP algorithms,
+  migration and guarded recovery. This is app integration, not a native rebuild.
+* Updated layout, firmware-specific Modes behavior and the new module bundle
+  still need fresh device validation.
+
+### v6.7-beta-1 (LightningDSP rebrand prerelease)
+
+* Start the 6.7 beta series as LightningDSP, previously JamesDSP. Preserve the
+  original JamesDSP lineage, contributor credits and licenses.
+* Include the blue app theme and launcher icon, root package `com.lightning.dsp`
+  (1.6.18/code 63), module `ainur_lightningdsp`, library `lightningdsplib.so`,
+  helper `ldspctl` and global `ldsp.control` service as a matched bundle.
+* Keep the existing DSP effects, effect UUIDs, dual AIDL/legacy entrypoints,
+  protocol 3 and guarded late-load recovery. This version change does not
+  rebuild the current app or native artifacts or establish new device support.
+* Include the opt-in Extra Post Gain setting for +/-30 dB, off by default with
+  the warning "Use it cautiously". The normal range remains +/-15 dB.
+* During module flash, identity-check and remove the old `ainur_jamesdsp` module
+  and remove the old `james.dsp` package before installing the rebranded app.
+  Private data from the old app is not migrated; export important presets first.
+* Align documentation with that migration and verify/package LightningDSP in CI.
+  The stable JamesDSP 6.6 release remains separate and available.
 
 ### v6.6-beta-6.5-soundstage (experimental prerelease)
 
@@ -50,7 +126,7 @@
 
 ### v6.6-beta-6.3-dsp-scheduler (experimental prerelease)
 
-* Apply the vendor's `RealtimePerformance` profile to the JamesDSP processing
+* Apply the vendor's `RealtimePerformance` profile to the LightningDSP processing
   thread only when the vendor profile is a single, verified task-group mapping
   to its own `ta` scheduler group. Generic AOSP `cpu/rt` behavior and unknown
   vendor profiles are explicitly skipped.
@@ -125,7 +201,7 @@
 * Bind the driver and live vendor/ODM/system/product/SKU configs into init's
   mount namespace, preserving existing effect entries and configuration labels.
 * Stop assuming Pixel stock library names when a vendor AIDL config is absent;
-  use a dedicated JamesDSP AIDL config in that case. Stock-effect regressions
+  use a dedicated LightningDSP AIDL config in that case. Stock-effect regressions
   remain a device-test requirement for this fallback.
 * Discover the factory owner and audit the firmware stop/start handler rather
   than guessing process names or terminating audioserver.
@@ -161,17 +237,17 @@
 
 ### v6.6-beta-1
 
-* Keep global jdsp.control primary and legacy control as fallback.
+* Keep global ldsp.control primary and legacy control as fallback.
 * Refresh dedicated service-label policy after the overlay is mounted, without
   generic service grants, SELinux permissive mode or audio restarts.
 * Queue native app controls off the UI thread and preserve fallback on failure.
 * Require a published protocol-3 service and one writable context for readiness.
-* Bundle root app v1.6.17 code 60; retain the existing v4 library and jdspctl.
+* Bundle root app v1.6.17 code 60; retain the existing v4 library and ldspctl.
 
 ### native-control-v4 source candidate (not released)
 
 * Retire the effect-bound parameter transport and v6.5.14 package.
-* Restore global jdsp.control and add a root-only vendor-native client.
+* Restore global ldsp.control and add a root-only vendor-native client.
 * Prepare typed policy/helper overlays without automatic audio restarts.
 * Block ZIP creation pending newly compiled native artifacts and verified APK.
 
@@ -189,12 +265,12 @@
 
 ### v6.5.11-pixel-native-control-v3-test
 
-* Bundle the native-control-v3 library and a signed experimental RootJamesDSP
+* Bundle the native-control-v3 library and a signed experimental RootLightningDSP
   AIDL-client APK from branch `pixel-test-new-aidl` (1.6.15, versionCode 57).
 * Remove the module's SDK 36+ hard gate; try the systemless overlay on other
   Android/AIDL versions while logging linker mismatches. No ABI rewriting or
   compatibility claim is added; the binary still directly depends on AIDL V4.
-* Keep the app on the legacy `AudioEffect` path unless `jdsp.control` reports
+* Keep the app on the legacy `AudioEffect` path unless `ldsp.control` reports
   direct app authorization; the provider remains root-authorized by default.
 * Test candidate only: no on-device proof of service discovery, app write
   authorization, audio processing, or audible control changes.
@@ -213,12 +289,12 @@
 
 ### v6.5.10-pixel-builtin-aidl-beta.2
 
-* Update an existing `james.dsp` installation in place when Android accepts
+* Update an existing `com.lightning.dsp` installation in place when Android accepts
   the module APK's signing certificate, preserving the app data.
 * If Android reports a signer mismatch, ask through a system notification and
   wait 30 seconds for Volume Up (remove and replace) or Volume Down (keep).
 * Treat timeout as No by default; keep the existing app, copy the new APK to
-  `/sdcard/Download/JamesDSPManager.apk`, and avoid repeating the prompt for
+  `/sdcard/Download/LightningDSP.apk`, and avoid repeating the prompt for
   the same module APK on every boot.
 * Host-test both choices, the timeout default, matching-signature update, and
   the one-time decline behavior. Device validation is still pending.
@@ -230,7 +306,7 @@
 * Keep late-load preparation, locking, linker validation, and reload behavior
   unchanged.
 * Stage the config and effect through systemless module overlays only.
-* Bundle the Zahah-signed JamesDSP 1.6.15 integration APK (version code 56).
+* Bundle the Zahah-signed LightningDSP 1.6.15 integration APK (version code 56).
   The APK is built from the local 1.6.14 source snapshot with the Volume
   Manager integration, not from upstream 1.6.15 source.
 * Host tests pass; this specific regular-boot package has not yet been flashed
@@ -238,7 +314,7 @@
 
 ### v6.5.9
 
-* JamesDSP works through Android's default effect factory and does not require
+* LightningDSP works through Android's default effect factory and does not require
   PIXAML. PIXAML remains an optional companion for setups that need AML-specific
   compatibility or other AML-based effects.
 * Serialize repeated KernelSU late-load preparation callbacks and replace the
@@ -249,11 +325,11 @@
 
 ### v6.5.8
 
-* Make PIXAML optional for late-load. JamesDSP uses `IFactory/default`; the
+* Make PIXAML optional for late-load. LightningDSP uses `IFactory/default`; the
   guarded refresh no longer depends on PIXAML's standalone AML factory or
   process.
 * Start the app installer from the late-load service path before the guarded
-  audio refresh. It installs the selected APK only when the exact `james.dsp`
+  audio refresh. It installs the selected APK only when the exact `com.lightning.dsp`
   package is missing; it never updates, uninstalls, or wipes the user's app
   data.
 * Keep everything systemless: the built-in early-boot path stays separate, and
@@ -275,14 +351,14 @@
 
 * v6.5.5-mustang-late-load: when the physical vendor AIDL effect XML is absent,
   translate the observed stock `/system/etc/audio_effects.xml` library paths to
-  the Pixel's AIDL libraries before adding JamesDSP. The guarded refresh now
+  the Pixel's AIDL libraries before adding LightningDSP. The guarded refresh now
   requires the complete observed stock UUID set before and after it.
 * v6.5.5-mustang-late-load: set script modes during installation and invoke the
   reload through `sh` so installers that normalize module files to `0644` do
   not suppress the guarded late-load action.
 
 * v6.5.4-late-load-reload-exp: add an experimental KernelSU late-load path that
-  requires PIXAML v0.9.5 private-config, mounts the systemless JamesDSP effect,
+  requires PIXAML v0.9.5 private-config, mounts the systemless LightningDSP effect,
   patches AIDL NDK dependencies before Magic Mount-rs consumes the tree,
   validates linker resolution, then performs one guarded
   `ctl.restart vendor.audio-hal-aidl` from `service.sh` so `IFactory/default`
@@ -298,7 +374,7 @@
 * Re-sign both unchanged root APKs with the maintainer key. Existing APKs with
   another certificate cannot be updated in place and are never uninstalled by
   the module; back up app data before manual migration.
-* Keep existing `james.dsp` installation and data when updating or removing
+* Keep existing `com.lightning.dsp` installation and data when updating or removing
   the module. The ThePBone APK remains v1.6.15; only its signature changed.
 
 ### v6.5 RC- 12.29.2025
@@ -341,12 +417,12 @@
 
 * mmtex v3.6 update
 * Update pbone apk
-* Update jdsp app/libs
+* Update ldsp app/libs
 
 ### v5.8 - 9.11.2023
 
 * Update pbone apk
-* Update jdsp app/libs
+* Update ldsp app/libs
 * mmtex v3.5 update
 
 ### v5.7 - 9.3.2023
@@ -368,7 +444,7 @@
 ### v5.4 - 8.13.2023
 
 * Update to mmtex v3.3
-* Update the thepbone jdsp app
+* Update the thepbone ldsp app
 
 ### v5.3 - 8.11.2023
 
@@ -408,11 +484,11 @@
 
 ### v4.6 - 8.4.2022
 
-* Update jdsp libs
+* Update ldsp libs
 
 ### v4.5 - 6.25.2022
 
-* Update jdsp libs
+* Update ldsp libs
 
 ### v4.4 - 1.31.2022
 
@@ -623,7 +699,7 @@
 
 ### v1.6.5 - 8.26.2018
 
-* New JamesDSP build (Now supports HTC devices)
+* New LightningDSP build (Now supports HTC devices)
 * Fixed bit depth problem from HTC and Android Pie
 * Upgraded Fast Fourier Transform libraryand  Android NDK
 
@@ -697,7 +773,7 @@
 
 ### v1.4.1 - 2.16.2018
 
-* Updated jdsp to new version
+* Updated ldsp to new version
 
 ### v1.4 - 2.16.2018
 
@@ -729,6 +805,6 @@
 
 ## Source Code
 
-* Module [GitHub](https://github.com/therealahrion/JamesDSPManager)
+* Module [GitHub](https://github.com/therealahrion/LightningDSPManager)
 
-App [GitHub](https://github.com/james34602/JamesDSPManager)
+App [GitHub](https://github.com/james34602/LightningDSPManager)

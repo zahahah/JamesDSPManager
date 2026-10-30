@@ -6,12 +6,12 @@ STATUS="$LOGDIR/audio-reload.status"
 BOOT_GUARD="$LOGDIR/audio-reload.boot-id"
 DUMP_BEFORE="$LOGDIR/audio-reload-before.txt"
 DUMP_AFTER="$LOGDIR/audio-reload-after.txt"
-JDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
+LDSP_UUID=f27317f4-c984-4de6-9a90-545759495bf2
 DUMP_STOCK_UUID_ANCHOR=50deaa30-4a83-4b1f-bfe3-dec6d605ede0
 XML_UUID_ANCHOR=ce772f20-847d-11df-bb17-0002a5d5c51b
 XML_LIB_ANCHOR=libbundleaidl.so
 EXPECTED_STOCK_EFFECT_COUNT=21
-EXPECTED_EFFECT_COUNT_WITH_JDSP=22
+EXPECTED_EFFECT_COUNT_WITH_LDSP=22
 STOCK_UUIDS='
 ce772f20-847d-11df-bb17-0002a5d5c51b
 8631f300-72e2-11df-b57e-0002a5d5c51b
@@ -37,20 +37,20 @@ f8f88a03-fdf8-4554-8e60-77fbf8f2d3b0
 '
 DEFAULT_FACTORY=android.hardware.audio.effect.IFactory/default
 AML_FACTORY=android.hardware.audio.effect.IFactory/aml
-INIT_SERVICE=${JDSP_AUDIO_HAL_INIT_SERVICE:-vendor.audio-hal-aidl}
-HAL_PROCESS=${JDSP_AUDIO_HAL_PROCESS:-android.hardware.audio.service-aidl.aoc}
-PIXAML_PROCESS=${JDSP_PIXAML_PROCESS:-vendor.aml.effect-service}
-GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
-SETPROP_BIN=${JDSP_SETPROP_BIN:-/system/bin/setprop}
-DUMPSYS_BIN=${JDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
-SERVICE_BIN=${JDSP_SERVICE_BIN:-/system/bin/service}
-LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
-PIDOF_BIN=${JDSP_PIDOF_BIN:-/system/bin/pidof}
-SLEEP_BIN=${JDSP_SLEEP_BIN:-/system/bin/sleep}
-BOOT_ID_FILE=${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
-PROC_ROOT=${JDSP_PROC_ROOT:-/proc}
-EFFECT_XML=${JDSP_EFFECT_XML:-/vendor/etc/audio_effects_config.xml}
-EFFECT_LIB=${JDSP_EFFECT_LIB:-/vendor/lib64/soundfx/libjamesdsp.so}
+INIT_SERVICE=${LDSP_AUDIO_HAL_INIT_SERVICE:-vendor.audio-hal-aidl}
+HAL_PROCESS=${LDSP_AUDIO_HAL_PROCESS:-android.hardware.audio.service-aidl.aoc}
+PIXAML_PROCESS=${LDSP_PIXAML_PROCESS:-vendor.aml.effect-service}
+GETPROP_BIN=${LDSP_GETPROP_BIN:-/system/bin/getprop}
+SETPROP_BIN=${LDSP_SETPROP_BIN:-/system/bin/setprop}
+DUMPSYS_BIN=${LDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
+SERVICE_BIN=${LDSP_SERVICE_BIN:-/system/bin/service}
+LINKER_BIN=${LDSP_LINKER_BIN:-/system/bin/linker64}
+PIDOF_BIN=${LDSP_PIDOF_BIN:-/system/bin/pidof}
+SLEEP_BIN=${LDSP_SLEEP_BIN:-/system/bin/sleep}
+BOOT_ID_FILE=${LDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
+PROC_ROOT=${LDSP_PROC_ROOT:-/proc}
+EFFECT_XML=${LDSP_EFFECT_XML:-/vendor/etc/audio_effects_config.xml}
+EFFECT_LIB=${LDSP_EFFECT_LIB:-/vendor/lib64/soundfx/lightningdsplib.so}
 
 mkdir -p "$LOGDIR"
 
@@ -59,8 +59,8 @@ status() {
 	exit 0
 }
 
-contains_jdsp() {
-	"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>/dev/null | grep -qi "$JDSP_UUID"
+contains_ldsp() {
+	"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>/dev/null | grep -qi "$LDSP_UUID"
 }
 
 factory_effect_count() {
@@ -91,9 +91,9 @@ alive() {
 [ -f "$MODPATH/.late-load-reload-experimental" ] || \
 	status 'SKIPPED reason=experimental_marker_missing'
 [ -f "$EFFECT_XML" ] || status 'BLOCKED reason=mounted_audio_effects_xml_missing'
-[ -f "$EFFECT_LIB" ] || status 'BLOCKED reason=mounted_jamesdsp_lib_missing'
-grep -qi "$JDSP_UUID" "$EFFECT_XML" || \
-	status 'BLOCKED reason=mounted_xml_missing_jamesdsp'
+[ -f "$EFFECT_LIB" ] || status 'BLOCKED reason=mounted_lightningdsp_lib_missing'
+grep -qi "$LDSP_UUID" "$EFFECT_XML" || \
+	status 'BLOCKED reason=mounted_xml_missing_lightningdsp'
 grep -qi "$XML_LIB_ANCHOR" "$EFFECT_XML" || \
 	status 'BLOCKED reason=mounted_xml_missing_xml_lib_anchor'
 grep -qi "$XML_UUID_ANCHOR" "$EFFECT_XML" || \
@@ -110,7 +110,7 @@ fi
 before_hal=$(hal_pid)
 alive "$before_hal" || status 'BLOCKED reason=audio_hal_pid_missing_before_restart'
 
-if contains_jdsp; then
+if contains_ldsp; then
 	printf '%s\n%s\n' "$boot_id" "$before_hal" >"$BOOT_GUARD"
 	status 'READY reason=target_already_loaded restart=not_needed'
 fi
@@ -151,7 +151,7 @@ fi
 	printf 'before_hal_pid=%s\n' "${before_hal:-missing}"
 	printf 'before_audioserver_pid=%s\n' "${before_audio:-missing}"
 	printf 'before_pixaml_pid=%s\n' "${before_pixaml:-not_active}"
-	"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|jdsp|f27317f4|50deaa30|UUID:' | head -120
+	"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|ldsp|f27317f4|50deaa30|UUID:' | head -120
 } >"$DUMP_BEFORE" 2>&1
 
 alive "$before_audio" || status 'BLOCKED reason=audioserver_pid_missing_before_restart'
@@ -178,7 +178,7 @@ printf '%s\n%s\n' "$boot_id" "$new_hal" >"$BOOT_GUARD"
 
 waited=0
 while [ "$waited" -lt 10 ]; do
-	contains_jdsp && break
+	contains_ldsp && break
 	waited=$((waited + 1))
 	"$SLEEP_BIN" 1
 done
@@ -199,16 +199,16 @@ alive "$new_audio" || status 'BLOCKED reason=audioserver_pid_missing_after_resta
 {
 	printf 'after_hal_pid=%s\n' "${new_hal:-missing}"
 	printf 'after_audioserver_pid=%s\n' "${new_audio:-missing}"
-	"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|jdsp|f27317f4|50deaa30|UUID:' | head -160
+	"$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>&1 | grep -iE 'Effects \(|james|ldsp|f27317f4|50deaa30|UUID:' | head -160
 } >"$DUMP_AFTER" 2>&1
 
-contains_jdsp || status 'BLOCKED reason=default_factory_missing_jamesdsp_after_restart'
+contains_ldsp || status 'BLOCKED reason=default_factory_missing_lightningdsp_after_restart'
 "$DUMPSYS_BIN" "$DEFAULT_FACTORY" 2>/dev/null | grep -qi "$DUMP_STOCK_UUID_ANCHOR" || \
 	status 'BLOCKED reason=default_factory_missing_stock_anchor_after_restart'
 has_all_stock_descriptors || \
 	status 'BLOCKED reason=default_factory_stock_descriptor_set_changed_after_restart'
 after_effect_count=$(factory_effect_count)
-[ "$after_effect_count" = "$EXPECTED_EFFECT_COUNT_WITH_JDSP" ] || \
+[ "$after_effect_count" = "$EXPECTED_EFFECT_COUNT_WITH_LDSP" ] || \
 	status 'BLOCKED reason=default_factory_stock_effect_count_changed_after_restart'
 
 # Short stability check: no loop and no fallback restart. Just confirm the

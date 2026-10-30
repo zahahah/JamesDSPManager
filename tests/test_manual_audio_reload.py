@@ -22,14 +22,14 @@ class ManualAudioReloadTests(unittest.TestCase):
         (module / "logs/late-load.status").write_text("READY late_load=1 boot_id=boot-1 lib=validated\n")
         (module / "logs/native-control.status").write_text("WAITING policy=typed_rules_refreshed\n")
         (module / "system/vendor/lib64/soundfx").mkdir(parents=True)
-        library = module / "system/vendor/lib64/soundfx/libjamesdsp.so"
+        library = module / "system/vendor/lib64/soundfx/lightningdsplib.so"
         library.write_bytes(b"test-library")
         script = module / "manual-audio-reload.sh"
         script.write_bytes((ROOT / "manual-audio-reload.sh").read_bytes())
         proc = root / "proc"
         (proc / "101/root/vendor/lib64/soundfx").mkdir(parents=True)
         (proc / "101/root/vendor/etc").mkdir(parents=True)
-        (proc / "101/root/vendor/lib64/soundfx/libjamesdsp.so").write_bytes(library.read_bytes())
+        (proc / "101/root/vendor/lib64/soundfx/lightningdsplib.so").write_bytes(library.read_bytes())
         (proc / "101/root/vendor/etc/audio_effects_config.xml").write_text(
             '<effect uuid="f27317f4-c984-4de6-9a90-545759495bf2"/>\n'
         )
@@ -48,13 +48,13 @@ class ManualAudioReloadTests(unittest.TestCase):
         self.executable(bin_dir / "dumpsys", f"if [ -e '{marker}' ]; then echo 'Effects (22):'; echo 'f27317f4-c984-4de6-9a90-545759495bf2'; else echo 'Effects (21):'; fi\n")
         env = {
             **os.environ,
-            "JDSP_AUDIO_HAL_INIT_SERVICE": "vendor.audio-hal-aidl",
-            "JDSP_AUDIO_HAL_PROCESS": "android.hardware.audio.service-aidl.aoc",
-            "JDSP_PROC_ROOT": str(proc),
-            "JDSP_BOOT_ID_FILE": str(root / "boot-id"),
+            "LDSP_AUDIO_HAL_INIT_SERVICE": "vendor.audio-hal-aidl",
+            "LDSP_AUDIO_HAL_PROCESS": "android.hardware.audio.service-aidl.aoc",
+            "LDSP_PROC_ROOT": str(proc),
+            "LDSP_BOOT_ID_FILE": str(root / "boot-id"),
         }
         for name in ("id", "flock", "getprop", "linker", "service", "sleep", "pidof", "setprop", "dumpsys"):
-            env["JDSP_" + name.upper() + "_BIN"] = str(bin_dir / name)
+            env["LDSP_" + name.upper() + "_BIN"] = str(bin_dir / name)
         return script, marker, env
 
     def test_not_invoked_by_boot_hooks(self):
@@ -69,7 +69,7 @@ class ManualAudioReloadTests(unittest.TestCase):
             fake_setprop.chmod(0o755)
             result = subprocess.run(
                 ["sh", str(ROOT / "manual-audio-reload.sh")],
-                env={**os.environ, "JDSP_SETPROP_BIN": str(fake_setprop)},
+                env={**os.environ, "LDSP_SETPROP_BIN": str(fake_setprop)},
                 capture_output=True, text=True,
             )
             self.assertNotEqual(result.returncode, 0)
@@ -93,7 +93,7 @@ class ManualAudioReloadTests(unittest.TestCase):
     def test_hal_identity_is_required_before_restart(self):
         with tempfile.TemporaryDirectory() as tmp:
             script, marker, env = self.fixture(Path(tmp))
-            env.pop("JDSP_AUDIO_HAL_INIT_SERVICE")
+            env.pop("LDSP_AUDIO_HAL_INIT_SERVICE")
             result = subprocess.run(["sh", str(script), "--manual-once"], env=env,
                                     capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
@@ -140,7 +140,7 @@ class ManualAudioReloadTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             script, marker, env = self.fixture(root)
-            self.executable(Path(env['JDSP_GETPROP_BIN']),
+            self.executable(Path(env['LDSP_GETPROP_BIN']),
                             'case "$1" in ro.product.device) echo h8q ;; *) echo running ;; esac\n')
             result = subprocess.run(['sh', str(script), '--manual-once'], env=env,
                                     capture_output=True, text=True)

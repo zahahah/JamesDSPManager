@@ -2,15 +2,15 @@
 API="$(getprop ro.build.version.sdk)"
 [ "$API" -ge 26 ] && libdir="/vendor" || libdir="/system"
 
-if [ -f /data/adb/modules/ainur_jamesdsp/.AIDL ]; then
+if [ -f /data/adb/modules/ainur_lightningdsp/.AIDL ]; then
 AIDL=true
 else
 AIDL=false
 fi
 
-LIB=libjamesdsp.so
-LIBNAME=jdsp
-NAME=jamesdsp
+LIB=lightningdsplib.so
+LIBNAME=ldsp
+NAME=lightningdsp
 UUID=f27317f4-c984-4de6-9a90-545759495bf2
 TYPE=f98765f4-c321-5de6-9a45-123459495ab2
 

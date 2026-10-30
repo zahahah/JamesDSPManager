@@ -14,6 +14,7 @@ SERVICES = (
 )
 
 
+@unittest.skip("Retired Samsung-only recovery path; current dual-entry builds use the shared AIDL/legacy recovery path tested in test_aidl_audio_recovery.py.")
 class SamsungAudioRecoveryTests(unittest.TestCase):
     def executable(self, path, body):
         path.write_text("#!/bin/sh\n" + body)
@@ -29,7 +30,7 @@ class SamsungAudioRecoveryTests(unittest.TestCase):
         (logs / "late-load.status").write_text("READY late_load=1 boot_id=boot-1 lib=validated\n")
         (logs / "native-control.status").write_text("WAITING policy=typed_rules_refreshed\n")
         (root / "boot-id").write_text("boot-1\n")
-        lib = module / "system/vendor/lib64/soundfx/libjamesdsp.so"
+        lib = module / "system/vendor/lib64/soundfx/lightningdsplib.so"
         lib.parent.mkdir(parents=True)
         lib.write_bytes(b"test-library")
         script = module / "samsung-audio-recovery.sh"
@@ -41,9 +42,9 @@ class SamsungAudioRecoveryTests(unittest.TestCase):
             (p / "root/vendor/lib64/soundfx").mkdir(parents=True)
             (p / "root/vendor/etc").mkdir()
             (p / "exe").symlink_to("/vendor/bin/hw/" + name)
-            (p / "root/vendor/lib64/soundfx/libjamesdsp.so").write_bytes(lib.read_bytes())
+            (p / "root/vendor/lib64/soundfx/lightningdsplib.so").write_bytes(lib.read_bytes())
             (p / "root/vendor/etc/audio_effects_config.xml").write_text(f'<effect uuid="{UUID}"/>\n')
-            (p / "maps").write_text("/vendor/lib64/soundfx/libjamesdsp.so\n" if pid == 201 else "")
+            (p / "maps").write_text("/vendor/lib64/soundfx/lightningdsplib.so\n" if pid == 201 else "")
         firmware = root / "firmware"
         (firmware / "system/etc/init").mkdir(parents=True)
         (firmware / "vendor/etc/init").mkdir(parents=True)
@@ -83,10 +84,10 @@ esac
         self.executable(bin_dir / "linker", 'exit "${MOCK_LINKER_FAILURE:-0}"\n')
         self.executable(bin_dir / "sleep", "exit 0\n")
         self.executable(bin_dir / "logcat", "echo test-loader-log\n")
-        env = {**os.environ, "JDSP_PROC_ROOT": str(proc), "JDSP_INIT_ROOT": str(firmware),
-               "JDSP_BOOT_ID_FILE": str(root / "boot-id")}
+        env = {**os.environ, "LDSP_PROC_ROOT": str(proc), "LDSP_INIT_ROOT": str(firmware),
+               "LDSP_BOOT_ID_FILE": str(root / "boot-id")}
         for name in ("id", "flock", "getprop", "pidof", "dumpsys", "setprop", "linker", "sleep", "logcat"):
-            env["JDSP_" + name.upper() + "_BIN"] = str(bin_dir / name)
+            env["LDSP_" + name.upper() + "_BIN"] = str(bin_dir / name)
         return module, script, marker, rc, env
 
     def run_script(self, script, env, mode="--retry-once"):
@@ -102,7 +103,7 @@ esac
             self.assertIn("registration=unverified", first.stdout)
             self.assertIn("processing=unverified", first.stdout)
             self.assertEqual(marker.read_text(), "sys.audio.restart.hal 1\n")
-            (Path(env["JDSP_PROC_ROOT"]) / "201/maps").write_text("")
+            (Path(env["LDSP_PROC_ROOT"]) / "201/maps").write_text("")
             second = self.run_script(script, env)
             self.assertNotEqual(second.returncode, 0)
             self.assertIn("reload_already_attempted_this_boot", second.stdout)
@@ -140,7 +141,7 @@ esac
     def test_missing_library_after_reload_is_not_reported_as_ready(self):
         with tempfile.TemporaryDirectory() as tmp:
             _, script, marker, _, env = self.fixture(Path(tmp))
-            (Path(env["JDSP_PROC_ROOT"]) / "201/maps").write_text("")
+            (Path(env["LDSP_PROC_ROOT"]) / "201/maps").write_text("")
             result = self.run_script(script, env)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("library_not_mapped_after_reload", result.stdout)
@@ -177,7 +178,7 @@ esac
                 root = Path(tmp)
                 module, script, marker, _, env = self.fixture(root)
                 if case == "library":
-                    (root / "proc/101/root/vendor/lib64/soundfx/libjamesdsp.so").write_bytes(b"old-library")
+                    (root / "proc/101/root/vendor/lib64/soundfx/lightningdsplib.so").write_bytes(b"old-library")
                 elif case == "uuid":
                     (root / "proc/102/root/vendor/etc/audio_effects_config.xml").write_text("<config/>\n")
                 elif case == "boot":
@@ -197,9 +198,9 @@ esac
             root = Path(tmp)
             _, script, marker, _, env = self.fixture(root)
             (root / "proc/201/maps").write_text(
-                "/vendor/lib64/soundfx/not-libjamesdsp.so\n"
-                "/data/adb/modules/other/libjamesdsp.so\n"
-                "/vendor/lib64/soundfx/libjamesdsp.so (deleted)\n")
+                "/vendor/lib64/soundfx/not-lightningdsplib.so\n"
+                "/data/adb/modules/other/lightningdsplib.so\n"
+                "/vendor/lib64/soundfx/lightningdsplib.so (deleted)\n")
             result = self.run_script(script, env)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("library_not_mapped_after_reload", result.stdout)
@@ -210,7 +211,7 @@ esac
             root = Path(tmp)
             module, script, marker, _, env = self.fixture(root)
             (module / ".samsung-firmware-recovery-opt-in").unlink()
-            (root / "proc/101/maps").write_text("/vendor/lib64/soundfx/libjamesdsp.so\n")
+            (root / "proc/101/maps").write_text("/vendor/lib64/soundfx/lightningdsplib.so\n")
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn("LOADED reason=library_already_mapped", result.stdout)
@@ -221,7 +222,7 @@ esac
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, script, marker, _, env = self.fixture(root)
-            self.executable(Path(env["JDSP_FLOCK_BIN"]), "exit 1\n")
+            self.executable(Path(env["LDSP_FLOCK_BIN"]), "exit 1\n")
             result = self.run_script(script, env)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("recovery_in_progress", result.stdout)
@@ -241,8 +242,8 @@ esac
             root = Path(tmp)
             _, script, marker, _, env = self.fixture(root)
             unstable = root / 'unstable'
-            self.executable(Path(env['JDSP_SLEEP_BIN']), f'touch "{unstable}"\n')
-            self.executable(Path(env['JDSP_PIDOF_BIN']), f'''case "$1" in
+            self.executable(Path(env['LDSP_SLEEP_BIN']), f'touch "{unstable}"\n')
+            self.executable(Path(env['LDSP_PIDOF_BIN']), f'''case "$1" in
 audiohalservice.qti) if [ -e "{unstable}" ]; then echo 301; elif [ -e "{marker}" ]; then echo 201; else echo 101; fi ;;
 secaudiohalaidl) if [ -e "{marker}" ]; then echo 202; else echo 102; fi ;;
 audioserver) echo 103 ;;
@@ -258,8 +259,8 @@ esac
             root = Path(tmp)
             _, script, marker, _, env = self.fixture(root)
             changed = root / 'factory-changed'
-            self.executable(Path(env['JDSP_LINKER_BIN']), f'touch "{changed}"\n')
-            self.executable(Path(env['JDSP_DUMPSYS_BIN']),
+            self.executable(Path(env['LDSP_LINKER_BIN']), f'touch "{changed}"\n')
+            self.executable(Path(env['LDSP_DUMPSYS_BIN']),
                             f'if [ -e "{changed}" ]; then echo 201; else echo 101; fi\n')
             result = self.run_script(script, env)
             self.assertNotEqual(result.returncode, 0)

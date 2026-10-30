@@ -17,9 +17,15 @@ if [ -x "$MODPATH/dsp-thread-profile.sh" ]; then
 		>>"$MODPATH/logs/dsp-thread-profile.log" 2>&1 </dev/null &
 fi
 
-start_jdsp_app_installer() {
-	[ -f "$MODPATH/jdsp_app.sh" ] || return 0
-	MODPATH="$MODPATH" sh "$MODPATH/jdsp_app.sh" >/dev/null 2>&1 &
+start_lightningdsp_app_installer() {
+	[ -f "$MODPATH/lightningdsp_app.sh" ] || return 0
+	MODPATH="$MODPATH" sh "$MODPATH/lightningdsp_app.sh" >/dev/null 2>&1 &
+}
+
+schedule_lightningdsp_background_start() {
+	[ -f "$MODPATH/lightningdsp-app-start.sh" ] || return 0
+	sh "$MODPATH/lightningdsp-app-start.sh" "$MODPATH" "${1:-10}" \
+		>"$MODPATH/logs/app-start.log" 2>&1 </dev/null &
 }
 
 CURRENT_BOOT_ID=$(cat /proc/sys/kernel/random/boot_id 2>/dev/null)
@@ -31,17 +37,22 @@ fi
 if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ] || \
 	[ -f "$MODPATH/.late-load-reload-experimental" ]; then
 	mkdir -p "$MODPATH/logs"
-	start_jdsp_app_installer
+	start_lightningdsp_app_installer
 	if { [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ]; } && \
 		[ -x "$MODPATH/audio-hal-recovery.sh" ]; then
 		(
-			"${JDSP_SLEEP_BIN:-/system/bin/sleep}" 10
+			"${LDSP_SLEEP_BIN:-/system/bin/sleep}" 10
 			sh "$MODPATH/audio-hal-recovery.sh" --auto-once \
 				>>"$MODPATH/logs/audio-hal-recovery.log" 2>&1
+			# The ten-second delay has elapsed. Do not attach just before recovery.
+			schedule_lightningdsp_background_start 0
 		) </dev/null >/dev/null 2>&1 &
 		printf 'SCHEDULED reason=late_load_recovery delay_seconds=10 restart=one_shot processing=unverified\n' \
 			>"$MODPATH/logs/service.status"
 	else
+		if [ "${KSU_LATE_LOAD:-0}" = 1 ] || [ "$LATE_LOAD_READY_THIS_BOOT" = true ]; then
+			schedule_lightningdsp_background_start
+		fi
 		printf 'SKIPPED reason=not_kernel_su_late_load restart=not_requested processing=unverified\n' \
 		>"$MODPATH/logs/service.status"
 	fi
@@ -64,7 +75,7 @@ MOD_ODM="$MODPATH/odm"
 fi
 
 # effect lib we're looking for existence in system and module
-EFFECT_LIBS="libjamesdsp.so"
+EFFECT_LIBS="lightningdsplib.so"
 
 # function which is used by mount functions
 # check and eventual mount logic
@@ -141,7 +152,7 @@ mount_apex
 
 # mounting audio_effects IF it's not already mounted and it's seeking for mounted lib before doing any action
 AUD=$(find $MODPATH/system $MOD_VENDOR $MOD_ODM -type f -name "*audio_effects*.conf" -o -name "*audio_effects*.xml")
-if [ -f /vendor/lib/soundfx/libjamesdsp.so ] || [ -f /vendor/lib64/soundfx/libjamesdsp.so ];then
+if [ -f /vendor/lib/soundfx/lightningdsplib.so ] || [ -f /vendor/lib64/soundfx/lightningdsplib.so ];then
 	if [ ! -z "$AUD" ]; then
 		MOUNTED=false
 		for i in $AUD; do
@@ -175,5 +186,8 @@ done
 ) >/dev/null 2>&1 &
 set +x
 
-# launching jdsp_app.sh
-start_jdsp_app_installer
+# launching lightningdsp_app.sh
+start_lightningdsp_app_installer
+
+# Initialize the app service silently after mounts, without launching its UI.
+schedule_lightningdsp_background_start 0

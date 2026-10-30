@@ -1,0 +1,56 @@
+{
+  "iteration": 6,
+  "state": "ready-for-package",
+  "wireProtocol": 3,
+  "service": "ldsp.control",
+  "descriptor": "lightning.dsp.ILightningDspControl",
+  "profile": "dual-entry-effect-v4-legacy-arm64",
+  "nativeSource": {
+    "repository": "https://github.com/zahahah/LibLightningDSP-OSS",
+    "branch": "ldsp-rebrand",
+    "commit": "4971a4d6619c22c40ca341c659bd579eb1d8f06a"
+  },
+  "appSource": {
+    "repository": "https://github.com/zahahah/RootJamesDSP",
+    "branch": "ldsp-rebrand",
+    "commit": "c98399a86d7da337828862e5fa763ab198d74ea8",
+    "buildBaseCommit": "c98399a86d7da337828862e5fa763ab198d74ea8",
+    "builtFromWorkingTree": false,
+    "buildNote": "Owner-signed root APK built from the clean, committed app source at appSource.commit."
+  },
+  "artifacts": {
+    "app": {
+      "path": "common/files/LightningDSP.apk",
+      "sha256": "8126599e5e7b86c9a154a56945df65fbee0112daa006cd87ac9b69d94ebe6ad6",
+      "sizeBytes": 35995232,
+      "packageId": "com.lightning.dsp",
+      "versionName": "1.7-beta-8",
+      "versionCode": 77,
+      "signatureVerified": true,
+      "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
+      "sourceCommit": "c98399a86d7da337828862e5fa763ab198d74ea8"
+    },
+    "driver": {
+      "path": "common/files/dual-entry-arm64/lightningdsplib.so",
+      "sha256": "5689d5bbb027f176c266095852826f1712c22d17c5955780a393089ac0cb84d9",
+      "sizeBytes": 2252616
+    },
+    "helper": {
+      "path": "common/files/control/arm64-v8a/ldspctl",
+      "sha256": "0e96f2e69e6e94395f77190b8a753eb056a778b4f73e09dc3617e7e80cee2880",
+      "sizeBytes": 307136
+    }
+  },
+  "notices": {
+    "path": "native-control/ldsp-NOTICES.txt",
+    "sha256": "50c2f46084106c9903bebb2b96805d91d817af4a6010dfbe04a1769c067bb591",
+    "sizeBytes": 298566
+  },
+  "buildProvenance": "native-control/ldsp-build-provenance.json",
+  "notes": [
+    "One ARM64 dual-entry effect driver supports the embedded AIDL Effect V4 interface and the legacy AELI factory entry.",
+    "Global Binder control is ldsp.control protocol 3. Audio effect UUIDs remain unchanged for effect attachment compatibility.",
+    "Android factory, Binder authorization, audio processing, and device compatibility remain unverified for this build.",
+    "Native driver and helper are reused unchanged. The owner-signed root app is rebuilt as 1.7-beta-8/code 77 from committed app source, with the live System Framework hook readiness gate restored for Disable App Audio Focus."
+  ]
+}

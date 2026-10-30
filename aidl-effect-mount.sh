@@ -7,14 +7,14 @@ MODPATH=${0%/*}
 LOGDIR="$MODPATH/logs"
 mkdir -p "$LOGDIR" || exit 1
 STATUS="$LOGDIR/aidl-effect-mount.status"
-INIT_ROOT=${JDSP_INIT_ROOT:-/proc/1/root}
-ID_BIN=${JDSP_ID_BIN:-/system/bin/id}
-FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
-NSENTER_BIN=${JDSP_NSENTER_BIN:-/system/bin/nsenter}
-MOUNT_BIN=${JDSP_MOUNT_BIN:-/system/bin/mount}
-CHCON_BIN=${JDSP_CHCON_BIN:-/system/bin/chcon}
-LS_BIN=${JDSP_LS_BIN:-/system/bin/ls}
-BOOT_ID_FILE=${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
+INIT_ROOT=${LDSP_INIT_ROOT:-/proc/1/root}
+ID_BIN=${LDSP_ID_BIN:-/system/bin/id}
+FLOCK_BIN=${LDSP_FLOCK_BIN:-/system/bin/flock}
+NSENTER_BIN=${LDSP_NSENTER_BIN:-/system/bin/nsenter}
+MOUNT_BIN=${LDSP_MOUNT_BIN:-/system/bin/mount}
+CHCON_BIN=${LDSP_CHCON_BIN:-/system/bin/chcon}
+LS_BIN=${LDSP_LS_BIN:-/system/bin/ls}
+BOOT_ID_FILE=${LDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
 UUID=f27317f4-c984-4de6-9a90-545759495bf2
 
 finish() {
@@ -35,28 +35,82 @@ patch_config() {
     # untouched vendor lines keep their CRLF/LF bytes. Mixed endings are valid
     # XML and occur when module-inserted LF entries join stock CRLF configs.
     awk -v uuid="$UUID" '
-    { original_line=$0; sub(/\r$/, "") }
-    /<!--/ { comment=1 }
-    comment { print original_line; if (/-->/) comment=0; next }
-    /name="(jdsp|jamesdsp)"/ || index($0, uuid) {
-        if ($0 ~ /^[ \t]*<library[ \t]+name="jdsp"[ \t]+path="[^"]+"[ \t]*\/>[ \t]*$/ ||
-            $0 ~ /^[ \t]*<effect[ \t]+name="jamesdsp"[ \t]+.*\/>[ \t]*$/) next
-        bad=1; next
+    function attr(line, key, token, tail, end) {
+        token = key "=\""
+        if (!index(line, token)) return ""
+        tail = substr(line, index(line, token) + length(token))
+        end = index(tail, "\"")
+        return end ? substr(tail, 1, end - 1) : ""
     }
-    { print original_line }
-    /^[ \t]*<audio_effects_conf[ \t>]/ { root++ }
-    /^[ \t]*<\/audio_effects_conf>[ \t]*$/ { endroot++ }
-    /^[ \t]*<libraries>[ \t]*$/ {
-        libs++
-        print "        <library name=\"jdsp\" path=\"libjamesdsp.so\"/>"
+    {
+        original[NR] = $0
+        normalized[NR] = $0
+        sub(/\r$/, "", normalized[NR])
+        count = NR
     }
-    /^[ \t]*<\/libraries>[ \t]*$/ { endlibs++ }
-    /^[ \t]*<effects>[ \t]*$/ {
-        effects++
-        print "        <effect name=\"jamesdsp\" library=\"jdsp\" uuid=\"" uuid "\" type=\"f98765f4-c321-5de6-9a45-123459495ab2\"/>"
+    END {
+        # The effect UUID is the stable identity. Derive any old library alias
+        # from its own effect entry, rather than depending on a legacy name.
+        in_comment = 0
+        for (i = 1; i <= count; i++) {
+            line = normalized[i]
+            if (in_comment) {
+                if (index(line, "<!--")) bad = 1
+                if (index(line, "-->")) in_comment = 0
+                continue
+            }
+            if (index(line, "<!--")) { if (!index(line, "-->")) in_comment = 1; continue }
+            if (index(line, uuid) && line ~ /^[ \t]*<effect[ \t]+/) {
+                alias = attr(line, "library")
+                if (alias != "") target_alias[alias] = 1
+            }
+        }
+        in_comment = 0
+        for (i = 1; i <= count; i++) {
+            line = normalized[i]
+            if (in_comment) {
+                if (index(line, "<!--")) bad = 1
+                if (index(line, "-->")) in_comment = 0
+                continue
+            }
+            if (index(line, "<!--")) { if (!index(line, "-->")) in_comment = 1; continue }
+            if (line ~ /^[ \t]*<effect[ \t]+/ && !index(line, uuid)) {
+                alias = attr(line, "library")
+                if (alias in target_alias) shared_alias[alias] = 1
+            }
+        }
+        for (i = 1; i <= count; i++) {
+            line = normalized[i]
+            if (index(line, "<!--")) in_comment = !index(line, "-->")
+            else if (in_comment) { if (index(line, "-->")) in_comment = 0 }
+            else if (index(line, uuid)) {
+                if (line ~ /^[ \t]*<effect[ \t]+/ && line ~ /\/>[ \t]*$/) continue
+                bad = 1; continue
+            } else if (line ~ /^[ \t]*<library[ \t]+/ && attr(line, "name") in target_alias &&
+                       !(attr(line, "name") in shared_alias)) {
+                if (line !~ /^[ \t]*<library[ \t]+[^>]+\/>[ \t]*$/) bad = 1
+                continue
+            } else if (line ~ /name="(ldsp|lightningdsp)"/) {
+                if (line ~ /^[ \t]*<library[ \t]+name="ldsp"[ \t]+path="[^"]+"[ \t]*\/>[ \t]*$/ ||
+                    line ~ /^[ \t]*<effect[ \t]+name="lightningdsp"[ \t]+.*\/>[ \t]*$/) continue
+                bad = 1; continue
+            }
+            print original[i]
+            if (line ~ /^[ \t]*<audio_effects_conf[ \t>]/) root++
+            if (line ~ /^[ \t]*<\/audio_effects_conf>[ \t]*$/) endroot++
+            if (line ~ /^[ \t]*<libraries>[ \t]*$/) {
+                libs++
+                print "        <library name=\"ldsp\" path=\"lightningdsplib.so\"/>"
+            }
+            if (line ~ /^[ \t]*<\/libraries>[ \t]*$/) endlibs++
+            if (line ~ /^[ \t]*<effects>[ \t]*$/) {
+                effects++
+                print "        <effect name=\"lightningdsp\" library=\"ldsp\" uuid=\"" uuid "\" type=\"f98765f4-c321-5de6-9a45-123459495ab2\"/>"
+            }
+            if (line ~ /^[ \t]*<\/effects>[ \t]*$/) endeffects++
+        }
+        if (bad || in_comment || root != 1 || endroot != 1 || libs != 1 || endlibs != 1 || effects != 1 || endeffects != 1) exit 1
     }
-    /^[ \t]*<\/effects>[ \t]*$/ { endeffects++ }
-    END { if (bad || comment || root != 1 || endroot != 1 || libs != 1 || endlibs != 1 || effects != 1 || endeffects != 1) exit 1 }
     ' "$1" >"$2"
 }
 
@@ -73,7 +127,7 @@ exec 0>"$LOGDIR/aidl-effect-mount.lock" || finish 'BLOCKED reason=lock_open_fail
 "$FLOCK_BIN" -n 0 || finish 'BLOCKED reason=mount_in_progress'
 "$NSENTER_BIN" -t 1 -m -- /system/bin/true || finish 'BLOCKED reason=init_namespace_unavailable'
 
-source_lib="$MODPATH/system/vendor/lib64/soundfx/libjamesdsp.so"
+source_lib="$MODPATH/system/vendor/lib64/soundfx/lightningdsplib.so"
 [ -s "$source_lib" ] || finish 'BLOCKED reason=source_library_missing'
 [ -d "$INIT_ROOT/vendor/lib64/soundfx" ] || finish 'BLOCKED reason=vendor_soundfx_directory_missing'
 # Do not replace all of /vendor/etc to invent a missing file. The manager must
@@ -84,22 +138,22 @@ stage=$(mktemp -d "$MODPATH/.aidl-mount/$boot_id.XXXXXX") || finish 'BLOCKED rea
 plan="$stage/plan"
 : >"$plan"
 
-target=/vendor/lib64/soundfx/libjamesdsp.so
+target=/vendor/lib64/soundfx/lightningdsplib.so
 if ! cmp -s "$source_lib" "$INIT_ROOT$target" || \
     [ "$(label_of "$INIT_ROOT$target")" != u:object_r:vendor_file:s0 ]; then
-    cp -p "$source_lib" "$stage/libjamesdsp.so" || finish 'BLOCKED reason=library_stage_failed'
-    chmod 0644 "$stage/libjamesdsp.so" || finish 'BLOCKED reason=library_stage_failed'
-    "$CHCON_BIN" u:object_r:vendor_file:s0 "$stage/libjamesdsp.so" || finish 'BLOCKED reason=library_label_failed'
+    cp -p "$source_lib" "$stage/lightningdsplib.so" || finish 'BLOCKED reason=library_stage_failed'
+    chmod 0644 "$stage/lightningdsplib.so" || finish 'BLOCKED reason=library_stage_failed'
+    "$CHCON_BIN" u:object_r:vendor_file:s0 "$stage/lightningdsplib.so" || finish 'BLOCKED reason=library_label_failed'
     if [ -e "$INIT_ROOT$target" ]; then
-        printf '%s\t%s\t%s\n' "$stage/libjamesdsp.so" "$target" u:object_r:vendor_file:s0 >>"$plan"
+        printf '%s\t%s\t%s\n' "$stage/lightningdsplib.so" "$target" u:object_r:vendor_file:s0 >>"$plan"
     else
         # A bind mount cannot create a file on read-only vendor. Preserve every
         # existing soundfx entry and its labels, including other audio modules.
         mkdir "$stage/soundfx" && cp -a "$INIT_ROOT/vendor/lib64/soundfx/." "$stage/soundfx/" || \
             finish 'BLOCKED reason=library_directory_stage_failed'
-        cp -p "$stage/libjamesdsp.so" "$stage/soundfx/libjamesdsp.so" || finish 'BLOCKED reason=library_stage_failed'
+        cp -p "$stage/lightningdsplib.so" "$stage/soundfx/lightningdsplib.so" || finish 'BLOCKED reason=library_stage_failed'
         "$CHCON_BIN" --reference="$INIT_ROOT/vendor/lib64/soundfx" "$stage/soundfx" && \
-            "$CHCON_BIN" u:object_r:vendor_file:s0 "$stage/soundfx/libjamesdsp.so" || finish 'BLOCKED reason=library_label_failed'
+            "$CHCON_BIN" u:object_r:vendor_file:s0 "$stage/soundfx/lightningdsplib.so" || finish 'BLOCKED reason=library_label_failed'
         printf '%s\t%s\t%s\n' "$stage/soundfx" /vendor/lib64/soundfx u:object_r:vendor_file:s0 >>"$plan"
     fi
 fi
@@ -150,11 +204,11 @@ while IFS="$tab" read -r source target expected_label; do
     "$NSENTER_BIN" -t 1 -m -- "$MOUNT_BIN" --bind "$source" "$target" || \
         finish "BLOCKED reason=init_bind_mount_failed mounted=$mounted target=$target restart=not_requested"
     cmp -s "$source" "$INIT_ROOT$target" || {
-        [ -d "$source" ] && cmp -s "$source/libjamesdsp.so" "$INIT_ROOT$target/libjamesdsp.so"
+        [ -d "$source" ] && cmp -s "$source/lightningdsplib.so" "$INIT_ROOT$target/lightningdsplib.so"
     } || finish "BLOCKED reason=init_mount_verification_failed mounted=$mounted target=$target restart=not_requested"
     label_target="$INIT_ROOT$target"
     case "$target" in
-        /vendor/lib64/soundfx) label_target="$label_target/libjamesdsp.so" ;;
+        /vendor/lib64/soundfx) label_target="$label_target/lightningdsplib.so" ;;
     esac
     [ "$(label_of "$label_target")" = "$expected_label" ] || \
         finish "BLOCKED reason=init_mount_label_verification_failed target=$target restart=not_requested"

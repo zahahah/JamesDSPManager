@@ -35,7 +35,7 @@ class AidlEffectMountTests(unittest.TestCase):
         (module / '.AIDL').touch()
         (module / 'logs/late-load.status').write_text('READY late_load=1 boot_id=boot-1 lib=validated\n')
         (root / 'boot-id').write_text('boot-1\n')
-        lib = module / 'system/vendor/lib64/soundfx/libjamesdsp.so'
+        lib = module / 'system/vendor/lib64/soundfx/lightningdsplib.so'
         lib.parent.mkdir(parents=True)
         lib.write_bytes(b'expected-driver')
         script = module / 'aidl-effect-mount.sh'
@@ -73,9 +73,9 @@ exec "$@"
 [ "$1" = --bind ] || exit 2
 if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
 ''')
-        env = {**os.environ, 'JDSP_INIT_ROOT': str(init), 'JDSP_BOOT_ID_FILE': str(root / 'boot-id')}
+        env = {**os.environ, 'LDSP_INIT_ROOT': str(init), 'LDSP_BOOT_ID_FILE': str(root / 'boot-id')}
         for name in ('id', 'getprop', 'flock', 'chcon', 'ls', 'nsenter', 'mount'):
-            env['JDSP_' + name.upper() + '_BIN'] = str(bin_dir / name)
+            env['LDSP_' + name.upper() + '_BIN'] = str(bin_dir / name)
         return module, script, init, env
 
     def run_script(self, script, env, mode='--mount'):
@@ -90,7 +90,7 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertIn('MOUNTED namespace=init changed=5 configs=4', result.stdout)
             self.assertIn('restart=not_requested', result.stdout)
             sfx = init / 'vendor/lib64/soundfx'
-            self.assertEqual((sfx / 'libjamesdsp.so').read_bytes(), b'expected-driver')
+            self.assertEqual((sfx / 'lightningdsplib.so').read_bytes(), b'expected-driver')
             self.assertEqual((sfx / 'stock.so').read_bytes(), b'stock-library')
             self.assertTrue((sfx / 'stock-alias.so').is_symlink())
             for config in init.rglob('audio_effects*.xml'):
@@ -105,7 +105,7 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertIn('changed=0', second.stdout)
             self.assertEqual((root / 'mount.calls').read_text(), calls)
 
-    def test_reported_samsung_mixed_newlines_mount_without_altering_vendor_bytes(self):
+    def test_reported_samsung_mixed_newlines_mount_preserves_stock_entries(self):
         data = (ROOT / 'tests/fixtures/samsung-audio_effects-mixed.xml').read_bytes()
         self.assertEqual(sha256(data).hexdigest(), 'ac1107a21c28f6b40bddf01d9d9f828499329249b82cf65fd29e2fc2b803db95')
         self.assertEqual(data.count(b'\r\n'), 25)
@@ -117,8 +117,12 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             target.write_bytes(data)
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertEqual(target.read_bytes(), data)
-            self.assertEqual((init / 'vendor/lib64/soundfx/libjamesdsp.so').read_bytes(), b'expected-driver')
+            mounted = target.read_bytes()
+            self.assertIn(b'<library name="bundle" path="libbundlewrapper.so"/>\r\n', mounted)
+            self.assertIn(b'<effect name="bassboost" library="bundle"', mounted)
+            self.assertNotIn(b'libjamesdsp.so', mounted)
+            self.assertEqual(mounted.count(UUID.encode()), 1)
+            self.assertEqual((init / 'vendor/lib64/soundfx/lightningdsplib.so').read_bytes(), b'expected-driver')
             self.assertTrue((module / 'logs/aidl-effect-mount.generation').exists())
             self.assertIn('configs=5', result.stdout)
 
@@ -133,7 +137,7 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             patched = target.read_bytes()
             stock = b''.join(line for line in patched.splitlines(keepends=True)
-                             if b'name="jdsp"' not in line and b'name="jamesdsp"' not in line)
+                             if b'name="ldsp"' not in line and b'name="lightningdsp"' not in line)
             self.assertEqual(stock, original)
             self.assertEqual(patched.count(UUID.encode()), 1)
             calls = (root / 'mount.calls').read_bytes()
@@ -142,6 +146,24 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
             self.assertIn('changed=0', result.stdout)
             self.assertEqual(target.read_bytes(), patched)
             self.assertEqual((root / 'mount.calls').read_bytes(), calls)
+
+    def test_target_effect_is_identified_by_uuid_not_historical_names(self):
+        config = XML.replace('<library name="samsung" path="libsamsung.so"/>',
+                             '<library name="vendor_fx" path="libvendor_fx.so"/>')
+        config = config.replace('<effect name="samsung" library="samsung" uuid="vendor-uuid"/>',
+                                f'<effect name="vendor_effect" library="vendor_fx" uuid="{UUID}"/>')
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            _, script, init, env = self.fixture(root)
+            target = init / 'vendor/etc/audio_effects.xml'
+            target.write_text(config)
+            result = self.run_script(script, env)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            patched = target.read_text()
+            self.assertIn('path="lightningdsplib.so"', patched)
+            self.assertIn('name="lightningdsp" library="ldsp"', patched)
+            self.assertNotIn('libvendor_fx.so', patched)
+            self.assertEqual(patched.count(UUID), 1)
 
     def test_check_stages_without_mounting_or_creating_pending_generation(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -158,16 +180,15 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, script, init, env = self.fixture(root)
-            (init / 'vendor/lib64/soundfx/libjamesdsp.so').write_bytes(b'old-driver')
+            (init / 'vendor/lib64/soundfx/lightningdsplib.so').write_bytes(b'old-driver')
             result = self.run_script(script, env)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn('/vendor/lib64/soundfx/libjamesdsp.so\n', (root / 'mount.calls').read_text())
+            self.assertIn('/vendor/lib64/soundfx/lightningdsplib.so\n', (root / 'mount.calls').read_text())
             self.assertNotIn('/vendor/lib64/soundfx\n', (root / 'mount.calls').read_text())
 
     def test_unsupported_config_aborts_all_staging_before_any_mount(self):
         for invalid in ('<config/>\n', XML.replace('<effects>', '<effects/><effects>'),
-                        XML.replace('vendor-uuid', UUID), '<!--\n' + XML,
-                        '<config/>\r\n', XML.replace('vendor-uuid', UUID).replace('\n', '\r\n')):
+                        '<!--\n' + XML, '<config/>\r\n'):
             with self.subTest(invalid=invalid), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 module, script, init, env = self.fixture(root)
@@ -235,7 +256,7 @@ if [ -d "$2" ]; then cp -a "$2/." "{init}$3/"; else cp -p "$2" "{init}$3"; fi
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             _, script, _, env = self.fixture(root)
-            self.executable(Path(env['JDSP_LS_BIN']), '''case "$2" in
+            self.executable(Path(env['LDSP_LS_BIN']), '''case "$2" in
 */system/etc/*) echo u:object_r:system_file:s0 ;;
 *.so) echo u:object_r:vendor_file:s0 ;;
 *) echo u:object_r:vendor_configs_file:s0 ;;

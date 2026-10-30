@@ -1,17 +1,18 @@
 #!/system/bin/sh
 [ -z "$MODPATH" ] && MODPATH="${0%/*}"
 
-PKG="james.dsp"
-LOGFILE="$MODPATH/logs/jamesdsp_app_install.log"
-INTERNAL_PATH="/storage/emulated/0/JamesDSPManager.apk"
-TEMP_INSTALL_PATH=${JDSP_TEMP_INSTALL_PATH:-/cache/JamesDSPManager.apk}
-KEY_TIMEOUT=${JDSP_KEY_TIMEOUT_SECONDS:-10}
-GETEVENT_BIN=${JDSP_GETEVENT_BIN:-/system/bin/getevent}
-DATA_ROOT=${JDSP_DATA_ROOT:-/data}
-DATA_BACKUP_DIR=${JDSP_DATA_BACKUP_DIR:-"$MODPATH/.jdsp-appdata-migration"}
-TAR_BIN=${JDSP_TAR_BIN:-tar}
-CHOWN_BIN=${JDSP_CHOWN_BIN:-chown}
-RESTORECON_BIN=${JDSP_RESTORECON_BIN:-restorecon}
+PKG="com.lightning.dsp"
+LEGACY_PKG="james.dsp"
+LOGFILE="$MODPATH/logs/lightningdsp_app_install.log"
+INTERNAL_PATH="/storage/emulated/0/LightningDSP.apk"
+TEMP_INSTALL_PATH=${LDSP_TEMP_INSTALL_PATH:-/cache/LightningDSP.apk}
+KEY_TIMEOUT=${LDSP_KEY_TIMEOUT_SECONDS:-10}
+GETEVENT_BIN=${LDSP_GETEVENT_BIN:-/system/bin/getevent}
+DATA_ROOT=${LDSP_DATA_ROOT:-/data}
+DATA_BACKUP_DIR=${LDSP_DATA_BACKUP_DIR:-"$MODPATH/.ldsp-appdata-migration"}
+TAR_BIN=${LDSP_TAR_BIN:-tar}
+CHOWN_BIN=${LDSP_CHOWN_BIN:-chown}
+RESTORECON_BIN=${LDSP_RESTORECON_BIN:-restorecon}
 
 # The flash installer invokes this helper from modules_update before the
 # staged module is activated, and that tree may not contain a logs/ directory.
@@ -21,8 +22,8 @@ if ! mkdir -p "${LOGFILE%/*}" 2>/dev/null; then
 	LOGFILE=/dev/null
 fi
 
-if [ -n "${JDSP_PM_CMD:-}" ]; then
-	PM_CMD="$JDSP_PM_CMD"
+if [ -n "${LDSP_PM_CMD:-}" ]; then
+	PM_CMD="$LDSP_PM_CMD"
 	METHOD_LOG="configured package command"
 elif [ -x "/system/bin/cmd" ]; then
 	PM_CMD="cmd package"
@@ -44,6 +45,10 @@ package_installed() {
 	$PM_CMD list packages 2>/dev/null | grep -Fqx "package:$PKG"
 }
 
+legacy_package_installed() {
+	$PM_CMD list packages 2>/dev/null | grep -Fqx "package:$LEGACY_PKG"
+}
+
 get_users() {
 	$PM_CMD list users 2>/dev/null | grep -o '{[0-9]*' | grep -o '[0-9]*'
 }
@@ -54,7 +59,7 @@ install_for_users() {
 	[ -n "$INSTALL_USERS" ] || INSTALL_USERS="0"
 	SUCCESS_COUNT=0
 
-	log "--- Installing JDSP app from: $APK_SOURCE ---"
+	log "--- Installing LightningDSP app from: $APK_SOURCE ---"
 	cp "$APK_SOURCE" "$TEMP_INSTALL_PATH" || {
 		log "ERROR: Failed to copy APK to cache."
 		return 1
@@ -81,6 +86,31 @@ install_for_users() {
 	done
 	rm -f "$TEMP_INSTALL_PATH"
 	[ "$SUCCESS_COUNT" -gt 0 ]
+}
+
+remove_legacy_app_for_users() {
+	LEGACY_USERS=$(get_users)
+	[ -n "$LEGACY_USERS" ] || LEGACY_USERS="0"
+	REMOVED_USERS=0
+	FAILED_USERS=0
+	ui_print "   Removing the previous james.dsp app before installing LightningDSP"
+	ui_print "   The old package's private app data will be removed and is not migrated"
+	log "Legacy app package migration requested; removing $LEGACY_PKG for all users."
+	for USER_ID in $LEGACY_USERS; do
+		if ! $PM_CMD list packages --user "$USER_ID" 2>/dev/null | grep -Fqx "package:$LEGACY_PKG"; then
+			continue
+		fi
+		OUTPUT=$($PM_CMD uninstall --user "$USER_ID" "$LEGACY_PKG" 2>&1)
+		RESULT=$?
+		log "Legacy uninstall user=$USER_ID result=$RESULT output=$OUTPUT"
+		if [ "$RESULT" -eq 0 ]; then
+			REMOVED_USERS=$((REMOVED_USERS + 1))
+		else
+			FAILED_USERS=$((FAILED_USERS + 1))
+			ui_print "   WARNING: Could not remove james.dsp for user $USER_ID"
+		fi
+	done
+	[ "$FAILED_USERS" -eq 0 ] && { [ "$REMOVED_USERS" -gt 0 ] || ! legacy_package_installed; }
 }
 
 backup_app_data() {
@@ -238,16 +268,16 @@ wait_for_replacement_choice() {
 	esac
 }
 
-echo "--- JamesDSP app installer through $METHOD_LOG ---" > "$LOGFILE"
+echo "--- LightningDSP app installer through $METHOD_LOG ---" > "$LOGFILE"
 
 # Wait until package manager is ready (service.sh path only; flash path is
 # already running inside the live Android installer).
-if [ "${JDSP_FLASH_INSTALL:-0}" != 1 ]; then
+if [ "${LDSP_FLASH_INSTALL:-0}" != 1 ]; then
 	until [ "$(getprop sys.boot_completed)" = "1" ]; do sleep 1; done
 fi
 
-if [ -f "$MODPATH/JamesDSPManager.apk" ]; then
-	APK_SOURCE="$MODPATH/JamesDSPManager.apk"
+if [ -f "$MODPATH/LightningDSP.apk" ]; then
+	APK_SOURCE="$MODPATH/LightningDSP.apk"
 elif [ -f "$INTERNAL_PATH" ]; then
 	APK_SOURCE="$INTERNAL_PATH"
 	log "No APK in module; using staged internal-storage copy."
@@ -256,8 +286,25 @@ else
 	exit 1
 fi
 
+# The package ID changed from james.dsp to com.lightning.dsp. Migrate only
+# during the explicit module-flash installer, never from the boot service.
+if [ "${LDSP_FLASH_INSTALL:-0}" = 1 ] && legacy_package_installed; then
+	if remove_legacy_app_for_users; then
+		if install_for_users "$APK_SOURCE" "$(get_users)"; then
+			log "Legacy package removed and LightningDSP installed."
+		else
+			ui_print "   ERROR: LightningDSP install failed after legacy app removal; APK remains staged for manual install"
+			log "ERROR: LightningDSP install failed after legacy package removal."
+		fi
+	else
+		ui_print "   WARNING: The previous app could not be fully removed; installing LightningDSP anyway"
+		install_for_users "$APK_SOURCE" "$(get_users)" || log "ERROR: LightningDSP install failed during legacy app migration."
+	fi
+	exit 0
+fi
+
 if package_installed; then
-	if [ "${JDSP_FLASH_INSTALL:-0}" != 1 ]; then
+	if [ "${LDSP_FLASH_INSTALL:-0}" != 1 ]; then
 		if [ -e "$DATA_BACKUP_DIR/restore-pending" ]; then
 			restore_app_data || log "Pending app-data restore remains available for retry."
 			exit 0
@@ -271,11 +318,11 @@ if package_installed; then
 	INSTALL_RESULT=$?
 	if [ "$INSTALL_RESULT" -eq 0 ]; then
 		log "Updated installed app in place (Package Manager accepted the existing signing identity)."
-		ui_print "   Existing james.dsp app updated in place"
+		ui_print "   Existing com.lightning.dsp app updated in place"
 	elif [ "$INSTALL_RESULT" -eq 2 ]; then
 		ui_print "   Installed app has a different signing certificate."
 		if wait_for_replacement_choice; then
-			ui_print "   Confirmed: removing existing james.dsp before installing ThePBone app"
+			ui_print "   Confirmed: removing existing com.lightning.dsp before installing ThePBone app"
 			log "User confirmed uninstall with volume down."
 			BACKUP_READY=0
 			if backup_app_data; then
@@ -329,7 +376,7 @@ fi
 
 # New installations are deferred to boot because package manager may not be
 # available during recovery-based module installation.
-if [ "${JDSP_FLASH_INSTALL:-0}" = 1 ]; then
+if [ "${LDSP_FLASH_INSTALL:-0}" = 1 ]; then
 	log "App is absent during module flash; first-install deferred until boot."
 	exit 0
 fi

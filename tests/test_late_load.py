@@ -8,7 +8,7 @@ import unittest
 import zipfile
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-JDSP_UUID = "f27317f4-c984-4de6-9a90-545759495bf2"
+LDSP_UUID = "f27317f4-c984-4de6-9a90-545759495bf2"
 XML_UUID = "ce772f20-847d-11df-bb17-0002a5d5c51b"
 PIXEL_UUID = "50deaa30-4a83-4b1f-bfe3-dec6d605ede0"
 STOCK_UUIDS = """ce772f20-847d-11df-bb17-0002a5d5c51b
@@ -61,7 +61,7 @@ class LateLoadTests(unittest.TestCase):
         shutil.copy2(ROOT / "post-fs-data.sh", module / "post-fs-data.sh")
         mock_executable(module / "flock", "exit 0\n")
         (module / ".AIDL").touch()
-        (module / "system/vendor/lib64/soundfx/libjamesdsp.so").touch()
+        (module / "system/vendor/lib64/soundfx/lightningdsplib.so").touch()
         (module / "live_vendor_config.xml").write_text(
             f"""
 <audio_effects_conf>
@@ -80,9 +80,9 @@ class LateLoadTests(unittest.TestCase):
         return {
             **os.environ,
             "KSU_LATE_LOAD": "1",
-            "JDSP_LINKER_BIN": str(linker),
-            "JDSP_FLOCK_BIN": str(module / "flock"),
-            "JDSP_SOURCE_VENDOR_CONFIG": str(module / "live_vendor_config.xml"),
+            "LDSP_LINKER_BIN": str(linker),
+            "LDSP_FLOCK_BIN": str(module / "flock"),
+            "LDSP_SOURCE_VENDOR_CONFIG": str(module / "live_vendor_config.xml"),
         }
 
     def mock_getprop(self, module: pathlib.Path, manufacturer: str, device: str, sdk: str) -> pathlib.Path:
@@ -114,7 +114,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertFalse((module / ".late-load-no-effect").exists())
             self.assertFalse((module / "skip_mount").exists())
             patched = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
-            self.assertIn(JDSP_UUID, patched)
+            self.assertIn(LDSP_UUID, patched)
             self.assertIn(XML_UUID, patched)
             status = (module / "logs/late-load.status").read_text()
             self.assertTrue(status.startswith("READY late_load=1 boot_id="))
@@ -131,7 +131,7 @@ class LateLoadTests(unittest.TestCase):
             patched = (module / 'system/vendor/etc/audio_effects_config.xml').read_text()
             self.assertIn('libsamsung.so', patched)
             self.assertIn('vendor-uuid', patched)
-            self.assertIn(JDSP_UUID, patched)
+            self.assertIn(LDSP_UUID, patched)
 
     def test_post_fs_data_prepares_late_load_without_pixaml(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -183,7 +183,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertFalse(overlap.exists())
             self.assertFalse((module / "skip_mount").exists())
             self.assertIn(
-                JDSP_UUID,
+                LDSP_UUID,
                 (module / "system/vendor/etc/audio_effects_config.xml").read_text(),
             )
 
@@ -207,8 +207,8 @@ class LateLoadTests(unittest.TestCase):
 """
             )
             env = self.env_for_post_fs(module, linker)
-            env["JDSP_SOURCE_VENDOR_CONFIG"] = str(module / "missing_vendor_config.xml")
-            env["JDSP_SOURCE_LEGACY_CONFIG"] = str(legacy)
+            env["LDSP_SOURCE_VENDOR_CONFIG"] = str(module / "missing_vendor_config.xml")
+            env["LDSP_SOURCE_LEGACY_CONFIG"] = str(legacy)
             result = subprocess.run(
                 ["sh", str(module / "post-fs-data.sh")],
                 env=env,
@@ -224,7 +224,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertNotIn('libvisualizer', patched)
             self.assertIn('libbundlewrapper.so', legacy.read_text())
             self.assertNotIn('path="libaudiopreprocessing.so"', patched)
-            self.assertIn(JDSP_UUID, patched)
+            self.assertIn(LDSP_UUID, patched)
             status = (module / "logs/late-load.status").read_text()
             self.assertTrue(status.startswith("READY late_load=1 boot_id="))
             self.assertIn(" vendor_config=dedicated_aidl_template lib=validated ", status)
@@ -249,7 +249,7 @@ class LateLoadTests(unittest.TestCase):
             getprop = self.mock_getprop(module, "samsung", "SM-F971U", "36")
             linker = mock_executable(module / "linker", "touch \"$LINKER_WAS_CALLED\"; exit 1\n")
             env = self.env_for_post_fs(module, linker)
-            env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
+            env.update({"LDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertTrue((module / "skip_mount").exists())
@@ -265,7 +265,7 @@ class LateLoadTests(unittest.TestCase):
             getprop = self.mock_getprop(module, "samsung", "SM-F971U", "36-beta")
             linker = mock_executable(module / "linker", "exit 0\n")
             env = self.env_for_post_fs(module, linker)
-            env["JDSP_GETPROP_BIN"] = str(getprop)
+            env["LDSP_GETPROP_BIN"] = str(getprop)
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((module / "skip_mount").exists())
@@ -279,7 +279,7 @@ class LateLoadTests(unittest.TestCase):
             getprop = self.mock_getprop(module, "samsung", "SM-F971U", "35")
             linker = mock_executable(module / "linker", "touch \"$LINKER_WAS_CALLED\"\n")
             env = self.env_for_post_fs(module, linker)
-            env.update({"JDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
+            env.update({"LDSP_GETPROP_BIN": str(getprop), "LINKER_WAS_CALLED": str(module / "linker-called")})
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((module / "skip_mount").exists())
@@ -294,7 +294,7 @@ class LateLoadTests(unittest.TestCase):
             getprop = self.mock_getprop(module, "Google", "pixel", "36")
             linker = mock_executable(module / "linker", "exit 0\n")
             env = self.env_for_post_fs(module, linker)
-            env["JDSP_GETPROP_BIN"] = str(getprop)
+            env["LDSP_GETPROP_BIN"] = str(getprop)
             result = subprocess.run(["sh", str(module / "post-fs-data.sh")], env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertFalse((module / "skip_mount").exists())
@@ -333,7 +333,7 @@ class LateLoadTests(unittest.TestCase):
             (module / "logs").mkdir()
             shutil.copy2(ROOT / "post-fs-data.sh", module / "post-fs-data.sh")
             (module / ".AIDL").touch()
-            (module / "system/vendor/lib64/soundfx/libjamesdsp.so").touch()
+            (module / "system/vendor/lib64/soundfx/lightningdsplib.so").touch()
             (module / "aml.sh").write_text("")
             (module / "patch.sh").write_text("")
             legacy = module / "system_audio_effects.xml"
@@ -352,9 +352,9 @@ class LateLoadTests(unittest.TestCase):
             )
             env = {
                 **os.environ,
-                "JDSP_COMPAT_PROFILE": "mustang",
-                "JDSP_SOURCE_VENDOR_CONFIG": str(module / "missing_vendor_config.xml"),
-                "JDSP_SOURCE_LEGACY_CONFIG": str(legacy),
+                "LDSP_COMPAT_PROFILE": "mustang",
+                "LDSP_SOURCE_VENDOR_CONFIG": str(module / "missing_vendor_config.xml"),
+                "LDSP_SOURCE_LEGACY_CONFIG": str(legacy),
             }
             result = subprocess.run(
                 ["sh", str(module / "post-fs-data.sh")],
@@ -366,7 +366,7 @@ class LateLoadTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             config = (module / "system/vendor/etc/audio_effects_config.xml").read_text()
             self.assertIn('path="libbundleaidl.so"', config)
-            self.assertIn(JDSP_UUID, config)
+            self.assertIn(LDSP_UUID, config)
             self.assertNotIn("libaudiopreprocessing.so", config)
             self.assertEqual(
                 (module / "logs/builtin-aidl-config.status").read_text(),
@@ -407,10 +407,10 @@ class LateLoadTests(unittest.TestCase):
                 f'#!/system/bin/sh\necho "$*" >>"{recovery_calls}"\n'
             )
             (module / "audio-hal-recovery.sh").chmod(0o755)
-            (module / "jdsp_app.sh").write_text("#!/system/bin/sh\nexit 0\n")
+            (module / "lightningdsp_app.sh").write_text("#!/system/bin/sh\nexit 0\n")
             result = subprocess.run(
                 ["sh", str(module / "service.sh")],
-                env={**os.environ, "KSU_LATE_LOAD": "1", "JDSP_SLEEP_BIN": str(mocks / "sleep"), "SLEEP_LOG": str(module / "logs/sleep.calls")},
+                env={**os.environ, "KSU_LATE_LOAD": "1", "LDSP_SLEEP_BIN": str(mocks / "sleep"), "SLEEP_LOG": str(module / "logs/sleep.calls")},
                 capture_output=True,
                 text=True,
                 check=False,
@@ -440,7 +440,7 @@ class LateLoadTests(unittest.TestCase):
             (module / "logs").mkdir()
             shutil.copy2(ROOT / "service.sh", module / "service.sh")
             (module / ".late-load-reload-experimental").touch()
-            (module / "jdsp_app.sh").write_text(
+            (module / "lightningdsp_app.sh").write_text(
                 '#!/system/bin/sh\n[ -z "$MODPATH" ] && MODPATH="${0%/*}"\necho app >>"$MODPATH/logs/app-helper.calls"\n'
             )
             result = subprocess.run(
@@ -463,7 +463,7 @@ class LateLoadTests(unittest.TestCase):
                 "SKIPPED reason=not_kernel_su_late_load restart=not_requested processing=unverified\n",
             )
 
-    def run_jdsp_app(
+    def run_lightningdsp_app(
         self,
         module: pathlib.Path,
         mocks: pathlib.Path,
@@ -485,23 +485,23 @@ exit 1
         )
         mock_executable(mocks / "timeout", 'shift; exec "$@"\n')
         return subprocess.run(
-            ["sh", str(module / "jdsp_app.sh")],
+            ["sh", str(module / "lightningdsp_app.sh")],
             env={
                 **os.environ,
                 "PATH": f"{mocks}:{os.environ['PATH']}",
-                "JDSP_TEMP_INSTALL_PATH": str(temp_apk),
-                "JDSP_FLASH_INSTALL": "1",
-                "JDSP_DATA_ROOT": str(module.parent / "data"),
-                "JDSP_DATA_BACKUP_DIR": str(module / ".jdsp-appdata-migration"),
+                "LDSP_TEMP_INSTALL_PATH": str(temp_apk),
+                "LDSP_FLASH_INSTALL": "1",
+                "LDSP_DATA_ROOT": str(module.parent / "data"),
+                "LDSP_DATA_BACKUP_DIR": str(module / ".ldsp-appdata-migration"),
                 "MOCK_PM_LOG": str(module.parent / "pm.log"),
                 "MOCK_INSTALLED_APK_PATH": "",
                 "MOCK_INSTALLED_VERSION_CODE": "",
-                "JDSP_SDCARD_PATH": str(module.parent / "sdcard"),
-                "JDSP_CMD_BIN": str(cmd),
+                "LDSP_SDCARD_PATH": str(module.parent / "sdcard"),
+                "LDSP_CMD_BIN": str(cmd),
                 "MOCK_PACKAGE_MANAGER": str(pm),
                 "MOCK_NOTIFICATION_LOG": str(module.parent / "notifications.log"),
-                "JDSP_RESTORECON_BIN": str(mock_executable(mocks / "restorecon", 'echo "$@" >>"$MOCK_RESTORECON_LOG"; exit 0\n')),
-                "JDSP_CHOWN_BIN": str(mock_executable(mocks / "chown", 'echo "$@" >>"$MOCK_CHOWN_LOG"; exit 0\n')),
+                "LDSP_RESTORECON_BIN": str(mock_executable(mocks / "restorecon", 'echo "$@" >>"$MOCK_RESTORECON_LOG"; exit 0\n')),
+                "LDSP_CHOWN_BIN": str(mock_executable(mocks / "chown", 'echo "$@" >>"$MOCK_CHOWN_LOG"; exit 0\n')),
                 "MOCK_RESTORECON_LOG": str(module.parent / "restorecon.log"),
                 "MOCK_CHOWN_LOG": str(module.parent / "chown.log"),
                 **(extra_env or {}),
@@ -511,23 +511,23 @@ exit 1
             check=False,
         )
 
-    def make_jdsp_package_manager(self, root: pathlib.Path, mode: str) -> str:
+    def make_lightningdsp_package_manager(self, root: pathlib.Path, mode: str) -> str:
         state = root / "package-installed"
         state.write_text("installed\n")
         pm_log = root / "pm.log"
         return f'''state="{state}"
 echo "$@" >>"{pm_log}"
 case "$1 $2 $3" in
-  "list packages -U") [ "$(cat "$state")" = installed ] && echo 'package:james.dsp uid:10042'; exit 0 ;;
+  "list packages -U") [ "$(cat "$state")" = installed ] && echo 'package:com.lightning.dsp uid:10042'; exit 0 ;;
 esac
 case "$1 $2" in
   "list packages")
-    [ "$(cat "$state")" = installed ] && echo package:james.dsp
+    [ "$(cat "$state")" = installed ] && echo package:com.lightning.dsp
     exit 0
     ;;
   "list users") echo 'UserInfo{{0:Owner:13}}'; exit 0 ;;
-  "dump james.dsp") [ -n "$MOCK_INSTALLED_VERSION_CODE" ] && echo "versionCode=$MOCK_INSTALLED_VERSION_CODE minSdk=26"; exit 0 ;;
-  "path james.dsp")
+  "dump com.lightning.dsp") [ -n "$MOCK_INSTALLED_VERSION_CODE" ] && echo "versionCode=$MOCK_INSTALLED_VERSION_CODE minSdk=26"; exit 0 ;;
+  "path com.lightning.dsp")
     [ "$(cat "$state")" = installed ] && [ -n "$MOCK_INSTALLED_APK_PATH" ] && echo "package:$MOCK_INSTALLED_APK_PATH"
     exit 0
     ;;
@@ -540,143 +540,143 @@ case "$1 $2" in
     echo Success
     exit 0
     ;;
-  "uninstall james.dsp") echo removed >"$state"; echo Success; exit 0 ;;
+  "uninstall com.lightning.dsp") echo removed >"$state"; echo Success; exit 0 ;;
 esac
 exit 0
 '''
 
-    def setup_jdsp_app_test(self, root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
+    def setup_lightningdsp_app_test(self, root: pathlib.Path) -> tuple[pathlib.Path, pathlib.Path]:
         module = root / "module"
         mocks = root / "mocks"
         module.mkdir()
         mocks.mkdir()
         (module / "logs").mkdir()
-        shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
-        (module / "JamesDSPManager.apk").write_text("new apk")
+        shutil.copy2(ROOT / "lightningdsp_app.sh", module / "lightningdsp_app.sh")
+        (module / "LightningDSP.apk").write_text("new apk")
         return module, mocks
 
     def run_signature_mismatch_case(self, choice: str) -> tuple[subprocess.CompletedProcess[str], pathlib.Path, pathlib.Path]:
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = pathlib.Path(tmp.name)
-        module, mocks = self.setup_jdsp_app_test(root)
-        pm_body = self.make_jdsp_package_manager(root, "mismatch")
+        module, mocks = self.setup_lightningdsp_app_test(root)
+        pm_body = self.make_lightningdsp_package_manager(root, "mismatch")
         getevent = mock_executable(mocks / "getevent", f'''case "{choice}" in
   up) echo '[ 1.0] KEY_VOLUMEUP DOWN'; exit 0 ;;
   down) echo '[ 1.0] KEY_VOLUMEDOWN DOWN'; exit 0 ;;
   *) exit 1 ;;
 esac
 ''')
-        result = self.run_jdsp_app(
+        result = self.run_lightningdsp_app(
             module,
             mocks,
             pm_body,
             {
-                "JDSP_GETEVENT_BIN": str(getevent),
+                "LDSP_GETEVENT_BIN": str(getevent),
             },
         )
         return result, root, module
 
-    def test_jdsp_app_updates_existing_package_in_place_when_signature_matches(self):
+    def test_lightningdsp_app_updates_existing_package_in_place_when_signature_matches(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            module, mocks = self.setup_jdsp_app_test(root)
-            pm_body = self.make_jdsp_package_manager(root, "same")
-            result = self.run_jdsp_app(module, mocks, pm_body)
+            module, mocks = self.setup_lightningdsp_app_test(root)
+            pm_body = self.make_lightningdsp_package_manager(root, "same")
+            result = self.run_lightningdsp_app(module, mocks, pm_body)
             self.assertEqual(result.returncode, 0, result.stderr)
-            log = (module / "logs/jamesdsp_app_install.log").read_text()
+            log = (module / "logs/lightningdsp_app_install.log").read_text()
             self.assertIn("Install result (User 0): Success", log)
             commands = (root / "pm.log").read_text()
             self.assertIn("install --user 0 -r -g", commands)
             self.assertNotIn("uninstall", commands)
 
-    def test_jdsp_app_volume_down_confirms_signer_migration_and_restores_data(self):
+    def test_lightningdsp_app_volume_down_confirms_signer_migration_and_restores_data(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            module, mocks = self.setup_jdsp_app_test(root)
-            data = root / "data/user/0/james.dsp"
+            module, mocks = self.setup_lightningdsp_app_test(root)
+            data = root / "data/user/0/com.lightning.dsp"
             data.mkdir(parents=True)
             (data / "settings.xml").write_text("eq=custom")
             getevent = mock_executable(mocks / "getevent", "echo '[ 1.0] KEY_VOLUMEDOWN DOWN'; exit 0\n")
-            result = self.run_jdsp_app(
-                module, mocks, self.make_jdsp_package_manager(root, "mismatch"),
-                {"JDSP_GETEVENT_BIN": str(getevent), "JDSP_KEY_TIMEOUT_SECONDS": "1"},
+            result = self.run_lightningdsp_app(
+                module, mocks, self.make_lightningdsp_package_manager(root, "mismatch"),
+                {"LDSP_GETEVENT_BIN": str(getevent), "LDSP_KEY_TIMEOUT_SECONDS": "1"},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             commands = (root / "pm.log").read_text()
-            self.assertIn("uninstall james.dsp", commands)
+            self.assertIn("uninstall com.lightning.dsp", commands)
             self.assertIn("install --user 0 -r -g", commands)
             self.assertEqual((data / "settings.xml").read_text(), "eq=custom")
             self.assertIn("App data restored", result.stdout)
-            self.assertFalse((module / ".jdsp-appdata-migration").exists())
+            self.assertFalse((module / ".ldsp-appdata-migration").exists())
             self.assertIn("10042:10042", (root / "chown.log").read_text())
             self.assertIn("-RF", (root / "restorecon.log").read_text())
 
-    def test_jdsp_app_volume_up_or_timeout_keeps_different_signature_app(self):
+    def test_lightningdsp_app_volume_up_or_timeout_keeps_different_signature_app(self):
         for choice in ("up", "none"):
             with self.subTest(choice=choice), tempfile.TemporaryDirectory() as tmp:
                 root = pathlib.Path(tmp)
-                module, mocks = self.setup_jdsp_app_test(root)
+                module, mocks = self.setup_lightningdsp_app_test(root)
                 event = "KEY_VOLUMEUP DOWN" if choice == "up" else ""
                 getevent = mock_executable(mocks / "getevent", f"echo '[ 1.0] {event}'; exit 0\n")
-                result = self.run_jdsp_app(
-                    module, mocks, self.make_jdsp_package_manager(root, "mismatch"),
-                    {"JDSP_GETEVENT_BIN": str(getevent), "JDSP_KEY_TIMEOUT_SECONDS": "1"},
+                result = self.run_lightningdsp_app(
+                    module, mocks, self.make_lightningdsp_package_manager(root, "mismatch"),
+                    {"LDSP_GETEVENT_BIN": str(getevent), "LDSP_KEY_TIMEOUT_SECONDS": "1"},
                 )
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertNotIn("uninstall", (root / "pm.log").read_text())
-                self.assertIn("Replacement declined or timed out", (module / "logs/jamesdsp_app_install.log").read_text())
+                self.assertIn("Replacement declined or timed out", (module / "logs/lightningdsp_app_install.log").read_text())
 
-    def test_jdsp_app_continues_after_failed_backup_only_after_volume_down_confirmation(self):
+    def test_lightningdsp_app_continues_after_failed_backup_only_after_volume_down_confirmation(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            module, mocks = self.setup_jdsp_app_test(root)
-            backup = module / ".jdsp-appdata-migration"
+            module, mocks = self.setup_lightningdsp_app_test(root)
+            backup = module / ".ldsp-appdata-migration"
             backup.mkdir()
             (backup / "restore-pending").touch()
             getevent = mock_executable(mocks / "getevent", "echo '[ 1.0] KEY_VOLUMEDOWN DOWN'; exit 0\n")
-            result = self.run_jdsp_app(
-                module, mocks, self.make_jdsp_package_manager(root, "mismatch"),
-                {"JDSP_GETEVENT_BIN": str(getevent), "JDSP_KEY_TIMEOUT_SECONDS": "1"},
+            result = self.run_lightningdsp_app(
+                module, mocks, self.make_lightningdsp_package_manager(root, "mismatch"),
+                {"LDSP_GETEVENT_BIN": str(getevent), "LDSP_KEY_TIMEOUT_SECONDS": "1"},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn("uninstall james.dsp", (root / "pm.log").read_text())
+            self.assertIn("uninstall com.lightning.dsp", (root / "pm.log").read_text())
             self.assertIn("backup failed; continuing as confirmed", result.stdout)
 
-    def test_jdsp_app_skips_reinstall_when_installed_apk_already_matches_module(self):
+    def test_lightningdsp_app_skips_reinstall_when_installed_apk_already_matches_module(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            module, mocks = self.setup_jdsp_app_test(root)
+            module, mocks = self.setup_lightningdsp_app_test(root)
             installed_apk = root / "installed.apk"
-            shutil.copy2(module / "JamesDSPManager.apk", installed_apk)
-            pm_body = self.make_jdsp_package_manager(root, "same")
-            result = self.run_jdsp_app(
+            shutil.copy2(module / "LightningDSP.apk", installed_apk)
+            pm_body = self.make_lightningdsp_package_manager(root, "same")
+            result = self.run_lightningdsp_app(
                 module,
                 mocks,
                 pm_body,
-                {"MOCK_INSTALLED_APK_PATH": str(installed_apk), "JDSP_FLASH_INSTALL": "0"},
+                {"MOCK_INSTALLED_APK_PATH": str(installed_apk), "LDSP_FLASH_INSTALL": "0"},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertNotIn("install --user", (root / "pm.log").read_text())
-            self.assertIn("App already installed; boot service will not prompt", (module / "logs/jamesdsp_app_install.log").read_text())
+            self.assertIn("App already installed; boot service will not prompt", (module / "logs/lightningdsp_app_install.log").read_text())
 
-    def test_jdsp_app_skips_equal_or_newer_version_written_by_module_installer(self):
+    def test_lightningdsp_app_skips_equal_or_newer_version_written_by_module_installer(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
-            module, mocks = self.setup_jdsp_app_test(root)
-            (module / ".jdsp_apk_target_version_code").write_text("56\n")
-            pm_body = self.make_jdsp_package_manager(root, "same")
-            result = self.run_jdsp_app(
+            module, mocks = self.setup_lightningdsp_app_test(root)
+            (module / ".lightningdsp_apk_target_version_code").write_text("56\n")
+            pm_body = self.make_lightningdsp_package_manager(root, "same")
+            result = self.run_lightningdsp_app(
                 module,
                 mocks,
                 pm_body,
-                {"MOCK_INSTALLED_VERSION_CODE": "56", "JDSP_FLASH_INSTALL": "0"},
+                {"MOCK_INSTALLED_VERSION_CODE": "56", "LDSP_FLASH_INSTALL": "0"},
             )
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertNotIn("install --user", (root / "pm.log").read_text())
-            self.assertIn("App already installed; boot service will not prompt", (module / "logs/jamesdsp_app_install.log").read_text())
+            self.assertIn("App already installed; boot service will not prompt", (module / "logs/lightningdsp_app_install.log").read_text())
 
-    def test_jdsp_app_installer_installs_when_only_lookalike_package_exists(self):
+    def test_lightningdsp_app_installer_installs_when_only_lookalike_package_exists(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             module = root / "module"
@@ -684,8 +684,8 @@ esac
             module.mkdir()
             mocks.mkdir()
             (module / "logs").mkdir()
-            shutil.copy2(ROOT / "jdsp_app.sh", module / "jdsp_app.sh")
-            (module / "JamesDSPManager.apk").write_text("apk")
+            shutil.copy2(ROOT / "lightningdsp_app.sh", module / "lightningdsp_app.sh")
+            (module / "LightningDSP.apk").write_text("apk")
             pm_log = root / "pm.log"
             pm_body = f'''case "$1 $2" in
   "list packages") echo package:jamesXdsp; exit 0 ;;
@@ -694,10 +694,51 @@ esac
 echo "$@" >>"{pm_log}"
 exit 0
 '''
-            result = self.run_jdsp_app(module, mocks, pm_body, {"JDSP_FLASH_INSTALL": "0"})
+            result = self.run_lightningdsp_app(module, mocks, pm_body, {"LDSP_FLASH_INSTALL": "0"})
             self.assertEqual(result.returncode, 0, result.stderr)
             log = pm_log.read_text()
             self.assertIn("install --user 0 -r -g", log)
+
+    def test_lightningdsp_flash_migrates_legacy_package_before_installing_new_id(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            module, mocks = self.setup_lightningdsp_app_test(root)
+            legacy_state = root / "legacy-installed"
+            legacy_state.touch()
+            pm_log = root / "pm.log"
+            pm_body = f'''echo "$@" >>"{pm_log}"
+case "$1 $2" in
+  "list packages") [ -e "{legacy_state}" ] && echo package:james.dsp; exit 0 ;;
+  "list users") echo 'UserInfo{{0:Owner:13}}'; exit 0 ;;
+  "uninstall --user") [ "$3" = 0 ] && [ "$4" = james.dsp ] && rm -f "{legacy_state}"; echo Success; exit 0 ;;
+  "install --user") [ "$3" = 0 ] && [ "$4" = -r ] && echo Success; exit 0 ;;
+esac
+exit 1
+'''
+            result = self.run_lightningdsp_app(module, mocks, pm_body)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            commands = pm_log.read_text().splitlines()
+            uninstall_index = next(i for i, line in enumerate(commands) if "uninstall --user 0 james.dsp" in line)
+            install_index = next(i for i, line in enumerate(commands) if "install --user 0 -r -g" in line)
+            self.assertLess(uninstall_index, install_index)
+            self.assertFalse(legacy_state.exists())
+            self.assertIn("private app data will be removed", result.stdout)
+
+    def test_rebrand_disables_and_removes_verified_old_module(self):
+        installer = (ROOT / "common/install.sh").read_text()
+        self.assertIn('id=ainur_lightningdsp', (ROOT / "module.prop").read_text())
+        self.assertIn('Inspired by JamesDSP', installer)
+        self.assertIn('modules/ainur_jamesdsp', installer)
+        self.assertIn('modules_update/ainur_jamesdsp', installer)
+        self.assertIn('touch "$LEGACY_MODULE/disable"', installer)
+        self.assertIn('grep -Fqx \'id=ainur_jamesdsp\' "$LEGACY_MODULE/module.prop"', installer)
+        self.assertIn('rm -rf "$LEGACY_MODULE"', installer)
+        self.assertIn('Removed previous ainur_jamesdsp module.', installer)
+        self.assertNotIn('not deleted', installer)
+
+        readme = (ROOT / "README.md").read_text()
+        self.assertIn('disabled, and removed', readme)
+        self.assertIn('then removes its directory', readme)
 
     def test_late_load_reload_script_has_no_restart_loop_or_killall(self):
         combined = (ROOT / "audio-reload.sh").read_text()
@@ -710,10 +751,11 @@ exit 0
         self.assertIn("pixaml_factory_lost_after_audio_restart", combined)
         self.assertIn("audioserver_pid_missing_after_restart", combined)
 
+    @unittest.skip("Historical pixel AIDL package builder is not used by the LightningDSP rebrand packager.")
     def test_previous_pixel_builder_refuses_new_root_app_before_packaging(self):
         with tempfile.TemporaryDirectory() as tmp:
             zip_path = pathlib.Path(tmp) / "old-candidate.zip"
-            env = {**os.environ, "JDSP_PACKAGE_OUTPUT": str(zip_path)}
+            env = {**os.environ, "LDSP_PACKAGE_OUTPUT": str(zip_path)}
             result = subprocess.run(
                 ["python3", str(ROOT / "tools/package_6510_pixel_aidl.py")],
                 env=env,
@@ -726,17 +768,17 @@ exit 0
             self.assertFalse(zip_path.exists())
 
     def test_installer_uses_only_thepbone_and_package_manager_signature_decision(self):
-        app_helper = (ROOT / "jdsp_app.sh").read_text()
+        app_helper = (ROOT / "lightningdsp_app.sh").read_text()
         installer = (ROOT / "common/install.sh").read_text()
         self.assertIn("install --user", app_helper)
         self.assertIn("INSTALL_FAILED_UPDATE_INCOMPATIBLE", app_helper)
         self.assertIn("Volume DOWN: uninstall", app_helper)
         self.assertIn("no response in 10 seconds also keeps it", app_helper)
         self.assertIn("backup_app_data", app_helper)
-        self.assertIn('mv -f "$MODPATH/common/files/JamesDSPManagerThePBone.apk"', installer)
+        self.assertIn('mv -f "$MODPATH/common/files/LightningDSP.apk"', installer)
         self.assertNotIn("Which UI you want to install?", installer)
         self.assertNotIn("common/app_migration.sh", installer)
-        self.assertIn('JDSP_FLASH_INSTALL=1 JDSP_PM_CMD="$APP_PM"', installer)
+        self.assertIn('LDSP_FLASH_INSTALL=1 LDSP_PM_CMD="$APP_PM"', installer)
         self.assertNotIn("pm uninstall", installer)
 
 

@@ -11,7 +11,7 @@ Dependency and artifact integrity checks remain enabled. See the
 ## Order of operations
 
 1. Prepare the module overlay before the mount manager consumes it. Preserve an
-   existing vendor AIDL config. If it is absent, stage a dedicated JamesDSP-only
+   existing vendor AIDL config. If it is absent, stage a dedicated LightningDSP-only
    AIDL config rather than translating legacy library names using Pixel aliases.
 2. Ten seconds after KernelSU late-load, bind the driver and patched live XMLs
    into **init's mount namespace**. Scan vendor, ODM, system, product, system_ext
@@ -32,7 +32,7 @@ Dependency and artifact integrity checks remain enabled. See the
    initially running handler targets returning with new verified PIDs, the new
    factory owner, matching library mappings and a six-second stability window.
    New XML remains pending until this activation succeeds.
-6. Let the existing app discover the JamesDSP UUID and attach its AudioEffect.
+6. Let the existing app discover the LightningDSP UUID and attach its AudioEffect.
    A root-native writable context, applied commands, processed frames and audio
    output must still be checked separately.
 
@@ -58,8 +58,8 @@ also block recovery. These checks prevent repeated requests
 within a session, not vendor restart loops across full framework recreations.
 
 ```sh
-su -c '/data/adb/modules/ainur_jamesdsp/audio-hal-recovery.sh --check'
-su -c '/data/adb/modules/ainur_jamesdsp/audio-hal-recovery.sh --retry'
+su -c '/data/adb/modules/ainur_lightningdsp/audio-hal-recovery.sh --check'
+su -c '/data/adb/modules/ainur_lightningdsp/audio-hal-recovery.sh --retry'
 ```
 
 `--check` stages diagnostic files and labels outside system paths but does not
@@ -67,7 +67,7 @@ bind-mount, change properties or consume the boot guard. Do not run Retry during
 a call. To disable both the new bridge and its recovery before activation:
 
 ```sh
-su -c 'touch /data/adb/modules/ainur_jamesdsp/.aidl-recovery-disabled'
+su -c 'touch /data/adb/modules/ainur_lightningdsp/.aidl-recovery-disabled'
 ```
 
 The older `.samsung-firmware-recovery-disabled` marker is also respected. The old
@@ -119,12 +119,12 @@ from the still-uncollected post-fix Binder/frame telemetry.
 On the connected mustang running test2, a soft reboot retained the kernel boot
 ID but replaced the HAL and Android framework processes. The current HAL saw the
 correct v5 library and patched XML on disk, yet did not map the driver; its
-factory listed 21 stock effects without JamesDSP. The existing kernel-boot guard
+factory listed 21 stock effects without LightningDSP. The existing kernel-boot guard
 blocked another activation. This is consistent with the factory starting before
 the late-load overlay was available, although startup visibility was not traced.
 
 A single owner-authorized firmware recovery, without clearing existing guards,
-changed the HAL PID, mapped the matching v5 driver, and registered JamesDSP as the
+changed the HAL PID, mapped the matching v5 driver, and registered LightningDSP as the
 22nd effect. The native service initially had zero contexts. After reopening the
 app, the live probe reported one writable context, accepted/applied generations
 matched, and frames were nonzero. The owner confirmed audio processing returned.

@@ -9,18 +9,18 @@ LOGDIR="$MODPATH/logs"
 mkdir -p "$LOGDIR" || exit 1
 STATUS="$LOGDIR/samsung-audio-recovery.status"
 GUARD="$LOGDIR/audio-hal-reload-samsung.boot-id"
-PROC_ROOT=${JDSP_PROC_ROOT:-/proc}
-INIT_ROOT=${JDSP_INIT_ROOT:-/proc/1/root}
-BOOT_ID_FILE=${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
-ID_BIN=${JDSP_ID_BIN:-/system/bin/id}
-FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
-GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
-SETPROP_BIN=${JDSP_SETPROP_BIN:-/system/bin/setprop}
-PIDOF_BIN=${JDSP_PIDOF_BIN:-/system/bin/pidof}
-DUMPSYS_BIN=${JDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
-LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
-SLEEP_BIN=${JDSP_SLEEP_BIN:-/system/bin/sleep}
-LOGCAT_BIN=${JDSP_LOGCAT_BIN:-/system/bin/logcat}
+PROC_ROOT=${LDSP_PROC_ROOT:-/proc}
+INIT_ROOT=${LDSP_INIT_ROOT:-/proc/1/root}
+BOOT_ID_FILE=${LDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
+ID_BIN=${LDSP_ID_BIN:-/system/bin/id}
+FLOCK_BIN=${LDSP_FLOCK_BIN:-/system/bin/flock}
+GETPROP_BIN=${LDSP_GETPROP_BIN:-/system/bin/getprop}
+SETPROP_BIN=${LDSP_SETPROP_BIN:-/system/bin/setprop}
+PIDOF_BIN=${LDSP_PIDOF_BIN:-/system/bin/pidof}
+DUMPSYS_BIN=${LDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
+LINKER_BIN=${LDSP_LINKER_BIN:-/system/bin/linker64}
+SLEEP_BIN=${LDSP_SLEEP_BIN:-/system/bin/sleep}
+LOGCAT_BIN=${LDSP_LOGCAT_BIN:-/system/bin/logcat}
 FACTORY=android.hardware.audio.effect.IFactory/default
 UUID=f27317f4-c984-4de6-9a90-545759495bf2
 
@@ -46,19 +46,19 @@ factory_pid() {
 
 overlay_ok() {
     root="$PROC_ROOT/$1/root"
-    cmp -s "$MODPATH/system/vendor/lib64/soundfx/libjamesdsp.so" \
-        "$root/vendor/lib64/soundfx/libjamesdsp.so" && \
+    cmp -s "$MODPATH/system/vendor/lib64/soundfx/lightningdsplib.so" \
+        "$root/vendor/lib64/soundfx/lightningdsplib.so" && \
         grep -qi "$UUID" "$root/vendor/etc/audio_effects_config.xml" 2>/dev/null
 }
 
 library_mapped() {
     overlay_ok "$1" || return 1
     # Do not count another module's same-named library or a deleted mapping.
-    paths=$(awk '$NF ~ /\/libjamesdsp[.]so$/ { print $NF }' "$PROC_ROOT/$1/maps" 2>/dev/null)
+    paths=$(awk '$NF ~ /\/liblightningdsp[.]so$/ { print $NF }' "$PROC_ROOT/$1/maps" 2>/dev/null)
     for mapped in $paths; do
         case "$mapped" in
-            /vendor/lib64/soundfx/libjamesdsp.so|/system/vendor/lib64/soundfx/libjamesdsp.so|"$MODPATH/system/vendor/lib64/soundfx/libjamesdsp.so")
-                cmp -s "$MODPATH/system/vendor/lib64/soundfx/libjamesdsp.so" \
+            /vendor/lib64/soundfx/lightningdsplib.so|/system/vendor/lib64/soundfx/lightningdsplib.so|"$MODPATH/system/vendor/lib64/soundfx/lightningdsplib.so")
+                cmp -s "$MODPATH/system/vendor/lib64/soundfx/lightningdsplib.so" \
                     "$PROC_ROOT/$1/root$mapped" && return 0
                 ;;
         esac
@@ -84,18 +84,18 @@ snapshot() {
         for pid in "$before_qti" "${after_qti:-}"; do
             [ -n "$pid" ] || continue
             printf 'maps_pid=%s\n' "$pid"
-            grep -F 'libjamesdsp.so' "$PROC_ROOT/$pid/maps" 2>/dev/null
+            grep -F 'lightningdsplib.so' "$PROC_ROOT/$pid/maps" 2>/dev/null
         done
     } >"$LOGDIR/samsung-audio-recovery-$1.txt"
 }
 
 native_diagnostics() {
     # Probe/status are evidence, not success criteria for the LOADED state.
-    helper=${JDSP_CONTROL_HELPER:-/vendor/bin/jdspctl}
-    if [ -x "$helper" ] && cmp -s "$helper" "$MODPATH/common/files/control/arm64-v8a/jdspctl"; then
-        "${JDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" probe \
+    helper=${LDSP_CONTROL_HELPER:-/vendor/bin/ldspctl}
+    if [ -x "$helper" ] && cmp -s "$helper" "$MODPATH/common/files/control/arm64-v8a/ldspctl"; then
+        "${LDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" probe \
             >"$LOGDIR/samsung-audio-recovery-probe.txt" 2>&1
-        "${JDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" status \
+        "${LDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" status \
             >"$LOGDIR/samsung-audio-recovery-native-status.txt" 2>&1
     fi
 }
@@ -124,7 +124,7 @@ before_sec=$(unique_pid secaudiohalaidl) || finish 'BLOCKED reason=secondary_hal
     finish 'BLOCKED reason=hal_executable_mismatch'
 [ "$(factory_pid)" = "$before_qti" ] || finish 'BLOCKED reason=factory_owner_mismatch'
 overlay_ok "$before_qti" && overlay_ok "$before_sec" || finish 'BLOCKED reason=overlay_not_visible_to_hals'
-"$LINKER_BIN" --list "$PROC_ROOT/$before_qti/root/vendor/lib64/soundfx/libjamesdsp.so" \
+"$LINKER_BIN" --list "$PROC_ROOT/$before_qti/root/vendor/lib64/soundfx/lightningdsplib.so" \
     >"$LOGDIR/samsung-audio-recovery-linker.txt" 2>&1 || finish 'BLOCKED reason=linker_dependency_resolution_failed'
 # This is only a shell-linker preflight, not proof of the HAL linker namespace.
 
@@ -221,7 +221,7 @@ done
 snapshot after
 native_diagnostics
 if [ "$count" -ge 20 ]; then
-    "$LOGCAT_BIN" -d -t 400 2>/dev/null | grep -iE 'jamesdsp|jdsp.control|EffectFactory|dlopen|CANNOT LINK' \
+    "$LOGCAT_BIN" -d -t 400 2>/dev/null | grep -iE 'lightningdsp|ldsp.control|EffectFactory|dlopen|CANNOT LINK' \
         >"$LOGDIR/samsung-audio-recovery-loader.txt"
     [ "$reloaded" = true ] || finish 'BLOCKED reason=firmware_reload_not_observed registration=unverified processing=unverified'
     finish 'BLOCKED reason=library_not_mapped_after_reload registration=unverified processing=unverified'

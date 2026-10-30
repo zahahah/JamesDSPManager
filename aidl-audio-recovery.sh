@@ -6,18 +6,18 @@ case "$MODE" in --auto-once|--retry|--check) ;; *) echo 'Usage: aidl-audio-recov
 MODPATH=${0%/*}
 LOGDIR="$MODPATH/logs"
 mkdir -p "$LOGDIR" || exit 1
-PROC_ROOT=${JDSP_PROC_ROOT:-/proc}
-INIT_ROOT=${JDSP_INIT_ROOT:-/proc/1/root}
-BOOT_ID_FILE=${JDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
-ID_BIN=${JDSP_ID_BIN:-/system/bin/id}
-FLOCK_BIN=${JDSP_FLOCK_BIN:-/system/bin/flock}
-GETPROP_BIN=${JDSP_GETPROP_BIN:-/system/bin/getprop}
-SETPROP_BIN=${JDSP_SETPROP_BIN:-/system/bin/setprop}
-PIDOF_BIN=${JDSP_PIDOF_BIN:-/system/bin/pidof}
-DUMPSYS_BIN=${JDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
-LINKER_BIN=${JDSP_LINKER_BIN:-/system/bin/linker64}
-SLEEP_BIN=${JDSP_SLEEP_BIN:-/system/bin/sleep}
-LOGCAT_BIN=${JDSP_LOGCAT_BIN:-/system/bin/logcat}
+PROC_ROOT=${LDSP_PROC_ROOT:-/proc}
+INIT_ROOT=${LDSP_INIT_ROOT:-/proc/1/root}
+BOOT_ID_FILE=${LDSP_BOOT_ID_FILE:-/proc/sys/kernel/random/boot_id}
+ID_BIN=${LDSP_ID_BIN:-/system/bin/id}
+FLOCK_BIN=${LDSP_FLOCK_BIN:-/system/bin/flock}
+GETPROP_BIN=${LDSP_GETPROP_BIN:-/system/bin/getprop}
+SETPROP_BIN=${LDSP_SETPROP_BIN:-/system/bin/setprop}
+PIDOF_BIN=${LDSP_PIDOF_BIN:-/system/bin/pidof}
+DUMPSYS_BIN=${LDSP_DUMPSYS_BIN:-/system/bin/dumpsys}
+LINKER_BIN=${LDSP_LINKER_BIN:-/system/bin/linker64}
+SLEEP_BIN=${LDSP_SLEEP_BIN:-/system/bin/sleep}
+LOGCAT_BIN=${LDSP_LOGCAT_BIN:-/system/bin/logcat}
 FACTORY=android.hardware.audio.effect.IFactory/default
 UUID=f27317f4-c984-4de6-9a90-545759495bf2
 GUARD="$LOGDIR/audio-hal-reload-aidl.boot-id"
@@ -66,25 +66,25 @@ framework_identity() {
 }
 running() { [ "$("$GETPROP_BIN" "init.svc.$1" 2>/dev/null)" = running ]; }
 overlay_ok() {
-    cmp -s "$source_lib" "$1/vendor/lib64/soundfx/libjamesdsp.so" &&
+    cmp -s "$source_lib" "$1/vendor/lib64/soundfx/lightningdsplib.so" &&
         grep -qi "$UUID" "$1/vendor/etc/audio_effects_config.xml" 2>/dev/null
 }
 library_mapped() {
     overlay_ok "$PROC_ROOT/$1/root" || return 1
-    paths=$(awk '$NF ~ /\/libjamesdsp[.]so$/ { print $NF }' "$PROC_ROOT/$1/maps" 2>/dev/null)
+    paths=$(awk '$NF ~ /\/lightningdsplib[.]so$/ { print $NF }' "$PROC_ROOT/$1/maps" 2>/dev/null)
     for mapped in $paths; do
         case "$mapped" in
-            /vendor/lib64/soundfx/libjamesdsp.so|/system/vendor/lib64/soundfx/libjamesdsp.so|"$MODPATH"/system/vendor/lib64/soundfx/libjamesdsp.so|"$MODPATH"/.aidl-mount/*/libjamesdsp.so)
+            /vendor/lib64/soundfx/lightningdsplib.so|/system/vendor/lib64/soundfx/lightningdsplib.so|"$MODPATH"/system/vendor/lib64/soundfx/lightningdsplib.so|"$MODPATH"/.aidl-mount/*/lightningdsplib.so)
                 cmp -s "$source_lib" "$PROC_ROOT/$1/root$mapped" && return 0 ;;
         esac
     done
     return 1
 }
 native_diagnostics() {
-    helper=${JDSP_CONTROL_HELPER:-/vendor/bin/jdspctl}
-    if [ -x "$helper" ] && cmp -s "$helper" "$MODPATH/common/files/control/arm64-v8a/jdspctl"; then
-        "${JDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" probe >"$LOGDIR/aidl-recovery-probe.txt" 2>&1
-        "${JDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" status >"$LOGDIR/aidl-recovery-native-status.txt" 2>&1
+    helper=${LDSP_CONTROL_HELPER:-/vendor/bin/ldspctl}
+    if [ -x "$helper" ] && cmp -s "$helper" "$MODPATH/common/files/control/arm64-v8a/ldspctl"; then
+        "${LDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" probe >"$LOGDIR/aidl-recovery-probe.txt" 2>&1
+        "${LDSP_TIMEOUT_BIN:-/system/bin/timeout}" 3 "$helper" status >"$LOGDIR/aidl-recovery-native-status.txt" 2>&1
         return
     fi
     printf 'helper=unavailable_or_mismatched\n' >"$LOGDIR/aidl-recovery-probe.txt"
@@ -97,7 +97,7 @@ snapshot() {
             printf '%s=%s pid=%s\n' "$service" "$("$GETPROP_BIN" "init.svc.$service")" "$(unique_pid "$exe")"
         done <"$work/targets"
         current=$(factory_pid)
-        [ -z "$current" ] || grep -F libjamesdsp.so "$PROC_ROOT/$current/maps" 2>/dev/null
+        [ -z "$current" ] || grep -F lightningdsplib.so "$PROC_ROOT/$current/maps" 2>/dev/null
     } >"$LOGDIR/aidl-recovery-$1.txt"
 }
 # Require every originally running handler target to come back with a new PID.
@@ -124,7 +124,7 @@ grep -q "^READY late_load=1 boot_id=$boot_id " "$LOGDIR/late-load.status" 2>/dev
 exec 0>"$LOGDIR/manual-audio-reload.lock" || finish 'BLOCKED reason=lock_open_failed'
 "$FLOCK_BIN" -n 0 || finish 'BLOCKED reason=recovery_in_progress'
 [ "$("$GETPROP_BIN" ro.audio.ignore_effects 2>/dev/null)" != true ] || finish 'BLOCKED reason=effects_disabled_by_firmware restart=not_requested'
-source_lib="$MODPATH/system/vendor/lib64/soundfx/libjamesdsp.so"
+source_lib="$MODPATH/system/vendor/lib64/soundfx/lightningdsplib.so"
 [ -s "$source_lib" ] || finish 'BLOCKED reason=source_library_missing'
 mount_mode=--mount
 [ "$MODE" != --check ] || mount_mode=--check
@@ -216,7 +216,7 @@ if [ "$MODE" = --check ]; then
 fi
 native_diagnostics
 if library_mapped "$before_pid" && [ "$mount_generation" = "$activated_generation" ] &&
-    grep -q '^JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:' "$LOGDIR/aidl-recovery-probe.txt"; then
+    grep -q '^LDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:' "$LOGDIR/aidl-recovery-probe.txt"; then
     # Upgrade an old guard only from a proven live, matching native context.
     # This consumes the current session without requesting another restart;
     # a later verified framework recreation can then recover normally.
@@ -279,7 +279,7 @@ done
 snapshot after
 native_diagnostics
 if [ "$count" -ge 20 ]; then
-    "$LOGCAT_BIN" -d -t 400 2>/dev/null | grep -iE 'jamesdsp|jdsp.control|EffectFactory|dlopen|CANNOT LINK|avc:.*denied' >"$LOGDIR/aidl-recovery-loader.txt"
+    "$LOGCAT_BIN" -d -t 400 2>/dev/null | grep -iE 'lightningdsp|ldsp.control|EffectFactory|dlopen|CANNOT LINK|avc:.*denied' >"$LOGDIR/aidl-recovery-loader.txt"
     finish 'BLOCKED reason=reload_or_library_mapping_not_observed registration=unverified processing=unverified'
 fi
 stable_pid=$current
@@ -290,7 +290,7 @@ while [ "$count" -lt 6 ]; do
     if ! reloaded || [ "$current" != "$stable_pid" ] || ! library_mapped "$current"; then
         snapshot unstable
         native_diagnostics
-        "$LOGCAT_BIN" -d -t 400 2>/dev/null | grep -iE 'jamesdsp|jdsp.control|EffectFactory|dlopen|CANNOT LINK|avc:.*denied' >"$LOGDIR/aidl-recovery-loader.txt"
+        "$LOGCAT_BIN" -d -t 400 2>/dev/null | grep -iE 'lightningdsp|ldsp.control|EffectFactory|dlopen|CANNOT LINK|avc:.*denied' >"$LOGDIR/aidl-recovery-loader.txt"
         finish 'BLOCKED reason=audio_services_unstable_after_reload'
     fi
     count=$((count + 1))

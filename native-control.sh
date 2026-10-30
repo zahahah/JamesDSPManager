@@ -5,7 +5,7 @@ MODPATH=${2:-${0%/*}}
 LOGDIR="$MODPATH/logs"
 mkdir -p "$LOGDIR"
 STATUS="$LOGDIR/native-control.status"
-CONTEXT_SOURCE=${JDSP_SERVICE_CONTEXTS:-/vendor/etc/selinux/vendor_service_contexts}
+CONTEXT_SOURCE=${LDSP_SERVICE_CONTEXTS:-/vendor/etc/selinux/vendor_service_contexts}
 VENDOR="$MODPATH/system/vendor"
 
 apply_policy() {
@@ -28,19 +28,19 @@ apply_policy() {
 case "$MODE" in
 prepare)
     [ -f "$MODPATH/.AIDL" ] || exit 0
-    source="$MODPATH/common/files/control/arm64-v8a/jdspctl"
+    source="$MODPATH/common/files/control/arm64-v8a/ldspctl"
     if [ -f "$source" ]; then
         mkdir -p "$VENDOR/bin"
-        cp "$source" "$VENDOR/bin/jdspctl" || exit 1
-        chmod 0755 "$VENDOR/bin/jdspctl" || exit 1
-        chcon u:object_r:vendor_file:s0 "$VENDOR/bin/jdspctl" 2>/dev/null || true
+        cp "$source" "$VENDOR/bin/ldspctl" || exit 1
+        chmod 0755 "$VENDOR/bin/ldspctl" || exit 1
+        chcon u:object_r:vendor_file:s0 "$VENDOR/bin/ldspctl" 2>/dev/null || true
     fi
     if [ -f "$CONTEXT_SOURCE" ]; then
         destination="$VENDOR/etc/selinux/vendor_service_contexts"
         mkdir -p "${destination%/*}"
         tmp="$destination.tmp.$$"
-        awk '$1 != "jdsp.control" { print }' "$CONTEXT_SOURCE" >"$tmp" || exit 1
-        printf '\njdsp.control    u:object_r:jdsp_control_service:s0\n' >>"$tmp"
+        awk '$1 != "ldsp.control" { print }' "$CONTEXT_SOURCE" >"$tmp" || exit 1
+        printf '\nldsp.control    u:object_r:ldsp_control_service:s0\n' >>"$tmp"
         mv -f "$tmp" "$destination" || exit 1
         chcon u:object_r:vendor_service_contexts_file:s0 "$destination" 2>/dev/null || true
     else
@@ -53,7 +53,7 @@ prepare)
     fi
     # A late file overlay does not refresh an existing ServiceManager label
     # cache. Do not silently grant broad default-service permissions to fix it.
-    if [ -f "$MODPATH/.jdsp-control-default-label-opt-in" ]; then
+    if [ -f "$MODPATH/.ldsp-control-default-label-opt-in" ]; then
         if apply_policy "$MODPATH/native-control/default-label-opt-in.rule" >>"$LOGDIR/native-control-policy.log" 2>&1; then
             policy=explicit_default_label_opt_in
         else
@@ -61,7 +61,7 @@ prepare)
         fi
     fi
     helper=missing
-    [ -x "$VENDOR/bin/jdspctl" ] && helper=staged
+    [ -x "$VENDOR/bin/ldspctl" ] && helper=staged
     printf 'STAGED helper=%s policy=%s label_cache=unverified late_load=%s restart=not_requested processing=unverified\n' \
         "$helper" "$policy" "${KSU_LATE_LOAD:-0}" >"$STATUS"
     ;;
@@ -71,19 +71,19 @@ activate)
         printf 'BLOCKED reason=module_not_mounted restart=not_requested\n' >"$STATUS"
         exit 0
     fi
-    helper=${JDSP_CONTROL_HELPER:-/vendor/bin/jdspctl}
-    attempts=${JDSP_ACTIVATION_ATTEMPTS:-20}
+    helper=${LDSP_CONTROL_HELPER:-/vendor/bin/ldspctl}
+    attempts=${LDSP_ACTIVATION_ATTEMPTS:-20}
     case "$attempts" in ''|*[!0-9]*) attempts=20 ;; esac
     [ "$attempts" -ge 1 ] && [ "$attempts" -le 20 ] || attempts=20
     count=0
     mounted=false
     while [ "$count" -lt "$attempts" ]; do
-        contexts=${JDSP_MANAGER_CONTEXTS:-}
+        contexts=${LDSP_MANAGER_CONTEXTS:-}
         if [ -z "$contexts" ]; then
             manager=$(pidof servicemanager 2>/dev/null | cut -d ' ' -f 1)
             contexts="/proc/${manager:-0}/root/vendor/etc/selinux/vendor_service_contexts"
         fi
-        if awk '$1 == "jdsp.control" && $2 == "u:object_r:jdsp_control_service:s0" { found=1 }
+        if awk '$1 == "ldsp.control" && $2 == "u:object_r:ldsp_control_service:s0" { found=1 }
                 END { exit !found }' "$contexts" 2>/dev/null && [ -x "$helper" ]; then
             mounted=true
             break
@@ -103,14 +103,14 @@ activate)
         printf 'BLOCKED reason=typed_policy_refresh_failed restart=not_requested\n' >"$STATUS"
         exit 0
     fi
-    printf 'WAITING control=jdsp.control policy=typed_rules_refreshed publication=unverified restart=not_requested processing=unverified\n' >"$STATUS"
+    printf 'WAITING control=ldsp.control policy=typed_rules_refreshed publication=unverified restart=not_requested processing=unverified\n' >"$STATUS"
     count=0
     while [ "$count" -lt "$attempts" ]; do
         reply=$("$helper" probe 2>&1)
         result=$?
         printf '%s\n' "$reply" >"$LOGDIR/native-control-probe.log"
-        if [ "$result" -eq 0 ] && printf '%s\n' "$reply" | grep -qx 'JDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3'; then
-            printf 'READY control=jdsp.control policy=typed_rules_refreshed protocol=3 contexts=1 writable=1 publication=3 restart=not_requested processing=unverified\n' >"$STATUS"
+        if [ "$result" -eq 0 ] && printf '%s\n' "$reply" | grep -qx 'LDSPCTL:OK:ready=1:protocol=3:contexts=1:writable=1:publication=3'; then
+            printf 'READY control=ldsp.control policy=typed_rules_refreshed protocol=3 contexts=1 writable=1 publication=3 restart=not_requested processing=unverified\n' >"$STATUS"
             exit 0
         fi
         count=$((count + 1))
@@ -118,13 +118,13 @@ activate)
     done
     ;;
 diagnose)
-    printf '=== jdsp.control ===\n'
-    service list 2>/dev/null | grep -F 'jdsp.control' || true
-    if [ -x /vendor/bin/jdspctl ]; then
-        /vendor/bin/jdspctl probe
-        /vendor/bin/jdspctl status
+    printf '=== ldsp.control ===\n'
+    service list 2>/dev/null | grep -F 'ldsp.control' || true
+    if [ -x /vendor/bin/ldspctl ]; then
+        /vendor/bin/ldspctl probe
+        /vendor/bin/ldspctl status
     else
-        printf 'JDSPCTL:ERR:helper-not-mounted\n'
+        printf 'LDSPCTL:ERR:helper-not-mounted\n'
         exit 1
     fi
     ;;
