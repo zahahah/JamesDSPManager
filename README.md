@@ -2,7 +2,7 @@
 
 **Your music, with a little more say in how it sounds.**
 
-I maintain LightningDSP as an audio pocket knife for Android: a root audio-effects module, a companion app, and a collection of tools for shaping sound and controlling volume. Keep your favorite music player. LightningDSP works alongside it.
+This is LightningDSP, your audio pocket knife for Android. It is a root audio-effects module, a companion app, and a collection of tools for shaping sound and controlling volume. Keep your favorite music player. LightningDSP works alongside it.
 
 The current stable releases are **LightningDSP module 6.7** and **LightningDSP app 1.7**. The module includes the signed root app. You can also download the APK separately, but the APK alone does not install the audio driver.
 
