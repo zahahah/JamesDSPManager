@@ -45,10 +45,11 @@ class LightningDSPPackageTests(unittest.TestCase):
         self.assertIn(f'version={package.VERSION}\n', props)
         self.assertIn(f'versionCode={package.VERSION_CODE}\n', props)
         update = json.loads((ROOT / 'update.json').read_text())
-        self.assertEqual(update['version'], package.VERSION)
-        self.assertEqual(update['versionCode'], package.VERSION_CODE)
-        self.assertTrue(update['zipUrl'].endswith(
-            f'/{package.VERSION}/LightningDSP-{package.VERSION}.zip'))
+        # A beta package must not replace the stable/latest update channel.
+        self.assertEqual(update['version'], 'v6.7')
+        self.assertEqual(update['versionCode'], 159)
+        self.assertTrue(update['zipUrl'].endswith('/v6.7/LightningDSP-v6.7.zip'))
+        self.assertNotEqual(update['version'], package.VERSION)
         workflow = (ROOT / '.github/workflows/pixel-native-control-v4.yml').read_text()
         self.assertIn('ldsp-rebrand]', workflow)
         self.assertLess(workflow.index('native-control/ldsp-candidate.json'),
