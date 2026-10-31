@@ -1,6 +1,13 @@
 ### v6.7.1-beta-1 (startup device profile fix)
 
 * Reissue beta-1 with LightningDSP app 1.7.1-beta-1/code 81 and module code 162.
+* Correct profile reapplication for effects left disabled in the newly selected
+  profile. The native FIR path now also clears the legacy EQ stage, and failed
+  DSP namespace writes are retained and retried a bounded number of times while
+  AudioFlinger changes output routes.
+* Build the included APK from LightningDSP-App master commit
+  `a9a5988c8377a055c796b1c4f6e1ea8a94faadfb`; native driver and helper remain
+  unchanged.
 * Detect the currently selected output when route observation starts and when
   the background service starts, rather than waiting for a fresh MediaRouter
   selection event. Recheck after audio devices are added or removed, so devices
@@ -10,8 +17,9 @@
   survives a framework/audio soft reboot.
 * Keep ordinary setting updates incremental, preserve the AudioEffect lifecycle
   and native control ordering, and reuse the validated driver/helper unchanged.
-* Root release unit tests and rootless/plugin source compilation passed. The
-  boot/soft-reboot route scenario still needs testing on a device.
+* 285 root release unit tests passed; rootless and plugin release Kotlin
+  compilation passed. Profile behavior after a reboot and output switch still
+  needs physical-device validation.
 
 ### v6.7 (LightningDSP stable)
 
