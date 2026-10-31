@@ -1,14 +1,17 @@
-### v6.7.1-beta-1 (device profile reload fix)
+### v6.7.1-beta-1 (startup device profile fix)
 
-* Reissue beta-1 with LightningDSP app 1.7.1-beta-1/code 80 and module code 161.
+* Reissue beta-1 with LightningDSP app 1.7.1-beta-1/code 81 and module code 162.
+* Detect the currently selected output when route observation starts and when
+  the background service starts, rather than waiting for a fresh MediaRouter
+  selection event. Recheck after audio devices are added or removed, so devices
+  connected during startup or re-enumerated after a soft reboot are recognized.
 * Apply preset values and reset profile preferences through Android's
-  SharedPreferences API instead of replacing or deleting XML files directly.
-  This keeps live readers synchronized when the app survives a framework/audio
-  soft reboot under temporary root, before the complete DSP state is applied.
+  SharedPreferences API, keeping live readers synchronized when the app process
+  survives a framework/audio soft reboot.
 * Keep ordinary setting updates incremental, preserve the AudioEffect lifecycle
   and native control ordering, and reuse the validated driver/helper unchanged.
 * Root release unit tests and rootless/plugin source compilation passed. The
-  reboot-and-route scenario still needs testing on a device.
+  boot/soft-reboot route scenario still needs testing on a device.
 
 ### v6.7 (LightningDSP stable)
 
