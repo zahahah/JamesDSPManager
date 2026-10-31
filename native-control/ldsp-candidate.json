@@ -13,22 +13,22 @@
   "appSource": {
     "repository": "https://github.com/zahahah/LightningDSP-App",
     "branch": "master",
-    "commit": "a9a5988c8377a055c796b1c4f6e1ea8a94faadfb",
-    "buildBaseCommit": "a9a5988c8377a055c796b1c4f6e1ea8a94faadfb",
+    "commit": "5f4e8e948e30c05f6c893a91dfab192aff6fe598",
+    "buildBaseCommit": "5f4e8e948e30c05f6c893a91dfab192aff6fe598",
     "builtFromWorkingTree": false,
     "buildNote": "Signed root APK built from the committed app source at appSource.commit."
   },
   "artifacts": {
     "app": {
       "path": "common/files/LightningDSP.apk",
-      "sha256": "34842525d5d8d29b2ad8843c4b883eb14e7a7206edb345fc032d853e174302b7",
-      "sizeBytes": 35995232,
+      "sha256": "9ea7b8d0ba4da86799027479d774f2627f5f35fd9d33c60d6f81199e2d6fd919",
+      "sizeBytes": 36011616,
       "packageId": "com.lightning.dsp",
       "versionName": "1.7.1-beta-1",
-      "versionCode": 81,
+      "versionCode": 82,
       "signatureVerified": true,
       "signerSha256": "c18c2d21eee51c357d9485c781be9bf201131c6fa94bab97b93c94b710c40357",
-      "sourceCommit": "a9a5988c8377a055c796b1c4f6e1ea8a94faadfb"
+      "sourceCommit": "5f4e8e948e30c05f6c893a91dfab192aff6fe598"
     },
     "driver": {
       "path": "common/files/dual-entry-arm64/lightningdsplib.so",
@@ -51,6 +51,6 @@
     "One ARM64 dual-entry effect driver supports the embedded AIDL Effect V4 interface and the legacy AELI factory entry.",
     "Global Binder control is ldsp.control protocol 3. Audio effect UUIDs remain unchanged for effect attachment compatibility.",
     "Android factory, Binder authorization, audio processing, and device compatibility remain unverified for this build.",
-    "Native driver and helper are reused unchanged. Root app 1.7.1-beta-1/code 81 is built from committed master source."
+    "Native driver and helper are reused unchanged. Root app 1.7.1-beta-1/code 82 is built from committed master source."
   ]
 }

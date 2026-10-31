@@ -1,25 +1,21 @@
-### v6.7.1-beta-1 (startup device profile fix)
+### v6.7.1-beta-1 (device profile reconciliation)
 
-* Reissue beta-1 with LightningDSP app 1.7.1-beta-1/code 81 and module code 162.
-* Correct profile reapplication for effects left disabled in the newly selected
-  profile. The native FIR path now also clears the legacy EQ stage, and failed
-  DSP namespace writes are retained and retried a bounded number of times while
-  AudioFlinger changes output routes.
+* Reissue beta-1 with app 1.7.1-beta-1/code 82 and module code 163.
+* Treat the selected device profile as the desired state for every DSP effect,
+  including effects disabled in that profile.
+* Serialize profile replacement against DSP preference application and reject
+  queued work from older profile generations, including obsolete native fallbacks.
+* Reapply the complete current state when an AudioEffect is recreated or regains
+  control. Binder publication no longer bypasses endpoint health checks; idle
+  audio alone is not treated as a failed context.
+* Remove the earlier EQ-only workaround: native FIR and legacy EQ enable control
+  the same stage, not separate processing paths.
+* Keep startup route reconciliation, SharedPreferences profile loading and
+  bounded retries of failed namespace updates. Native driver/helper are unchanged.
 * Build the included APK from LightningDSP-App master commit
-  `a9a5988c8377a055c796b1c4f6e1ea8a94faadfb`; native driver and helper remain
-  unchanged.
-* Detect the currently selected output when route observation starts and when
-  the background service starts, rather than waiting for a fresh MediaRouter
-  selection event. Recheck after audio devices are added or removed, so devices
-  connected during startup or re-enumerated after a soft reboot are recognized.
-* Apply preset values and reset profile preferences through Android's
-  SharedPreferences API, keeping live readers synchronized when the app process
-  survives a framework/audio soft reboot.
-* Keep ordinary setting updates incremental, preserve the AudioEffect lifecycle
-  and native control ordering, and reuse the validated driver/helper unchanged.
-* 285 root release unit tests passed; rootless and plugin release Kotlin
-  compilation passed. Profile behavior after a reboot and output switch still
-  needs physical-device validation.
+  `5f4e8e948e30c05f6c893a91dfab192aff6fe598`.
+* 287 root tests and rootless/plugin Kotlin compilation passed. Physical-device
+  validation of reboot, route changes and audible output remains pending.
 
 ### v6.7 (LightningDSP stable)
 
