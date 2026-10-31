@@ -1,13 +1,14 @@
-### v6.7.1-beta-1 (device profile synchronization)
+### v6.7.1-beta-1 (device profile reload fix)
 
-* Bundle LightningDSP app 1.7.1-beta-1/code 79 with the device-profile fix.
-* Force every DSP namespace to synchronize after a preset or device profile is
-  loaded, so a route change after boot reapplies settings instead of depending
-  on each cached preference being detected as changed.
+* Reissue beta-1 with LightningDSP app 1.7.1-beta-1/code 80 and module code 161.
+* Apply preset values and reset profile preferences through Android's
+  SharedPreferences API instead of replacing or deleting XML files directly.
+  This keeps live readers synchronized when the app survives a framework/audio
+  soft reboot under temporary root, before the complete DSP state is applied.
 * Keep ordinary setting updates incremental, preserve the AudioEffect lifecycle
   and native control ordering, and reuse the validated driver/helper unchanged.
-* 278 root release unit tests passed and the signed APK identity was verified.
-  The reboot-and-route scenario still needs testing on a device.
+* Root release unit tests and rootless/plugin source compilation passed. The
+  reboot-and-route scenario still needs testing on a device.
 
 ### v6.7 (LightningDSP stable)
 
