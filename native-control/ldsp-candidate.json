@@ -21,7 +21,7 @@
   "artifacts": {
     "app": {
       "path": "common/files/LightningDSP.apk",
-      "sha256": "be14991e4b89c8c578a142db89390c41b3f7fc3ea295f811d172d6ec0e283c35",
+      "sha256": "34842525d5d8d29b2ad8843c4b883eb14e7a7206edb345fc032d853e174302b7",
       "sizeBytes": 35995232,
       "packageId": "com.lightning.dsp",
       "versionName": "1.7.1-beta-1",
